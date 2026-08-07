@@ -1,11 +1,12 @@
 """游戏监控器 - 后台线程监控进程状态并统计运行时长"""
 import threading
 import time
-import logging
 from datetime import datetime
 from typing import Callable, Optional, Dict, List
 
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+
+logger = get_logger()
 
 
 class GameMonitor:
@@ -68,7 +69,7 @@ class GameMonitor:
         )
         self._thread.start()
         self._fire("on_start", game_id)
-        logger.info(f"开始监控游戏: {game_id}")
+        logger.info(f"开始监控游戏: {game_id} (tick={self.tick_interval}s)")
         return True
 
     def stop(self) -> None:
@@ -106,7 +107,6 @@ class GameMonitor:
             # 检查进程是否还活着
             if not self.launcher.is_running():
                 logger.info(f"游戏进程已结束: {self._current_game_id}")
-                # 退出前补记剩余秒数（满 1 分钟的部分丢弃，避免高估）
                 self._fire("on_exit", self._current_game_id, self.get_runtime_seconds())
                 self._current_game_id = None
                 self._start_time = None
@@ -124,8 +124,12 @@ class GameMonitor:
                 if accumulated_seconds >= 60:
                     minutes = accumulated_seconds // 60
                     try:
-                        self.repository.increment_play_time(
+                        ok = self.repository.increment_play_time(
                             self._current_game_id, minutes
+                        )
+                        logger.info(
+                            f"记录运行时长: {self._current_game_id} +{minutes} 分钟 "
+                            f"ok={ok} 累计={accumulated_seconds}s"
                         )
                         accumulated_seconds -= minutes * 60
                         accumulated_minutes += minutes
