@@ -1,0 +1,8 @@
+# KazariPlay V1.0 - Python 依赖清单
+#
+# 必需依赖：
+pywebview==6.2.1
+
+# 可选依赖（增强功能）：
+Pillow==10.1.0
+pywin32==306
