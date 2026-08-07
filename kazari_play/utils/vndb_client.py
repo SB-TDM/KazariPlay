@@ -34,15 +34,49 @@ logger = get_logger()
 _VNDB_API_BASE = "https://api.vndb.org/kana"
 _VNDB_COVER_BASE = "https://t.vndb.org"
 
-# 请求超时（秒）
-_REQUEST_TIMEOUT = 15
-
 # User-Agent（VNDB 要求提供，避免被拒绝）
 _USER_AGENT = "KazariPlay/1.0 (https://github.com/KazariPlay)"
+
+# 请求超时（秒）
+_REQUEST_TIMEOUT = 15
+# 网络请求重试：超时/临时网络错误时重试次数与间隔
+_MAX_RETRIES = 2
+_RETRY_BACKOFF = 2  # 每次重试额外等待秒数（1s、3s、5s）
 
 
 class VndbError(Exception):
     """VNDB API 调用异常"""
+
+
+def _should_retry(exc: Exception) -> bool:
+    """判断异常是否属于可重试的临时网络故障（超时、连接重置、DNS 等）"""
+    if isinstance(exc, (VndbError,)):
+        msg = str(exc)
+        return any(kw in msg for kw in ("timed out", "超时", "timed_out",
+                                        "Connection reset", "name or service",
+                                        "WinError 10054", "WinError 10060",
+                                        "网络错误"))
+    return False
+
+
+def _request_with_retry(send: callable) -> bytes:
+    """带重试的 HTTP 请求：send 为返回 bytes 的可调用对象
+
+    对超时/临时网络错误重试 _MAX_RETRIES 次，每次递增间隔。
+    HTTPError（4xx/5xx）不重试（VNDB 明确的拒绝），直接抛出。
+    """
+    last_exc = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            return send()
+        except VndbError as e:
+            if not _should_retry(e) or attempt >= _MAX_RETRIES:
+                raise
+            last_exc = e
+            time.sleep(_RETRY_BACKOFF * (attempt + 1))
+            logger.warning("VNDB 请求超时/网络波动，第 %d 次重试: %s",
+                           attempt + 1, e)
+    raise last_exc
 
 
 def _http_post_json(url: str, data: dict) -> dict:
@@ -58,22 +92,27 @@ def _http_post_json(url: str, data: dict) -> dict:
             "Accept": "application/json",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        body = ""
+
+    def send():
         try:
-            body = e.read().decode("utf-8", errors="replace")
-        except Exception:
-            pass
-        raise VndbError(f"VNDB HTTP {e.code}: {body}") from None
-    except urllib.error.URLError as e:
-        raise VndbError(f"VNDB 网络错误: {e.reason}") from None
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            body = ""
+            try:
+                body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                pass
+            raise VndbError(f"VNDB HTTP {e.code}: {body}") from None
+        except urllib.error.URLError as e:
+            raise VndbError(f"VNDB 网络错误: {e.reason}") from None
+
+    raw = _request_with_retry(send)
+    return json.loads(raw.decode("utf-8"))
 
 
 def _http_get(url: str) -> bytes:
-    """GET 二进制内容（用于下载封面）"""
+    """GET 二进制内容（用于下载封面），带超时重试"""
     req = urllib.request.Request(
         url,
         method="GET",
@@ -82,13 +121,17 @@ def _http_get(url: str) -> bytes:
             "Accept": "image/*",
         },
     )
-    try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
-            return resp.read()
-    except urllib.error.HTTPError as e:
-        raise VndbError(f"下载封面 HTTP {e.code}") from None
-    except urllib.error.URLError as e:
-        raise VndbError(f"下载封面网络错误: {e.reason}") from None
+
+    def send():
+        try:
+            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as e:
+            raise VndbError(f"下载封面 HTTP {e.code}") from None
+        except urllib.error.URLError as e:
+            raise VndbError(f"下载封面网络错误: {e.reason}") from None
+
+    return _request_with_retry(send)
 
 
 def _clean_html(text: str) -> str:
