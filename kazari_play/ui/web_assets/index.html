@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KazariPlay</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <!-- 标题栏 -->
+  <div class="titlebar" id="titlebar">
+    <div class="brand"><div class="logo">☺</div><div class="name">KazariPlay</div></div>
+    <div class="spacer"></div>
+    <div class="winbtns">
+      <div class="winbtn" onclick="bridge&&bridge.windowMinimize()">─</div>
+      <div class="winbtn" id="btnMax" onclick="toggleMax()">□</div>
+      <div class="winbtn close" onclick="bridge&&bridge.windowClose()">✕</div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- 侧边栏 -->
+    <div class="sidebar" id="sidebar">
+      <div class="side-item active" data-nav="全部作品">全部作品</div>
+      <div class="side-item" data-nav="继续游玩">继续游玩</div>
+      <div class="side-item" data-nav="我的收藏">我的收藏</div>
+      <div class="side-sep"></div>
+      <div class="side-item" id="addGroup">新建分组</div>
+      <div id="catList"></div>
+      <div class="side-spacer"></div>
+      <div class="side-item" id="btnSettings">设置</div>
+    </div>
+
+    <!-- 主区域 -->
+    <div class="main">
+      <div class="navbar">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9aeb9" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          <input id="searchInput" placeholder="搜索游戏、标签、开发商……">
+        </div>
+        <div class="navbtns">
+          <button class="navbtn" id="batchBtn">批量选择</button>
+          <button class="navbtn" id="filterBtn">筛选 ▾</button>
+        </div>
+        <div class="dropdown" id="filterMenu">
+          <div class="ttl">排序</div>
+          <div class="item" data-sort="时间">按添加时间</div>
+          <div class="item" data-sort="名称">按名称</div>
+          <div class="item" data-sort="评分">按评分</div>
+        </div>
+      </div>
+
+      <div class="scroll"><div class="grid" id="grid"></div></div>
+
+      <div class="empty" id="empty">
+        <h2 id="emptyTitle">游戏库还是空的</h2>
+        <p id="emptySub">扫描游戏文件夹，开始构建你的游戏库</p>
+        <div><button class="primary" id="btnScan">扫描文件夹</button>
+             <button class="soft" id="btnShowAll" style="display:none">显示全部游戏</button></div>
+      </div>
+
+      <div class="fab fab-refresh" id="fabRefresh" title="刷新游戏列表">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </div>
+      <div class="fab" id="fab">+</div>
+      <div class="fabmenu" id="fabMenu">
+        <div class="item" id="fabAdd">手动添加单个游戏</div>
+        <div class="item" id="fabScan">批量扫描文件夹导入</div>
+      </div>
+
+      <div class="batchbar" id="batchBar">
+        <span class="count" id="batchCount">已选择 0 个</span>
+        <button id="btnSelAll">全选</button>
+        <button id="btnBAdd">批量添加标签</button>
+        <button id="btnBRem">批量移除标签</button>
+        <button id="btnBMove">移动至分组</button>
+        <button id="btnBVndb">批量匹配 VNDB</button>
+        <button class="danger" id="btnBDel">从库中移除</button>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 详情底部抽屉 -->
+<div class="overlay" id="detailOverlay">
+  <div class="dialog detail" id="detailDialog">
+    <div class="detail-cover" id="dlgCover"></div>
+    <div class="detail-body">
+      <div class="detail-head">
+        <h2 id="dlgTitle"></h2>
+        <div class="more-wrap">
+          <button class="close-btn" id="dlgMore">⋮</button>
+          <div class="more-menu" id="dlgMoreMenu">
+            <div class="item" data-act="vndb">VNDB 匹配</div>
+            <div class="item" data-act="open">打开本地目录</div>
+            <div class="item danger" data-act="del">删除</div>
+          </div>
+        </div>
+        <button class="close-btn" id="dlgClose">×</button>
+      </div>
+      <div class="info-grid" id="dlgInfo"></div>
+      <div class="detail-actions">
+        <button class="pill-btn primary" id="dlgStart">开始游戏</button>
+        <button class="pill-btn" id="dlgEdit">编辑</button>
+        <button class="pill-btn fav" id="dlgFav">☆ 收藏</button>
+      </div>
+      <div class="tags-row" id="dlgTags"></div>
+      <div class="detail-desc" id="dlgDesc"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 标签管理抽屉 -->
+<div class="overlay" id="tagOverlay">
+  <div class="dialog tagmgr">
+    <div class="dlg-title"><span>标签管理</span>
+      <button class="close-btn" id="tagClose">×</button></div>
+    <div id="gameTagSection">
+      <div class="section-ttl"><span id="gameTagTitle">当前游戏</span></div>
+      <div class="taglist" id="gameTagList"></div>
+      <div class="tagform">
+        <input id="gameTagInput" placeholder="给当前游戏添加标签" maxlength="10">
+        <button class="pill-btn primary" id="gameTagAdd" style="height:32px;padding:0 14px;">＋</button>
+      </div>
+    </div>
+    <div class="section-ttl">分类（单击筛选）</div>
+    <div class="catlist" id="catFilter"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="tagDone">完成</button></div>
+  </div>
+</div>
+
+<!-- 编辑 / 添加表单抽屉 -->
+<div class="overlay" id="formOverlay">
+  <div class="dialog form edit-form">
+    <div class="form-scroll">
+      <div class="dlg-title"><span id="formTitle">编辑游戏</span>
+        <button class="close-btn" id="formClose">×</button></div>
+      <div class="form-row"><label>标题</label><input id="fTitle"></div>
+      <div class="form-row"><label>引擎</label><input id="fEngine"></div>
+      <div class="form-row"><label>开发商</label><input id="fDev"></div>
+      <div class="form-row"><label>评分</label>
+        <select id="fRating"><option value="0">未评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      <div class="form-row"><label>分类</label><select id="fCat"></select></div>
+      <div class="form-row"><label>标签</label><input id="fTags" placeholder="逗号分隔"></div>
+      <div class="form-row"><label>简介</label><textarea id="fDesc"></textarea></div>
+      <div class="form-row" id="fCoverRow" style="display:none">
+        <label>封面</label>
+        <div class="field"><img id="fCoverPrev" class="cover-prev" alt=""><button class="pill-btn" id="btnPickCover" style="flex:none">更换封面</button></div>
+      </div>
+      <div class="form-row" id="fMetaRow" style="display:none">
+        <label>元数据</label>
+        <div class="field"><input id="fSearchKw" placeholder="用标题搜索 VNDB / Bangumi"><button class="pill-btn" id="btnMetaSearch" style="flex:none">搜索</button></div>
+      </div>
+      <div id="fCands"></div>
+      <div class="form-row" id="fExeRow" style="display:none"><label>启动文件</label>
+        <input id="fExe" placeholder="选择游戏启动 exe"><button class="pill-btn" id="btnPickExe" style="flex:none">选择</button></div>
+    </div>
+    <div class="dlg-foot"><button class="pill-btn" id="formCancel">取消</button>
+      <button class="pill-btn primary" id="formSave">保存</button></div>
+  </div>
+</div>
+
+<!-- 通用输入对话框（新建分组等，Kawaii 风格） -->
+<div class="overlay center" id="inputOverlay">
+  <div class="dialog form">
+    <div class="dlg-title"><span id="inputTitle">输入</span>
+      <button class="close-btn" id="inputClose">×</button></div>
+    <div class="form-row"><label id="inputLabel">名称</label><input id="inputValue" maxlength="20"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="inputCancel">取消</button>
+      <button class="pill-btn primary" id="inputOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 通用确认对话框（替代原生 confirm） -->
+<div class="overlay center" id="confirmOverlay">
+  <div class="dialog confirm">
+    <div class="dlg-title"><span id="confirmTitle">确认</span>
+      <button class="close-btn" id="confirmClose">×</button></div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="confirmCancel">取消</button>
+      <button class="pill-btn primary" id="confirmOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 批量选择面板 -->
+<div class="overlay" id="pickerOverlay">
+  <div class="dialog picker">
+    <div class="dlg-title" id="pickerTitle">选择标签</div>
+    <div id="pickerList"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="pickerClose">取消</button></div>
+  </div>
+</div>
+
+<!-- 设置窗口 -->
+<div class="overlay center" id="settingsOverlay">
+  <div class="dialog settings">
+    <div class="dlg-head">
+      <h3><span class="cog">⚙</span> 设置</h3>
+      <button class="close-btn" id="setClose">×</button>
+    </div>
+    <div class="dlg-body">
+      <div class="dlg-nav" id="setNav">
+        <button class="nav-item active" data-tab="general">常规</button>
+        <button class="nav-item" data-tab="theme">主题</button>
+        <button class="nav-item" data-tab="hotkey">快捷键</button>
+        <button class="nav-item" data-tab="disguise">伪装</button>
+        <button class="nav-item" data-tab="about">关于</button>
+      </div>
+      <div class="dlg-content">
+        <div class="page" id="set-general">
+          <div class="group">
+            <div class="g-title">启动</div>
+            <div class="form-row">
+              <div class="label">自动扫描</div>
+              <div class="field">
+                <label class="switch"><input type="checkbox" id="setAutoScan"><span class="track"><span class="thumb"></span></span></label>
+                <span class="desc">启动时扫描库文件夹</span>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:6px">
+              <div class="label">封面尺寸</div>
+              <div class="field"><select id="setCoverSize"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></div>
+            </div>
+          </div>
+            <div class="group">
+              <div class="g-title">日志</div>
+              <div class="form-row">
+                <div class="label">日志级别</div>
+                <div class="field"><select id="setLogLevel"><option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option></select></div>
+              </div>
+              <div class="form-row" style="margin-top:6px">
+                <div class="label">显示日志窗口</div>
+                <div class="field">
+                  <label class="switch"><input type="checkbox" id="setShowConsole"><span class="track"><span class="thumb"></span></span></label>
+                  <span class="desc">启动时是否打开命令提示符</span>
+                </div>
+              </div>
+            </div>
+        </div>
+        <div class="page" id="set-theme" style="display:none">
+          <div class="group">
+            <div class="g-title">主题模式（选择即预览，保存后生效）</div>
+            <div class="theme-cards">
+              <div class="theme-card light" data-card="light" onclick="Settings.pickTheme('light')">
+                <div class="sw"><div class="bar"></div><div class="body"></div></div>
+                <div class="lbl">浅色 · Kawaii 主推</div>
+              </div>
+              <div class="theme-card dark" data-card="dark" onclick="Settings.pickTheme('dark')">
+                <div class="sw"><div class="bar"></div><div class="body"></div></div>
+                <div class="lbl">深色 · 夜间模式</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page" id="set-hotkey" style="display:none">
+          <div class="group">
+            <div class="g-title">全局快捷键（点击后按下组合键）</div>
+            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly></div></div>
+          </div>
+        </div>
+        <div class="page" id="set-disguise" style="display:none">
+          <div class="group">
+            <div class="g-title">避险伪装</div>
+            <div class="form-row">
+              <div class="label">伪装场景</div>
+              <div class="field"><select id="setDisguise"><option value="excel" selected>Excel</option><option value="word">Word</option><option value="browser">浏览器</option></select></div>
+            </div>
+            <div class="form-row"><div class="desc" style="padding-left:96px">触发紧急隐藏时，窗口伪装为所选场景。</div></div>
+          </div>
+        </div>
+        <div class="page" id="set-about" style="display:none">
+          <div class="about">
+            <div class="a-logo">☺</div>
+            <div class="a-name">KazariPlay</div>
+            <div class="a-ver">版本 v2.4</div>
+            <div class="a-meta">视觉小说本地库启动器<br><span id="setCfgPath"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button class="reset" id="setReset">恢复默认</button>
+      <button class="pill-btn" id="setCancel">取消</button>
+      <button class="pill-btn primary" id="setSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 窗口缩放手柄（四边 + 四角） -->
+<div class="resizer r-n" data-dir="n"></div>
+<div class="resizer r-s" data-dir="s"></div>
+<div class="resizer r-e" data-dir="e"></div>
+<div class="resizer r-w" data-dir="w"></div>
+<div class="resizer r-ne" data-dir="ne"></div>
+<div class="resizer r-nw" data-dir="nw"></div>
+<div class="resizer r-se" data-dir="se"></div>
+<div class="resizer r-sw" data-dir="sw"></div>
+
+<script src="js/settings.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

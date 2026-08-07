@@ -1,0 +1,9 @@
+# 运行时数据与日志
+__pycache__/
+*.py[cod]
+*.log
+*.db
+.DS_Store
+
+# 测试缓存
+.pytest_cache/
