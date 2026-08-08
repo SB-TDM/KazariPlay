@@ -104,7 +104,7 @@
   *::-webkit-scrollbar-corner{background:transparent;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,var(--card-w));
         gap:14px;justify-content:center;
-        contain:layout paint;}
+        contain:layout;}
 
   /* 卡片 */
   .card{width:var(--card-w);height:var(--card-h);border-radius:var(--radius-lg);background:var(--bg-panel);
