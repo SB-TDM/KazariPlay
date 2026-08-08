@@ -82,10 +82,21 @@ function refreshDetail(){
   document.getElementById('dlgTitle').textContent=currentGame.title;
   document.getElementById('dlgDesc').textContent=currentGame.description||'暂无简介';
   renderDetailTags();
+  renderInfoBar();
   updateFavBtn();
   const rate=document.querySelector('.rate-edit');
   if(rate){ rate.dataset.r=currentGame.rating; initRateEdit(); }
   markRunning();
+}
+
+// 详情信息栏（游玩时长/上次游玩/开发商/发售日等），供打开与轮询刷新共用
+function renderInfoBar(){
+  const g=currentGame;
+  document.getElementById('dlgInfo').innerHTML=[
+    ['开发商',g.dev||'未知'],['引擎',g.engine||'未知'],['发售日',g.released||'未知'],
+    ['游玩时长',g.play_time_text||'未游玩'],['上次游玩',g.last_text||'从未'],
+    ['评分','<span class="rate-edit" data-r="'+g.rating+'"></span>'],
+  ].map(x=>`<div class="info-item"><b>${x[0]}</b>${x[1]}</div>`).join('');
 }
 
 function renderAll(){
@@ -192,11 +203,7 @@ function openDetail(g){
   document.getElementById('dlgCover').style.backgroundImage=
     `url('${g.cover_url||''}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
   document.getElementById('dlgTitle').textContent=g.title;
-  document.getElementById('dlgInfo').innerHTML=[
-    ['开发商',g.dev||'未知'],['引擎',g.engine||'未知'],['发售日',g.released||'未知'],
-    ['游玩时长',g.play_time_text||'未游玩'],['上次游玩',g.last_text||'从未'],
-    ['评分','<span class="rate-edit" data-r="'+g.rating+'"></span>'],
-  ].map(x=>`<div class="info-item"><b>${x[0]}</b>${x[1]}</div>`).join('');
+  renderInfoBar();
   initRateEdit();
   renderDetailTags();
   document.getElementById('dlgDesc').textContent=g.description||'暂无简介';
