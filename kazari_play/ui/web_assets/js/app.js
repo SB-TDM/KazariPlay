@@ -75,14 +75,15 @@ function refreshAll(force){
   bridge.getRunning(function(r){ runningId=r||''; markRunning(); });
 }
 
-// 判断游戏列表是否有实质变化（只比较影响卡片显示的字段）
+// 判断游戏列表是否有实质变化（比较影响卡片显示的字段 + 派生文本）
 function _gamesChanged(a, b){
   if(a.length!==b.length) return true;
   for(let i=0;i<a.length;i++){
     const x=a[i], y=b[i];
     if(!x || !y || x.id!==y.id || x.fav!==y.fav || x.rating!==y.rating
        || x.dev!==y.dev || x.title!==y.title || x.last_played!==y.last_played
-       || x.play_time!==y.play_time) return true;
+       || x.play_time!==y.play_time || x.last_text!==y.last_text
+       || x.play_time_text!==y.play_time_text) return true;
   }
   return false;
 }
@@ -301,6 +302,18 @@ function openDetail(g){
   updateFavBtn();
   document.getElementById('dlgMoreMenu').classList.remove('show');
   showSheet('detailOverlay');
+  // 卡片闭包里的数据可能是构建时的快照，打开时异步重取最新数据刷新
+  bridge.getGame(g.id, function(s){
+    try{
+      const fresh=JSON.parse(s||'{}');
+      if(!fresh || !fresh.id) return;
+      currentGame=fresh;
+      // 同步 GAMES 中对应对象，保持后续轮询一致
+      const gi=GAMES.findIndex(x=>x.id===fresh.id);
+      if(gi>=0) GAMES[gi]=fresh;
+      refreshDetail();
+    }catch(e){}
+  });
 }
 
 // 详情评分：点击星级直接修改（调用后端 setRating）
