@@ -22,7 +22,7 @@ let editingId = null;
 let runningId = '';
 const state = { nav:'全部作品', kw:'', sort:'时间', batch:false, selected:new Set(), catId:0 };
 
-window.__app = { refresh: refreshAll, toast: function(m){ toast(m); } };
+window.__app = { refresh: function(){ refreshAll(true); }, toast: function(m){ toast(m); } };
 
 // 封面尺寸档位（对应设置 cover_size）
 const COVER_SIZES = { small:{w:132,h:180}, medium:{w:154,h:210}, large:{w:180,h:245} };
@@ -51,19 +51,40 @@ function init(){
         applyCoverSize(cfg.cover_size||'medium');
       }catch(e){}
     });
-    refreshAll();
-    setInterval(refreshAll, 5000);   // 轮询兜底（游戏退出等后台变化）
+    refreshAll(true);
+    setInterval(()=>refreshAll(false), 30000);   // 长轮询兜底（数据无变化时不重建）
   };
   if(window.pywebview && window.pywebview.api){ onReady(); }
   else { window.addEventListener('pywebviewready', onReady); }
 }
 
-function refreshAll(){
+function refreshAll(force){
   if(!bridge) return;
-  bridge.getGames(function(s){ GAMES=JSON.parse(s); renderAll(); syncCurrentGame(); });
+  bridge.getGames(function(s){
+    const fresh=JSON.parse(s);
+    // 数据无变化时不重建网格，避免卡片闪烁（事件推送/轮询兜底）
+    if(force || _gamesChanged(GAMES, fresh)){
+      GAMES=fresh; renderAll(); syncCurrentGame();
+    } else {
+      // 仅刷新运行状态等轻量字段
+      GAMES=fresh; syncCurrentGame(); markRunning();
+    }
+  });
   bridge.getTags(function(s){ ALL_TAGS=JSON.parse(s||'[]'); renderCatFilter(); });
   bridge.getCategories(function(s){ CATS=JSON.parse(s||'[]'); renderCategories(); renderCatSelect(); });
   bridge.getRunning(function(r){ runningId=r||''; markRunning(); });
+}
+
+// 判断游戏列表是否有实质变化（只比较影响卡片显示的字段）
+function _gamesChanged(a, b){
+  if(a.length!==b.length) return true;
+  for(let i=0;i<a.length;i++){
+    const x=a[i], y=b[i];
+    if(!x || !y || x.id!==y.id || x.fav!==y.fav || x.rating!==y.rating
+       || x.dev!==y.dev || x.title!==y.title || x.last_played!==y.last_played
+       || x.play_time!==y.play_time) return true;
+  }
+  return false;
 }
 
 // 后台数据变化后同步当前详情（收藏/标签/评分等即时生效）
@@ -144,38 +165,84 @@ function chipColor(tag){ let h=0; for(let i=0;i<tag.length;i++) h=(h*31+tag.char
 
 // ---------- 卡片 ----------
 let coverObserver = null;
+let _renderedIds = [];   // 当前网格已渲染的卡片 id 顺序
+
+// 创建单张卡片 DOM（不含封面加载，封面由 observer 懒加载）
+function buildCard(g){
+  const card=document.createElement('div');
+  card.className='card'+(state.selected.has(g.id)?' selected':'');
+  card.dataset.id=g.id;
+  card.innerHTML=`<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
+      ${g.fav?'<span class="fav">★</span>':''}
+      ${g.id===runningId?'<span class="running">运行中</span>':''}
+      <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
+    </div>
+    <div class="meta"><span class="dev">${esc(g.dev||'未知')}</span><span class="stars">${stars(g.rating)}</span></div>`;
+  card.onclick=()=>{ if(state.batch) toggleSelect(g.id,card); else openDetail(g); };
+  card.oncontextmenu=(e)=>{ e.preventDefault(); openCardMenu(g, e.clientX, e.clientY); };
+  return card;
+}
+
+// 增量渲染：对比新旧 id 列表，只增删改变化部分，未变化卡片原样保留（含已加载封面）
 function renderCards(list){
   const grid=document.getElementById('grid');
-  grid.innerHTML='';
-  if(coverObserver) coverObserver.disconnect();
-  coverObserver = new IntersectionObserver((entries)=>{
-    entries.forEach(en=>{
-      if(!en.isIntersecting) return;
-      const card=en.target;
-      const gid=card.dataset.id;
-      coverObserver.unobserve(card);
-      bridge.getCover(gid, function(uri){
-        if(!uri) return;
-        const c=card.querySelector('.cover');
-        if(c) c.style.backgroundImage=`url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-      });
-    });
-  }, {root: document.querySelector('.scroll'), rootMargin:'160px'});
-  list.forEach(g=>{
-    const card=document.createElement('div');
-    card.className='card'+(state.selected.has(g.id)?' selected':'');
-    card.dataset.id=g.id;
-    card.innerHTML=`<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
-        ${g.fav?'<span class="fav">★</span>':''}
-        ${g.id===runningId?'<span class="running">运行中</span>':''}
-        <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
-      </div>
-      <div class="meta"><span class="dev">${esc(g.dev||'未知')}</span><span class="stars">${stars(g.rating)}</span></div>`;
-    card.onclick=()=>{ if(state.batch) toggleSelect(g.id,card); else openDetail(g); };
-    card.oncontextmenu=(e)=>{ e.preventDefault(); openCardMenu(g, e.clientX, e.clientY); };
-    grid.appendChild(card);
-    coverObserver.observe(card);
+  const newIds=list.map(g=>g.id);
+  const byId={}; list.forEach(g=>byId[g.id]=g);
+  const oldMap={}; _renderedIds.forEach(id=>{
+    const c=grid.querySelector(`.card[data-id="${id}"]`); if(c) oldMap[id]=c;
   });
+
+  // 1) 移除已不在列表中的卡片
+  const oldSet=new Set(_renderedIds);
+  const removeIds=_renderedIds.filter(id=>!byId[id]);
+  removeIds.forEach(id=>{ const c=oldMap[id]; if(c){ c.remove(); } });
+
+  // 2) 按新顺序排列：复用的节点移动位置，新增节点创建
+  let anchor=null;   // 从后往前插，保持顺序
+  for(let i=newIds.length-1;i>=0;i--){
+    const id=newIds[i];
+    let card=oldMap[id];
+    if(!card){
+      card=buildCard(byId[id]);
+      grid.insertBefore(card, anchor);
+      if(coverObserver) coverObserver.observe(card);
+    } else {
+      grid.insertBefore(card, anchor);
+      // 复用节点：仅更新可能变化的字段（fav/选中/评分/开发商）
+      if(card.className.indexOf('selected')>=0 !== state.selected.has(id))
+        card.classList.toggle('selected', state.selected.has(id));
+      const meta=card.querySelector('.meta');
+      const dev=meta.querySelector('.dev');
+      if(dev && dev.textContent!==(byId[id].dev||'未知')) dev.textContent=byId[id].dev||'未知';
+      const st=meta.querySelector('.stars');
+      if(st && st.textContent!==stars(byId[id].rating)) st.textContent=stars(byId[id].rating);
+      const fav=card.querySelector('.fav');
+      const needFav=!!byId[id].fav;
+      if(needFav && !fav){
+        const f=document.createElement('span'); f.className='fav'; f.textContent='★';
+        card.querySelector('.cover').appendChild(f);
+      } else if(!needFav && fav){ fav.remove(); }
+    }
+    anchor=card;
+  }
+  _renderedIds=newIds;
+
+  if(!coverObserver){
+    coverObserver = new IntersectionObserver((entries)=>{
+      entries.forEach(en=>{
+        if(!en.isIntersecting) return;
+        const card=en.target;
+        const gid=card.dataset.id;
+        coverObserver.unobserve(card);
+        bridge.getCover(gid, function(uri){
+          if(!uri) return;
+          const c=card.querySelector('.cover');
+          if(c) c.style.backgroundImage=`url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+        });
+      });
+    }, {root: document.querySelector('.scroll'), rootMargin:'160px'});
+    grid.querySelectorAll('.card').forEach(c=>coverObserver.observe(c));
+  }
 }
 
 function markRunning(){
@@ -620,7 +687,7 @@ document.getElementById('btnScan').onclick=()=>bridge.scanFolder();
 document.getElementById('btnShowAll').onclick=()=>{ state.nav='全部作品'; state.catId=0; state.kw=''; renderAll(); };
 document.getElementById('fab').onclick=function(e){ e.stopPropagation();
   document.getElementById('fabMenu').classList.toggle('show'); };
-document.getElementById('fabRefresh').onclick=()=>{ refreshAll(); toast('已刷新'); };
+document.getElementById('fabRefresh').onclick=()=>{ refreshAll(true); toast('已刷新'); };
 document.getElementById('fabAdd').onclick=()=>{ document.getElementById('fabMenu').classList.remove('show'); openAdd(); };
 document.getElementById('fabScan').onclick=()=>{ document.getElementById('fabMenu').classList.remove('show'); bridge.scanFolder(); };
 document.getElementById('btnPickExe').onclick=()=>{ if(bridge) bridge.selectExe(function(p){ if(p) document.getElementById('fExe').value=p; }); };
