@@ -75,7 +75,9 @@ def _game_dict(g: Game) -> Dict[str, Any]:
         "description": g.description or "",
         "play_time_text": format_play_time(g.play_time),
         "last_text": format_relative_time(g.last_played),
-        "cover_url": _cover_data_uri(g.cover_path),
+        # 封面改为按需懒加载：getGames 不再内联 base64，前端滚动到卡片附近再取
+        "cover_url": "",
+        "has_cover": bool(g.cover_path and os.path.exists(g.cover_path)),
     }
 
 
@@ -105,6 +107,13 @@ class WebBridge:
     def getGame(self, game_id: str) -> str:
         g = self.manager.get_game(game_id)
         return json.dumps(_game_dict(g), ensure_ascii=False) if g else "{}"
+
+    def getCover(self, game_id: str) -> str:
+        """按需返回单个游戏封面的 base64 data URI（懒加载用，缓存命中直接返回）"""
+        g = self.manager.get_game(game_id)
+        if not g:
+            return ""
+        return _cover_data_uri(g.cover_path)
 
     def getTags(self) -> str:
         return json.dumps(self.manager.get_all_tags(), ensure_ascii=False)

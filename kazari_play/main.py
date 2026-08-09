@@ -154,6 +154,12 @@ def main():
     # 关闭日志窗口时隐藏控制台
     if not cfg.get("show_console", True):
         _hide_console()
+    # 降低 WebView2 内存占用：单页应用限制渲染进程数、关闭 GPU 合成与无关特性
+    os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = (
+        "--disable-gpu-compositing "
+        "--renderer-process-limit=1 "
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen"
+    )
     logger.info("启动 KazariPlay (pywebview)")
 
     manager = GameManager()
