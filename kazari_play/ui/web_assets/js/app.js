@@ -76,9 +76,18 @@ function syncCurrentGame(){
     refreshDetail();
   }
 }
+// 按需加载封面并应用到元素（data URI 由后端缓存，重复取不重复解码）
+function loadCoverTo(gameId, el, prefix){
+  if(!el) return;
+  bridge.getCover(gameId, function(uri){
+    if(!uri) return;
+    if(prefix==='img'){ el.src=uri; return; }
+    el.style.backgroundImage=`url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+  });
+}
+
 function refreshDetail(){
-  document.getElementById('dlgCover').style.backgroundImage=
-    `url('${currentGame.cover_url||''}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+  loadCoverTo(currentGame.id, document.getElementById('dlgCover'), 'bg');
   document.getElementById('dlgTitle').textContent=currentGame.title;
   document.getElementById('dlgDesc').textContent=currentGame.description||'暂无简介';
   renderDetailTags();
@@ -134,14 +143,29 @@ function chipColor(tag){ let h=0; for(let i=0;i<tag.length;i++) h=(h*31+tag.char
   return ['#ffb3c1','#c4b5fd','#b5ead7','#ffd97d','#ffc9a0'][h%5]; }
 
 // ---------- 卡片 ----------
+let coverObserver = null;
 function renderCards(list){
   const grid=document.getElementById('grid');
   grid.innerHTML='';
+  if(coverObserver) coverObserver.disconnect();
+  coverObserver = new IntersectionObserver((entries)=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const card=en.target;
+      const gid=card.dataset.id;
+      coverObserver.unobserve(card);
+      bridge.getCover(gid, function(uri){
+        if(!uri) return;
+        const c=card.querySelector('.cover');
+        if(c) c.style.backgroundImage=`url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+      });
+    });
+  }, {root: document.querySelector('.scroll'), rootMargin:'160px'});
   list.forEach(g=>{
     const card=document.createElement('div');
     card.className='card'+(state.selected.has(g.id)?' selected':'');
     card.dataset.id=g.id;
-    card.innerHTML=`<div class="cover" style="background-image:url('${g.cover_url||''}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)">
+    card.innerHTML=`<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
         ${g.fav?'<span class="fav">★</span>':''}
         ${g.id===runningId?'<span class="running">运行中</span>':''}
         <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
@@ -150,6 +174,7 @@ function renderCards(list){
     card.onclick=()=>{ if(state.batch) toggleSelect(g.id,card); else openDetail(g); };
     card.oncontextmenu=(e)=>{ e.preventDefault(); openCardMenu(g, e.clientX, e.clientY); };
     grid.appendChild(card);
+    coverObserver.observe(card);
   });
 }
 
@@ -200,8 +225,7 @@ function renderEmpty(list){
 // ---------- 详情 ----------
 function openDetail(g){
   currentGame=g;
-  document.getElementById('dlgCover').style.backgroundImage=
-    `url('${g.cover_url||''}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+  loadCoverTo(g.id, document.getElementById('dlgCover'), 'bg');
   document.getElementById('dlgTitle').textContent=g.title;
   renderInfoBar();
   initRateEdit();
@@ -416,7 +440,8 @@ function openEdit(g){
   document.getElementById('fExe').value=g.exe_path||'';
   document.getElementById('fCoverRow').style.display='flex';
   document.getElementById('fMetaRow').style.display='flex';
-  document.getElementById('fCoverPrev').src=g.cover_url||'';
+  document.getElementById('fCoverPrev').src='';
+  loadCoverTo(g.id, document.getElementById('fCoverPrev'), 'img');
   document.getElementById('fSearchKw').value=g.title||'';
   document.getElementById('fCands').style.display='none';
   showSheet('formOverlay');
