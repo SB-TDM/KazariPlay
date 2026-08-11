@@ -26,8 +26,8 @@
       <div class="side-item" data-nav="继续游玩">继续游玩</div>
       <div class="side-item" data-nav="我的收藏">我的收藏</div>
       <div class="side-sep"></div>
-      <div class="side-item" id="addGroup">新建分组</div>
-      <div id="catList"></div>
+      <div class="collection-tree" id="collectionTree"></div>
+      <div class="side-item" id="btnNewCollection">＋ 新建收藏夹</div>
       <div class="side-spacer"></div>
       <div class="side-item" id="btnSettings">设置</div>
     </div>
@@ -72,9 +72,9 @@
       <div class="batchbar" id="batchBar">
         <span class="count" id="batchCount">已选择 0 个</span>
         <button id="btnSelAll">全选</button>
-        <button id="btnBAdd">批量添加标签</button>
-        <button id="btnBRem">批量移除标签</button>
-        <button id="btnBMove">移动至分组</button>
+        <button id="btnBAdd">批量添加收藏夹</button>
+        <button id="btnBRem">批量移除收藏夹</button>
+        <button id="btnBMove">移动到收藏夹</button>
         <button id="btnBVndb">批量匹配 VNDB</button>
         <button class="danger" id="btnBDel">从库中移除</button>
       </div>
@@ -107,28 +107,44 @@
         <button class="pill-btn" id="dlgEdit">编辑</button>
         <button class="pill-btn fav" id="dlgFav">☆ 收藏</button>
       </div>
-      <div class="tags-row" id="dlgTags"></div>
+      <div class="collections-row" id="dlgCollections"></div>
       <div class="detail-desc" id="dlgDesc"></div>
     </div>
   </div>
 </div>
 
-<!-- 标签管理抽屉 -->
-<div class="overlay" id="tagOverlay">
+<!-- 收藏夹管理抽屉 -->
+<div class="overlay" id="collectionOverlay">
   <div class="dialog tagmgr">
-    <div class="dlg-title"><span>标签管理</span>
-      <button class="close-btn" id="tagClose">×</button></div>
-    <div id="gameTagSection">
-      <div class="section-ttl"><span id="gameTagTitle">当前游戏</span></div>
-      <div class="taglist" id="gameTagList"></div>
-      <div class="tagform">
-        <input id="gameTagInput" placeholder="给当前游戏添加标签" maxlength="10">
-        <button class="pill-btn primary" id="gameTagAdd" style="height:32px;padding:0 14px;">＋</button>
-      </div>
+    <div class="dlg-title"><span>收藏夹管理</span>
+      <button class="close-btn" id="collectionClose">×</button></div>
+    <div id="gameCollectionSection">
+      <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
+      <div class="taglist" id="gameCollectionList"></div>
     </div>
-    <div class="section-ttl">分类（单击筛选）</div>
-    <div class="catlist" id="catFilter"></div>
-    <div class="dlg-foot"><button class="pill-btn" id="tagDone">完成</button></div>
+    <div class="section-ttl">收藏夹树形管理
+      <span class="mini-btn" id="collectionAddGrp">+ 新建分组</span>
+      <span class="mini-btn" id="collectionAddCat">+ 新建分类</span>
+    </div>
+    <div class="collection-admin" id="collectionAdmin"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="collectionDone">完成</button></div>
+  </div>
+</div>
+
+<!-- 管理游戏对话框：批量勾选某收藏夹下的游戏 -->
+<div class="overlay" id="manageGamesOverlay">
+  <div class="dialog tagmgr">
+    <div class="dlg-title"><span id="manageGamesTitle">管理游戏</span>
+      <button class="close-btn" id="manageGamesClose">×</button></div>
+    <div class="section-ttl">勾选要归入该收藏夹的游戏</div>
+    <div class="tagform"><input id="manageGamesKw" placeholder="搜索游戏…"></div>
+    <div class="manage-list" id="manageGamesList"></div>
+    <div class="dlg-foot">
+      <button class="pill-btn" id="manageGamesSelAll">全选</button>
+      <button class="pill-btn" id="manageGamesClear">清空</button>
+      <span class="manage-count" id="manageGamesCount">已选 0 个</span>
+      <button class="pill-btn primary" id="manageGamesSave">保存</button>
+    </div>
   </div>
 </div>
 
@@ -143,8 +159,6 @@
       <div class="form-row"><label>开发商</label><input id="fDev"></div>
       <div class="form-row"><label>评分</label>
         <select id="fRating"><option value="0">未评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
-      <div class="form-row"><label>分类</label><select id="fCat"></select></div>
-      <div class="form-row"><label>标签</label><input id="fTags" placeholder="逗号分隔"></div>
       <div class="form-row"><label>简介</label><textarea id="fDesc"></textarea></div>
       <div class="form-row" id="fCoverRow" style="display:none">
         <label>封面</label>
@@ -277,7 +291,7 @@
           <div class="about">
             <div class="a-logo">☺</div>
             <div class="a-name">KazariPlay</div>
-            <div class="a-ver">版本 v2.4</div>
+            <div class="a-ver">版本 v1.01</div>
             <div class="a-meta">视觉小说本地库启动器<br><span id="setCfgPath"></span></div>
           </div>
         </div>

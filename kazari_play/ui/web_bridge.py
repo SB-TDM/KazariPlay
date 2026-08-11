@@ -35,6 +35,17 @@ def _default_cover_path() -> str:
     return p if os.path.exists(p) else ""
 
 
+def _cover_version(g: Game) -> int:
+    """封面文件修改时间作为版本号（VNDB 匹配/手动更换后 mtime 变化，
+    前端据此判断是否需要重新懒加载封面）。无封面或文件缺失返回 0。"""
+    if g.cover_path and os.path.exists(g.cover_path):
+        try:
+            return int(os.path.getmtime(g.cover_path))
+        except Exception:
+            return 0
+    return 0
+
+
 def _cover_data_uri(path: str) -> str:
     """封面图 → base64 data URI（html= 模式下 file:// 会被 WebView2 拦截）"""
     if not path or not os.path.exists(path):
@@ -69,6 +80,11 @@ def _game_dict(g: Game) -> Dict[str, Any]:
         "fav": g.is_favorite,
         "tags": list(g.tags),
         "cat_id": g.category_id or 0,
+        "collections": [
+            {"id": c.get("id"), "name": c.get("name", ""), "color": c.get("color", "") or "",
+             "icon": c.get("icon", "") or ""}
+            for c in (g.collections or [])
+        ],
         "play_time": g.play_time,
         "last_played": g.last_played or "",
         "released": g.released or "",
@@ -78,6 +94,7 @@ def _game_dict(g: Game) -> Dict[str, Any]:
         # 封面改为按需懒加载：getGames 不再内联 base64，前端滚动到卡片附近再取
         "cover_url": "",
         "has_cover": bool(g.cover_path and os.path.exists(g.cover_path)),
+        "cover_version": _cover_version(g),
     }
 
 
@@ -168,7 +185,11 @@ class WebBridge:
         self.refresh()
 
     def saveGame(self, game_id: str, data_json: str):
-        """前端编辑/添加保存。game_id 为空视为手动添加。"""
+        """前端编辑/添加保存。game_id 为空视为手动添加。
+
+        收藏夹归属与标签不在此处理（编辑表单已移除收藏夹/标签管理，
+        归属经由 addGamesToCollection / removeGamesFromCollection 独立维护）。
+        """
         data = json.loads(data_json)
         g = Game(
             id=game_id,
@@ -177,7 +198,6 @@ class WebBridge:
             developer=data.get("developer", ""),
             description=data.get("description", ""),
             rating=int(data.get("rating", 0) or 0),
-            tags=list(data.get("tags", [])),
         )
         if game_id:
             old = self.manager.get_game(game_id)
@@ -185,6 +205,8 @@ class WebBridge:
                 g.exe_path = old.exe_path
                 g.folder = old.folder
                 g.cover_path = old.cover_path
+                g.tags = list(old.tags)   # 保留已有标签（编辑表单不再提供）
+                g.collections = list(old.collections)
                 g.category_id = int(data.get("cat_id", old.category_id) or 0)
                 # 启动文件：若前端提供了新路径则更新 exe 与所在目录
                 new_exe = (data.get("exe_path") or "").strip()
@@ -245,6 +267,74 @@ class WebBridge:
         self.manager.batch_delete(json.loads(ids_json))
         self.refresh()
 
+    # ---------- 收藏夹（V1.0 collections）----------
+    def getCollectionsTree(self) -> str:
+        """返回树形收藏夹 JSON: [{id,name,icon,color,sort_order,game_count,children:[...]}]"""
+        return json.dumps(self.manager.get_collections_tree(), ensure_ascii=False)
+
+    def createCollection(self, name: str, parent_id: int, icon: str, color: str) -> str:
+        """新建收藏夹。parent_id=0 表示根节点(分组)"""
+        result = self.manager.create_collection(name, parent_id or None, icon, color)
+        self.refresh()
+        return json.dumps(result, ensure_ascii=False) if result else "{}"
+
+    def updateCollection(self, collection_id: int, data_json: str):
+        """更新收藏夹（name/parent_id/icon/color/sort_order）"""
+        data = json.loads(data_json)
+        self.manager.update_collection(collection_id, **data)
+        self.refresh()
+
+    def deleteCollection(self, collection_id: int):
+        """删除收藏夹（级联删除子分类 + 关联）"""
+        self.manager.delete_collection(collection_id)
+        self.refresh()
+
+    def reorderCollection(self, collection_id: int, new_sort_order: int):
+        """调整收藏夹排序"""
+        self.manager.reorder_collection(collection_id, new_sort_order)
+        self.refresh()
+
+    def addGamesToCollection(self, ids_json: str, collection_id: int):
+        """批量添加游戏到收藏夹"""
+        self.manager.add_games_to_collections(json.loads(ids_json), [collection_id])
+        self.refresh()
+
+    def removeGamesFromCollection(self, ids_json: str, collection_id: int):
+        """从收藏夹批量移除游戏"""
+        self.manager.remove_games_from_collection(json.loads(ids_json), collection_id)
+        self.refresh()
+
+    def setGameCollections(self, game_id: str, collection_ids_json: str):
+        """设置游戏所属的收藏夹列表（整体替换）"""
+        self.manager.set_game_collections(game_id, json.loads(collection_ids_json))
+        self.refresh()
+
+    def setCollectionGames(self, collection_id: int, ids_json: str) -> bool:
+        """整体替换某收藏夹的游戏列表 + 排序（管理游戏对话框用）"""
+        ok = self.manager.set_collection_games(collection_id, json.loads(ids_json))
+        self.refresh()
+        return ok
+
+    def getGamesInCollection(self, collection_id: int) -> str:
+        """获取收藏夹内的游戏 ID 列表（按 sort_order 排序）"""
+        return json.dumps(self.manager.get_games_in_collection(collection_id),
+                          ensure_ascii=False)
+
+    def moveGameInCollection(self, collection_id: int, game_id: str, new_sort_order: int):
+        """调整游戏在收藏夹内的排序"""
+        self.manager.move_game_in_collection(collection_id, game_id, new_sort_order)
+        self.refresh()
+
+    def batchMoveToCollection(self, ids_json: str, collection_id: int):
+        """批量移动游戏到收藏夹（替代原 batchMoveCategory）"""
+        self.manager.batch_add_to_collection(json.loads(ids_json), collection_id)
+        self.refresh()
+
+    def batchRemoveFromCollection(self, ids_json: str, collection_id: int):
+        """批量从收藏夹移除游戏（替代原 batchRemoveTag 的收藏夹用法）"""
+        self.manager.batch_remove_from_collection(json.loads(ids_json), collection_id)
+        self.refresh()
+
     # ---------- 文件对话框 ----------
     def scanFolder(self) -> str:
         if self._window is None:
@@ -281,7 +371,7 @@ class WebBridge:
         try:
             matched, skipped, failed = self.manager.match_vndb_for_games(
                 games, force=False, progress_cb=self._vndb_progress)
-            _cover_cache.clear()   # 封面可能已更新，清缓存强制重生成
+            self.reloadCovers()   # 封面可能已更新，清缓存并强制前端重载
             self.notify(
                 f"VNDB 匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
         except Exception as e:
@@ -312,9 +402,9 @@ class WebBridge:
 
     def _do_match(self, game_id: str):
         try:
-            status, msg = self.manager.match_vndb_metadata(game_id)
+            status, msg = self.manager.match_vndb_metadata(game_id, force=True)
             logger.info("VNDB 匹配 %s: %s %s", game_id, status, msg)
-            _cover_cache.clear()   # 封面可能已更新
+            self.reloadCovers()   # 封面可能已更新
             self.notify(f"VNDB 匹配完成：{msg}")
         except Exception as e:
             logger.error("VNDB 匹配异常: %s", e)
@@ -369,7 +459,7 @@ class WebBridge:
             shutil.copy2(path, dest)
             g.cover_path = dest
             self.manager.update_game(g)
-            _cover_cache.clear()
+            self.reloadCovers()
         except Exception as e:
             logger.error("更换封面失败: %s", e)
         self.refresh()
@@ -427,7 +517,7 @@ class WebBridge:
                 logger.error("下载封面失败: %s", e)
         if changed:
             self.manager.update_game(g)
-            _cover_cache.clear()
+            self.reloadCovers()
         self.refresh()
 
     # ---------- 启动时自动扫描 ----------
@@ -456,6 +546,16 @@ class WebBridge:
                     f"window.__app && window.__app.toast({json.dumps(msg)});")
         except Exception as e:
             logger.warning("前端提示失败: %s", e)
+
+    def reloadCovers(self):
+        """封面更新后强制前端重新加载所有卡片封面（清缓存后调用）"""
+        _cover_cache.clear()
+        try:
+            if self._window is not None:
+                self._window.evaluate_js(
+                    "window.__app && window.__app.reloadCovers();")
+        except Exception as e:
+            logger.warning("前端封面重载失败: %s", e)
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         self.refresh()

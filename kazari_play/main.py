@@ -1,4 +1,4 @@
-"""KazariPlay V1.0 - 视觉小说启动器 GUI 入口（pywebview）
+"""KazariPlay V1.01 - 视觉小说启动器 GUI 入口（pywebview）
 
 用法:
     python main.py            （在 KazariPlay_V1.0 目录下）
