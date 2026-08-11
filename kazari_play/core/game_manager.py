@@ -30,6 +30,8 @@ class GameManager:
         self.monitor = GameMonitor(self.repository, self.launcher)
         from database.tag_repository import TagRepository
         self.tag_repo = TagRepository()
+        from database.collection_repository import CollectionRepository
+        self.collection_repo = CollectionRepository()
 
     # ---------- 查询 ----------
 
@@ -214,6 +216,61 @@ class GameManager:
                 self.close_game()
             statements.append(("DELETE FROM games WHERE id = ?", (gid,)))
         return len(game_ids) if self.repository.db.execute_many(statements) else 0
+
+    # ---------- 收藏夹管理（V1.0 collections，委托 CollectionRepository）----------
+
+    def get_collections_tree(self) -> list:
+        """返回树形收藏夹结构"""
+        return self.collection_repo.get_tree()
+
+    def create_collection(self, name: str, parent_id=None, icon: str = "",
+                          color: str = "") -> Optional[dict]:
+        """新建收藏夹。parent_id=None 表示根节点（分组）"""
+        return self.collection_repo.create(name, parent_id or None, icon, color)
+
+    def update_collection(self, collection_id: int, **kwargs) -> Optional[dict]:
+        """更新收藏夹（name/parent_id/icon/color/sort_order）"""
+        return self.collection_repo.update(collection_id, **kwargs)
+
+    def delete_collection(self, collection_id: int) -> bool:
+        """删除收藏夹（级联删除子分类 + 关联）"""
+        return self.collection_repo.delete(collection_id)
+
+    def reorder_collection(self, collection_id: int, new_sort_order: int) -> bool:
+        return self.collection_repo.reorder(collection_id, new_sort_order)
+
+    def add_games_to_collections(self, game_ids: list, collection_ids: list) -> bool:
+        return self.collection_repo.add_games_to_collections(game_ids, collection_ids)
+
+    def set_game_collections(self, game_id: str, collection_ids: list) -> bool:
+        """整体替换某游戏的收藏夹列表"""
+        return self.collection_repo.set_game_collections(game_id, collection_ids)
+
+    def get_games_in_collection(self, collection_id: int) -> list:
+        return self.collection_repo.get_games_in_collection(collection_id)
+
+    def get_game_collections(self, game_id: str) -> list:
+        return self.collection_repo.get_game_collections(game_id)
+
+    def move_game_in_collection(self, collection_id: int, game_id: str,
+                                new_sort_order: int) -> bool:
+        return self.collection_repo.move_game_order(collection_id, game_id, new_sort_order)
+
+    def batch_add_to_collection(self, game_ids: list, collection_id: int) -> bool:
+        """批量添加游戏到收藏夹（替代原 batch_add_tag / batch_move_category）"""
+        return self.collection_repo.add_games_to_collections(game_ids, [collection_id])
+
+    def batch_remove_from_collection(self, game_ids: list, collection_id: int) -> bool:
+        """从收藏夹批量移除游戏"""
+        return self.collection_repo.remove_games_from_collection(game_ids, collection_id)
+
+    def set_collection_games(self, collection_id: int, game_ids: list) -> bool:
+        """整体替换某收藏夹的游戏列表 + 排序（管理游戏对话框用）"""
+        return self.collection_repo.set_collection_games(collection_id, game_ids)
+
+    def remove_games_from_collection(self, game_ids: list, collection_id: int) -> bool:
+        """从收藏夹批量移除游戏（单数方法别名，Bridge 用）"""
+        return self.collection_repo.remove_games_from_collection(game_ids, collection_id)
 
     # ---------- 启动/关闭/监控 ----------
 

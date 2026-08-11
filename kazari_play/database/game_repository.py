@@ -154,6 +154,7 @@ class GameRepository:
             cover_path=row[4],
             engine=row[5] or "",
             tags=self._load_tags(row[0]),
+            collections=self._load_collections(row[0]),
             is_favorite=bool(row[7]),
             play_count=row[8],
             play_time=row[9],
@@ -179,3 +180,14 @@ class GameRepository:
             (game_id,)
         )
         return [r[0] for r in rows] if rows else []
+
+    def _load_collections(self, game_id: str) -> list:
+        """从 game_collection_link 加载游戏所属的收藏夹列表"""
+        rows = self.db.query(
+            """SELECT c.id, c.name, c.color, c.icon FROM collections c
+               JOIN game_collection_link l ON c.id = l.collection_id
+               WHERE l.game_id = ? ORDER BY l.sort_order""",
+            (game_id,)
+        )
+        return [{"id": r[0], "name": r[1], "color": r[2] or "", "icon": r[3] or ""}
+                for r in rows] if rows else []

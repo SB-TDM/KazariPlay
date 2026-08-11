@@ -16,7 +16,8 @@ class Game:
     folder: str = ""
     cover_path: str = ""
     engine: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: List[str] = field(default_factory=list)          # 旧 tags 标签（兼容保留）
+    collections: List[dict] = field(default_factory=list)  # 所属收藏夹 [{"id","name","color","icon"}]
     is_favorite: bool = False
     play_count: int = 0
     play_time: int = 0           # 总游玩时长（分钟）
@@ -73,6 +74,7 @@ class Game:
             cover_path=data.get("cover_path", "") or "",
             engine=data.get("engine", "") or "",
             tags=tags,
+            collections=data.get("collections") or [],
             is_favorite=bool(data.get("is_favorite", 0)),
             play_count=data.get("play_count", 0) or 0,
             play_time=data.get("play_time", 0) or 0,
