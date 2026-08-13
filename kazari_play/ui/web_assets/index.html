@@ -109,24 +109,28 @@
       </div>
       <div class="collections-row" id="dlgCollections"></div>
       <div class="detail-desc" id="dlgDesc"></div>
+      <!-- 游戏截图（Steam 式） -->
+      <div class="screenshots-section">
+        <div class="shots-head">
+          <span class="shots-ttl">截图</span>
+          <span class="shots-hint">左键预览 · 右键管理</span>
+        </div>
+        <div class="shots-grid" id="shotsGrid"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- 收藏夹管理抽屉 -->
+<!-- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 -->
 <div class="overlay" id="collectionOverlay">
   <div class="dialog tagmgr">
-    <div class="dlg-title"><span>收藏夹管理</span>
+    <div class="dlg-title"><span>收藏夹</span>
       <button class="close-btn" id="collectionClose">×</button></div>
     <div id="gameCollectionSection">
       <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
       <div class="taglist" id="gameCollectionList"></div>
     </div>
-    <div class="section-ttl">收藏夹树形管理
-      <span class="mini-btn" id="collectionAddGrp">+ 新建分组</span>
-      <span class="mini-btn" id="collectionAddCat">+ 新建分类</span>
-    </div>
-    <div class="collection-admin" id="collectionAdmin"></div>
+    <div class="section-ttl">点击收藏夹加入/退出</div>
     <div class="dlg-foot"><button class="pill-btn" id="collectionDone">完成</button></div>
   </div>
 </div>
@@ -146,6 +150,26 @@
       <button class="pill-btn primary" id="manageGamesSave">保存</button>
     </div>
   </div>
+</div>
+
+<!-- 截图大图预览 -->
+<div class="overlay center" id="shotPreviewOverlay">
+  <div class="dialog shot-preview">
+    <div class="dlg-title"><span id="shotPreviewTitle">截图</span>
+      <button class="close-btn" id="shotPreviewClose">×</button></div>
+    <div class="shot-preview-body">
+      <div class="shot-preview-loading" id="shotPreviewLoading">加载中…</div>
+      <img id="shotPreviewImg" alt="">
+    </div>
+  </div>
+</div>
+
+<!-- 截图右键菜单 -->
+<div class="shot-menu" id="shotMenu">
+  <div class="item" data-act="rename">重命名</div>
+  <div class="item" data-act="folder">打开所在位置</div>
+  <div class="item" data-act="copy">复制到剪贴板</div>
+  <div class="item danger" data-act="del">删除</div>
 </div>
 
 <!-- 编辑 / 添加表单抽屉 -->

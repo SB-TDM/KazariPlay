@@ -1,12 +1,14 @@
-# KazariPlay V1.01
+# KazariPlay V1.02
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
-原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**（树形分组→分类 + 游戏多对多归类），全面替换旧的扁平标签体系。
+原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理。
 
 ## 特性
 
-- **Kawaii Minimal 视觉**：UI 为 HTML/CSS（`kazari_play/ui/web_assets/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿 100% 一致
+- **Kawaii Minimal 视觉**：UI 为 HTML/CSS（`kazari_play/ui/web_assets/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
+- **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
+- **Steam 式截图管理**：详情页截图卡片左键放大预览、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），预览窗口带加载动画
 - **收藏夹系统（V1.01 新增）**：树形分组→分类、游戏多对多归类、手风琴侧边栏、拖拽排序、管理游戏对话框
 - **游戏库主界面**：自适应卡片网格、星级评分、收藏角标、真实封面（base64 内联）
 - **详情底部抽屉（Modal Bottom Sheet）**：点击卡片底部上拉，信息栏 3 列、收藏夹路径 chips、简介
@@ -31,20 +33,36 @@ pip install -r requirements.txt
 python kazari_play/main.py     # 在 KazariPlay_V1.0 目录下
 ```
 
+## 构建 C++ Overlay（可选）
+
+游戏内截图提示由独立进程 `overlay/bin/overlay.exe` 提供，首次运行前需编译（需要 MSVC Build Tools，含 C++ 工作负载）：
+
+```bat
+cd overlay
+build.bat        # 产物：overlay/bin/overlay.exe
+```
+
+overlay.exe 缺失或编译失败时，截图提示自动降级（不影响截图主功能）。
+
 ## 目录结构
 
 ```
 KazariPlay_V1.0/
 ├── kazari_play/
 │   ├── main.py                # pywebview 入口（无边框窗口 + js_api）
-│   ├── core/                  # 后端核心（扫描/启动/监控/元数据/多源搜索）
-│   ├── database/              # 数据层（游戏库 + 标签/分类关联表）
-│   ├── utils/                 # 工具（配置/日志/路径/图片安全加载/VNDB/Bangumi）
+│   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
+│   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
+│   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi）
 │   ├── ui/
 │   │   ├── web_bridge.py      # pywebview js_api 桥（后端能力暴露给前端）
 │   │   └── web_assets/        # index.html + css/ + js/（真实 UI）
 │   └── resources/
-├── design/                    # 设计稿（preview.html / settings_preview.html / 预览图）
+├── overlay/                   # C++ 游戏内截图 overlay（Direct2D + 命名管道 IPC）
+│   ├── src/                   # main / toast_window / pipe_server / protocol
+│   ├── third_party/           # nlohmann/json 单头文件
+│   ├── build.bat              # MSVC 编译脚本
+│   └── bin/overlay.exe        # 编译产物（git 忽略）
+├── screenshots/               # 截图存放（按游戏分文件夹，git 忽略）
 └── tests/
 ```
 
@@ -52,4 +70,5 @@ KazariPlay_V1.0/
 
 - 数据库：`%APPDATA%\KazariPlay\games.db`
 - 配置：`%APPDATA%\KazariPlay\config.json`（默认浅色 Kawaii 主题）
+- 截图：`KazariPlay_V1.0/screenshots/{game_id}/`
 - 从旧版 Minato Launcher 升级时，`%APPDATA%\MinatoLauncher` 下已有的数据会自动迁移

@@ -7,3 +7,8 @@ __pycache__/
 
 # 测试缓存
 .pytest_cache/
+
+# 截图与编译产物
+screenshots/
+overlay/bin/
+*.obj

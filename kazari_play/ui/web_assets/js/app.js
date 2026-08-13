@@ -87,7 +87,6 @@ function refreshAll(force){
   bridge.getCollectionsTree(function(s){
     state.collectionTree = JSON.parse(s||'[]');
     renderCollectionTree();
-    renderCollectionAdmin();
   });
   bridge.getRunning(function(r){ runningId=r||''; markRunning(); });
 }
@@ -135,9 +134,112 @@ function refreshDetail(){
   renderDetailTags();
   renderInfoBar();
   updateFavBtn();
+  renderScreenshots();
   const rate=document.querySelector('.rate-edit');
   if(rate){ rate.dataset.r=currentGame.rating; initRateEdit(); }
   markRunning();
+}
+
+// ---------- 游戏截图（Steam 式）----------
+function renderScreenshots(){
+  const grid=document.getElementById('shotsGrid');
+  if(!grid || !currentGame) return;
+  grid.innerHTML='';
+  bridge.getScreenshots(currentGame.id, function(s){
+    let shots=[]; try{ shots=JSON.parse(s||'[]'); }catch(e){}
+    if(!shots.length){
+      grid.innerHTML='<div class="shots-empty">暂无截图，按 F12 截取游戏画面</div>';
+      return;
+    }
+    shots.forEach(shot=>{
+      const el=document.createElement('div');
+      el.className='shot-item';
+      el.innerHTML=`<div class="shot-thumb"></div><div class="shot-meta">
+          <span class="shot-time">${esc(shot.created||'')}</span></div>`;
+      bridge.getScreenshotThumb(currentGame.id, shot.file, function(uri){
+        const th=el.querySelector('.shot-thumb');
+        if(uri && th) th.style.backgroundImage=`url('${uri}')`;
+      });
+      el.onclick=()=>openShotPreview(shot);
+      el.oncontextmenu=(e)=>{ e.preventDefault(); showShotMenu(e.clientX, e.clientY, shot); };
+      grid.appendChild(el);
+    });
+  });
+}
+
+let shotTarget=null;   // 当前预览/右键菜单的截图对象
+
+function openShotPreview(shot){
+  shotTarget=shot;
+  document.getElementById('shotPreviewTitle').textContent='截图';
+  showSheet('shotPreviewOverlay');
+  const img=document.getElementById('shotPreviewImg');
+  const loading=document.getElementById('shotPreviewLoading');
+  img.classList.remove('loaded');
+  img.src='';
+  loading.textContent='加载中…';
+  loading.style.display='flex';
+  bridge.getScreenshotThumb(currentGame.id, shot.file, function(uri){
+    if(!uri){ loading.textContent='加载失败'; return; }
+    img.onload=()=>{ loading.style.display='none'; img.classList.add('loaded'); };
+    img.src=uri;
+  });
+}
+
+// 截图右键菜单（重命名 / 打开所在文件夹 / 复制 / 删除）
+function showShotMenu(x, y, shot){
+  shotTarget=shot;
+  const m=document.getElementById('shotMenu');
+  const vw=window.innerWidth, vh=window.innerHeight;
+  let px=x, py=y;
+  if(px+160>vw-8) px=vw-168;
+  if(py+180>vh-8) py=vh-188;
+  px=Math.max(8,px); py=Math.max(8,py);
+  m.style.left=px+'px';
+  m.style.top=py+'px';
+  m.classList.add('show');
+}
+function hideShotMenu(){
+  document.getElementById('shotMenu').classList.remove('show');
+}
+
+function renameShot(){
+  if(!shotTarget) return;
+  const cur=shotTarget.file;
+  showInputDialog({
+    title:'重命名截图', label:'新名称', value:cur.replace(/\.(png|jpg|jpeg)$/i,''),
+    cb:function(name){
+      if(name&&name.trim()&&name.trim()!==cur){
+        bridge.renameScreenshot(currentGame.id, cur, name.trim());
+        renderScreenshots();
+      }
+    }
+  });
+}
+
+function openShotFolder(){
+  if(!shotTarget) return;
+  bridge.openScreenshotFolder(currentGame.id, shotTarget.file);
+  toast('已在资源管理器中定位');
+}
+
+function copyShot(){
+  if(!shotTarget) return;
+  bridge.copyScreenshotToClipboard(currentGame.id, shotTarget.file);
+  toast('已复制到剪贴板');
+}
+
+function deleteShot(){
+  if(!shotTarget) return;
+  const f=shotTarget.file;
+  showConfirmDialog({
+    title:'删除截图',
+    message:`删除「${f}」？`,
+    danger:true, okText:'删除', cb:()=>{
+      bridge.deleteScreenshot(currentGame.id, f);
+      renderScreenshots();
+    }
+  });
 }
 
 // 详情信息栏（游玩时长/上次游玩/开发商/发售日等），供打开与轮询刷新共用
@@ -470,7 +572,7 @@ function renderDetailTags(){
   });
   const m=document.createElement('span');
   m.className='chip manage'; m.textContent='管理收藏夹';
-  m.onclick=()=>{ closeSheet('detailOverlay'); openCollectionManager(); };
+  m.onclick=()=>{ closeSheet('detailOverlay', true); openCollectionManager(); };
   t.appendChild(m);
 }
 
@@ -595,21 +697,6 @@ function showCollectionCtx(x, y, node){
   setTimeout(()=>document.addEventListener('click',function h(){m.remove();document.removeEventListener('click',h);}),0);
 }
 
-const COLLECTION_COLORS=['#ffb3c1','#c4b5fd','#b5ead7','#ffd97d','#ffc9a0','#a8dcff','#ff9fbc','#e0e0e0'];
-function pickCollectionColor(node){
-  const m=document.createElement('div');
-  m.className='ctx-menu';
-  m.style.cssText=`position:fixed;left:${Math.max(8,window.innerWidth-220)}px;top:${Math.max(8,window.innerHeight-80)}px;display:block;z-index:90;background:var(--bg-panel);border:1.5px solid var(--border-soft);border-radius:12px;padding:10px;box-shadow:0 10px 24px var(--glow-med);`;
-  m.innerHTML=COLLECTION_COLORS.map(c=>`<span class="color-dot ${node.color===c?'on':''}" data-c="${c}"></span>`).join('');
-  m.querySelectorAll('.color-dot').forEach(d=>{
-    d.style.background=d.dataset.c;
-    d.onclick=()=>{ m.remove();
-      bridge.updateCollection(node.id, JSON.stringify({color:d.dataset.c})); };
-  });
-  document.body.appendChild(m);
-  setTimeout(()=>document.addEventListener('click',function h(){m.remove();document.removeEventListener('click',h);}),0);
-}
-
 function newCollection(parentId){
   showInputDialog({
     title: parentId?'新建分类':'新建分组',
@@ -708,10 +795,21 @@ function saveManageGames(){
   closeSheet('manageGamesOverlay');
 }
 
-// 收藏夹管理抽屉：当前游戏可勾选的收藏夹 + 树形管理
+// 收藏夹管理抽屉：当前游戏加入/退出收藏夹
 function openCollectionManager(){
-  renderGameCollections();
-  renderCollectionAdmin();
+  if(!currentGame) return;
+  // 异步拉取最新数据（右键进入时 currentGame 可能是快照），再渲染
+  bridge.getGame(currentGame.id, function(s){
+    try{
+      const fresh=JSON.parse(s||'{}');
+      if(fresh && fresh.id){
+        currentGame=fresh;
+        const gi=GAMES.findIndex(x=>x.id===fresh.id);
+        if(gi>=0) GAMES[gi]=fresh;
+      }
+    }catch(e){}
+    renderGameCollections();
+  });
   showSheet('collectionOverlay');
 }
 
@@ -729,47 +827,24 @@ function renderGameCollections(){
     (g.children||[]).forEach(c=>all.push({id:c.id,label:(g.name+' / '+c.name),color:c.color,icon:c.icon}));
   });
   all.forEach(col=>{
+    const selected=curIds.has(col.id);
     const c=document.createElement('span');
-    c.className='chip'+(curIds.has(col.id)?' on':'');
-    c.style.background=col.color||chipColor(col.label); c.style.color='#4a4358'; c.style.cursor='pointer';
+    c.className='chip'+(selected?' on':'');
+    c.style.color = selected ? '' : '#4a4358';
+    c.style.background = selected ? '' : (col.color||chipColor(col.label));
     c.textContent=(col.icon||'')+' '+col.label;
     c.onclick=()=>{
       const next=new Set(curIds);
       if(next.has(col.id)) next.delete(col.id); else next.add(col.id);
       bridge.setGameCollections(currentGame.id, JSON.stringify([...next]));
-      toast(curIds.has(col.id)?'已移除收藏夹':'已加入收藏夹');
+      // 本地同步 currentGame.collections，立即反映选中态（后端 refresh 也会回写）
+      const had=curIds.has(col.id);
+      if(had){ currentGame.collections=currentGame.collections.filter(x=>x.id!==col.id); }
+      else { currentGame.collections=currentGame.collections.concat([{id:col.id,name:col.label,color:col.color,icon:col.icon||''}]); }
+      toast(had?'已移除收藏夹':'已加入收藏夹');
+      renderGameCollections();
     };
     t.appendChild(c);
-  });
-}
-
-function renderCollectionAdmin(){
-  const box=document.getElementById('collectionAdmin'); box.innerHTML='';
-  state.collectionTree.forEach(g=>{
-    const d=document.createElement('div'); d.className='admin-group';
-    d.innerHTML=`<div class="admin-row" data-id="${g.id}">
-        <b>${esc(g.name)}</b><span class="cnt">${g.game_count||0}</span>
-        <span class="ops">
-          <i class="op" data-act="add">＋</i><i class="op" data-act="ren">✎</i><i class="op" data-act="del">✕</i>
-        </span></div>
-        <div class="admin-children">${(g.children||[]).map(c=>`
-          <div class="admin-row child" data-id="${c.id}">${esc(c.name)}<span class="cnt">${c.game_count||0}</span>
-          <span class="ops">
-            <i class="op" data-act="ren">✎</i><i class="op" data-act="color">●</i><i class="op" data-act="del">✕</i>
-          </span></div>`).join('')}</div>`;
-    d.querySelectorAll('.op').forEach(i=>{
-      i.onclick=(e)=>{ e.stopPropagation();
-        const row=i.closest('.admin-row');
-        const node=findCollectionNode(+row.dataset.id);
-        if(!node) return;
-        const act=i.dataset.act;
-        if(act==='add') newCollection(node.id);
-        else if(act==='ren') renameCollection(node);
-        else if(act==='color') pickCollectionColor(node);
-        else if(act==='del') delCollection(node);
-      };
-    });
-    box.appendChild(d);
   });
 }
 
@@ -849,12 +924,17 @@ function batchPickCollection(mode){
 }
 
 // ---------- Sheet ----------
-function showSheet(id){ document.getElementById(id).classList.add('show'); }
-function closeSheet(id){
+function showSheet(id){ const o=document.getElementById(id); o.classList.remove('hiding'); o.classList.add('show'); }
+function closeSheet(id, instant){
   const o=document.getElementById(id);
-  const d=o.querySelector('.dialog');
-  d.classList.add('closing'); o.classList.remove('show');
-  setTimeout(()=>d.classList.remove('closing'),300);
+  if(instant){
+    o.classList.remove('show', 'hiding');
+    if(id==='detailOverlay') setActiveCard(null);
+    return;
+  }
+  o.classList.remove('show');
+  o.classList.add('hiding');
+  setTimeout(()=>o.classList.remove('hiding'),280);
   if(id==='detailOverlay') setActiveCard(null);
 }
 document.querySelectorAll('.overlay').forEach(o=>{
@@ -862,6 +942,7 @@ document.querySelectorAll('.overlay').forEach(o=>{
 });
 function closeTopSheet(){
   if(formOverlayVisible()) return closeSheet('formOverlay');
+  if(document.getElementById('shotPreviewOverlay').classList.contains('show')) return closeSheet('shotPreviewOverlay');
   if(document.getElementById('manageGamesOverlay').classList.contains('show')) return closeSheet('manageGamesOverlay');
   if(document.getElementById('collectionOverlay').classList.contains('show')) return closeSheet('collectionOverlay');
   if(document.getElementById('pickerOverlay').classList.contains('show')) return closeSheet('pickerOverlay');
@@ -928,6 +1009,7 @@ function openCardMenu(g, x, y){
     <div class="item"><span class="mi">▶</span>启动游戏</div>
     <div class="item"><span class="mi">📂</span>打开本地目录</div>
     <div class="menu-sep"></div>
+    <div class="item"><span class="mi">🗂️</span>管理收藏夹</div>
     <div class="item"><span class="mi">✏️</span>编辑</div>
     <div class="item"><span class="mi">🔄</span>VNDB 匹配</div>
     <div class="menu-sep"></div>
@@ -935,9 +1017,10 @@ function openCardMenu(g, x, y){
   const items=m.querySelectorAll('.item');
   items[0].onclick=()=>bridge.launch(g.id);
   items[1].onclick=()=>bridge.openFolder(g.id);
-  items[2].onclick=()=>{ m.remove(); openEdit(g); };
-  items[3].onclick=()=>{ m.remove(); bridge.matchVndb(g.id); toast('开始匹配：'+g.title); };
-  items[4].onclick=()=>{ m.remove(); showConfirmDialog({title:'从库中移除',
+  items[2].onclick=()=>{ m.remove(); currentGame=g; openCollectionManager(); };
+  items[3].onclick=()=>{ m.remove(); openEdit(g); };
+  items[4].onclick=()=>{ m.remove(); bridge.matchVndb(g.id); toast('开始匹配：'+g.title); };
+  items[5].onclick=()=>{ m.remove(); showConfirmDialog({title:'从库中移除',
     message:`从库中移除「${g.title}」？\n（不会删除实际文件）`,
     danger:true, okText:'移除', cb:()=>bridge.deleteGame(g.id)}); };
   document.body.appendChild(m);
@@ -1102,7 +1185,7 @@ function renderCandidates(cands){
 
 document.getElementById('dlgClose').onclick=()=>closeSheet('detailOverlay');
 document.getElementById('dlgStart').onclick=()=>{ if(currentGame) bridge.launch(currentGame.id); };
-document.getElementById('dlgEdit').onclick=()=>{ if(currentGame){ closeSheet('detailOverlay'); openEdit(currentGame); } };
+document.getElementById('dlgEdit').onclick=()=>{ if(currentGame){ closeSheet('detailOverlay', true); openEdit(currentGame); } };
 document.getElementById('dlgFav').onclick=()=>{
   if(!currentGame) return;
   currentGame.fav=!currentGame.fav;
@@ -1121,16 +1204,20 @@ document.querySelectorAll('#dlgMoreMenu .item').forEach(it=>{
       danger:true, okText:'移除', cb:()=>bridge.deleteGame(currentGame.id)}); };
 });
 
+document.getElementById('shotPreviewClose').onclick=()=>closeSheet('shotPreviewOverlay');
+document.querySelectorAll('#shotMenu .item').forEach(it=>{
+  it.onclick=()=>{
+    hideShotMenu();
+    const act=it.dataset.act;
+    if(act==='rename') renameShot();
+    else if(act==='folder') openShotFolder();
+    else if(act==='copy') copyShot();
+    else if(act==='del') deleteShot();
+  };
+});
+
 document.getElementById('collectionClose').onclick=()=>closeSheet('collectionOverlay');
 document.getElementById('collectionDone').onclick=()=>closeSheet('collectionOverlay');
-document.getElementById('collectionAddGrp').onclick=()=>newCollection(0);
-document.getElementById('collectionAddCat').onclick=()=>{
-  // 新建分类需要先选分组：若无分组提示先建分组
-  const groups=state.collectionTree.filter(g=>(g.children||[]).length>=0);
-  if(!groups.length){ toast('请先创建分组'); return; }
-  const items=groups.map(g=>({label:g.name,value:g.id}));
-  openPicker('选择分组', items, function(gid){ newCollection(gid); });
-};
 document.getElementById('manageGamesClose').onclick=()=>closeSheet('manageGamesOverlay');
 document.getElementById('manageGamesKw').addEventListener('input',()=>renderManageGames());
 document.getElementById('manageGamesSelAll').onclick=()=>{
@@ -1159,9 +1246,11 @@ document.addEventListener('click',()=>{
   document.getElementById('filterMenu').classList.remove('show');
   document.getElementById('fabMenu').classList.remove('show');
   document.getElementById('dlgMoreMenu').classList.remove('show');
+  hideShotMenu();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){ if(state.batch){ state.batch=false; document.body.classList.remove('batch');
+  if(e.key==='Escape'){ hideShotMenu();
+    if(state.batch){ state.batch=false; document.body.classList.remove('batch');
       document.getElementById('batchBtn').classList.remove('active'); state.selected.clear(); renderAll(); }
     else closeTopSheet(); }
 });

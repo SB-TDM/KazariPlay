@@ -112,13 +112,14 @@ class GameRepository:
             """UPDATE games SET
                title = ?, engine = ?, tags = ?,
                cover_path = ?, logo_path = ?, description = ?,
-               launch_exe_path = ?,
+               launch_exe_path = ?, exe_path = ?, folder = ?,
                vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
                category_id = ?
                WHERE id = ?""",
             (game.title, game.engine or "", "",
              game.cover_path or "", game.logo_path or "",
              game.description or "", game.launch_exe_path or "",
+             game.exe_path or "", game.folder or "",
              game.vndb_id or "", game.released or "",
              game.developer or "", game.length_minutes or 0,
              game.category_id or 0, game.id)

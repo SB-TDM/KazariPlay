@@ -39,6 +39,32 @@ def _get_project_data_dir() -> str:
     return data_dir
 
 
+def get_screenshots_dir() -> str:
+    """获取项目根目录下的 screenshots/ 根目录（Steam 式截图存放处）
+
+    结构：
+        screenshots/
+        ├── {game_id}/          # 每个游戏一个子文件夹，单独管理该游戏截图
+        │   ├── shot_20260811_201530.png
+        │   └── ...
+        └── _unsorted/          # 无运行游戏时的截图（暂存）
+
+    定位到项目根（KazariPlay_V1.0/），即 path_utils.py 上级的上级的上级：
+        kazari_play/utils/path_utils.py -> KazariPlay_V1.0/
+    """
+    project_root = os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__))))
+    shots_dir = os.path.join(project_root, "screenshots")
+    os.makedirs(shots_dir, exist_ok=True)
+    return shots_dir
+
+
+def get_game_screenshots_dir(game_id: str) -> str:
+    """获取某游戏截图子目录（不存在时自动创建）"""
+    d = os.path.join(get_screenshots_dir(), game_id)
+    os.makedirs(d, exist_ok=True)
+    return d
+
 def get_app_data_dir(app_name: str = "KazariPlay") -> str:
     """获取应用数据目录（用于存数据库、配置、日志等）
 
