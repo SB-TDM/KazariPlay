@@ -18,17 +18,6 @@ logger = get_logger()
 
 
 # ---------- Win32 窗口截图（只截游戏画面）----------
-def _window_rect(hwnd: int):
-    """获取窗口矩形 (left, top, right, bottom)"""
-    try:
-        user32 = ctypes.windll.user32
-        rect = wintypes.RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(rect))
-        return rect.left, rect.top, rect.right, rect.bottom
-    except Exception:
-        return None
-
-
 def capture_game_window(pid: int) -> Optional[str]:
     """通过进程 PID 找到主窗口并用 PrintWindow 截取画面，返回临时文件路径"""
     try:
@@ -43,12 +32,15 @@ def capture_game_window(pid: int) -> Optional[str]:
     if not hwnd:
         logger.warning("未找到游戏窗口 (pid=%s)，回退全屏截图", pid)
         return None
-    rect = _window_rect(hwnd)
-    if not rect or rect[2] <= rect[0] or rect[3] <= rect[1]:
+    # 用客户区尺寸（游戏画面实际大小）。GetWindowRect 会包含边框/阴影，
+    # 与 PrintWindow 的 PW_CLIENTONLY 渲染范围不匹配，导致底部黑边
+    client = wintypes.RECT()
+    user32.GetClientRect(hwnd, ctypes.byref(client))
+    w = client.right - client.left
+    h = client.bottom - client.top
+    if w <= 0 or h <= 0:
         logger.warning("游戏窗口矩形无效，回退全屏截图")
         return None
-    left, top, right, bottom = rect
-    w, h = right - left, bottom - top
 
     # PrintWindow 截取窗口内容（即使被遮挡也能捕获）
     hdc_window = user32.GetWindowDC(hwnd)
