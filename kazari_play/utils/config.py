@@ -26,6 +26,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "emergency_hide": "ctrl+f12",
         "fullscreen_toggle": "f11",
         "mute_toggle": "ctrl+m",
+        "screenshot": "f12",
     },
     "disguise_scene": "excel",
     "auto_scan_on_startup": True,
@@ -33,6 +34,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "cover_size": "medium",
     "language": "zh-CN",
     "log_level": "INFO",
+    "overlay": {
+        "enabled": True,
+        "exe_path": "",
+        "toast_duration": 3.0,
+        "position": "bottom_right",
+    },
 }
 
 

@@ -73,13 +73,23 @@ class GameMonitor:
         return True
 
     def stop(self) -> None:
-        """停止监控（不主动结束游戏进程，仅结束监控线程）"""
+        """停止监控（不主动结束游戏进程，仅结束监控线程）
+
+        显式停止（应用内关闭/换游戏）时也触发 on_exit，
+        确保覆盖层、UI 等状态在任何关闭路径都能正确清理。
+        """
+        gid = self._current_game_id
+        runtime = self.get_runtime_seconds()
         if self._thread and self._thread.is_alive():
             self._stop_event.set()
             self._thread.join(timeout=self.tick_interval + 1)
         self._thread = None
         self._current_game_id = None
         self._start_time = None
+        # 显式停止时若仍在监控某游戏，触发 on_exit（幂等：自然退出时线程内已触发过，
+        # 但此时 current_game_id 已清空，不会重复）
+        if gid:
+            self._fire("on_exit", gid, runtime)
 
     def is_monitoring(self) -> bool:
         """是否正在监控"""

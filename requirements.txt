@@ -6,3 +6,4 @@ pywebview==6.2.1
 # 可选依赖（增强功能）：
 Pillow==10.1.0
 pywin32==306
+keyboard==0.13.5

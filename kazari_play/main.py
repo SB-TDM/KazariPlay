@@ -12,6 +12,7 @@
 import os
 import sys
 import ctypes
+import threading
 
 import webview
 
@@ -148,6 +149,29 @@ def _apply_window_extras(bridge):
     threading.Timer(1.0, _do).start()
 
 
+def _start_screenshot_hotkey(cfg, bridge):
+    """后台线程监听全局截图热键（默认 F12）
+
+    keyboard 库需要系统级钩子；注册失败时静默降级（截图仍可通过前端按钮触发）。
+    """
+    hotkey = (cfg.get("hotkeys") or {}).get("screenshot", "f12")
+
+    def _listen():
+        try:
+            import keyboard
+        except Exception as e:
+            logger.warning("keyboard 库不可用，全局截图热键禁用: %s", e)
+            return
+        try:
+            keyboard.add_hotkey(hotkey, lambda: bridge.takeScreenshotRunning())
+            logger.info("全局截图热键已注册: %s", hotkey)
+            keyboard.wait()
+        except Exception as e:
+            logger.warning("注册截图热键失败（可能需要管理员权限）: %s", e)
+
+    threading.Thread(target=_listen, daemon=True).start()
+
+
 def main():
     cfg = Config()
     set_level(cfg.get("log_level", "INFO"))
@@ -164,6 +188,8 @@ def main():
 
     manager = GameManager()
     bridge = WebBridge(manager)
+
+    _start_screenshot_hotkey(cfg, bridge)
 
     sw, sh = _screen_size()
     w, h = int(sw * 0.82), int(sh * 0.82)
@@ -187,6 +213,9 @@ def main():
         icon_path = os.path.join(res, "app_icon.png")
     if os.path.exists(icon_path):
         win.icon = icon_path
+
+    # 截图 toast 由独立 C++ overlay.exe 进程接管（首次截图时惰性拉起）
+
     bridge.startAutoScan()          # 启动时自动扫描 library_paths
     webview.start(func=lambda: _apply_window_extras(bridge), debug=False)
 

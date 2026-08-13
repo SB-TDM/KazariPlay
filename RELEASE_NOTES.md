@@ -1,3 +1,29 @@
+# KazariPlay V1.02 发行说明
+
+> 发布日期：2026-08-13
+> 项目：KazariPlay
+> 仓库：github.com/SB-TDM/KazariPlay
+
+## 主要更新（V1.02）
+
+### 游戏内截图提示（C++ Overlay）
+- F12 截图后在游戏画面右下角弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑）
+- 独立 C++ 进程 `overlay.exe`（Direct2D + DirectWrite 渲染，命名管道 IPC），替换原 pywebview 覆盖层，常驻内存由 ~50MB 降至 <5MB
+- 仅作用于游戏窗口；无游戏窗口时不弹出
+
+### Steam 式截图管理
+- 详情页截图卡片：左键放大预览、右键管理菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除）
+- 预览窗口放大 + 加载转圈 + 淡入动画
+- 移除旧截图管理对话框与前端 toast
+
+### 其他修复
+- 编辑游戏「启动文件」保存失效（update_game 漏写 exe_path/folder）
+- 「打开本地目录」定位到桌面/文档（路径正斜杠导致 explorer 解析失败，统一 normpath）
+- 抽屉式窗口下滑退出动画（上滑进入 / 下滑退出）
+- 打包排除 PyQt5（体积 152MB → 73MB）
+
+---
+
 # KazariPlay V1.01 发行说明
 
 > 发布日期：2026-08-11

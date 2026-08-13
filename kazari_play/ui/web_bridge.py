@@ -98,6 +98,46 @@ def _game_dict(g: Game) -> Dict[str, Any]:
     }
 
 
+def _set_clipboard_dib(data: bytes) -> bool:
+    """把 CF_DIB 位图数据写入系统剪贴板（DIB = BMP 去掉 14 字节文件头）"""
+    import ctypes
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    CF_DIB = 8
+    GMEM_MOVEABLE = 0x0002
+    kernel32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = ctypes.c_void_p
+    kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    kernel32.GlobalFree.argtypes = [ctypes.c_void_p]
+    user32.OpenClipboard.argtypes = [ctypes.c_void_p]
+    user32.OpenClipboard.restype = ctypes.c_bool
+    user32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
+    user32.SetClipboardData.restype = ctypes.c_void_p
+
+    if not user32.OpenClipboard(None):
+        return False
+    try:
+        user32.EmptyClipboard()
+        size = len(data)
+        hmem = kernel32.GlobalAlloc(GMEM_MOVEABLE, size)
+        if not hmem:
+            return False
+        ptr = kernel32.GlobalLock(hmem)
+        if not ptr:
+            kernel32.GlobalFree(hmem)
+            return False
+        ctypes.memmove(ptr, data, size)
+        kernel32.GlobalUnlock(hmem)
+        if not user32.SetClipboardData(CF_DIB, hmem):
+            kernel32.GlobalFree(hmem)
+            return False
+        return True
+    finally:
+        user32.CloseClipboard()
+
+
 class WebBridge:
     """pywebview js_api 桥（前端通过 pywebview.api.* 调用）"""
 
@@ -105,6 +145,7 @@ class WebBridge:
         self.manager = manager
         self._cfg = Config()
         self._window = None          # 由 create_window 后绑定
+        self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
         self._drag_anchor = None
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
         self._vndb_counter = 0       # VNDB 进度节流计数
@@ -168,12 +209,18 @@ class WebBridge:
 
     def openFolder(self, game_id: str):
         game = self.manager.get_game(game_id)
-        if not game or not game.folder or not os.path.exists(game.folder):
+        if not game or not game.exe_path:
             return
         try:
             if os.name == "nt":
                 import subprocess
-                subprocess.Popen(f'explorer /select,"{game.exe_path}"')
+                exe = os.path.normpath(game.exe_path)
+                if os.path.exists(exe):
+                    subprocess.Popen(["explorer", "/select," + exe])
+                else:
+                    folder = os.path.dirname(exe)
+                    if folder and os.path.isdir(folder):
+                        subprocess.Popen(["explorer", folder])
             else:
                 import webbrowser
                 webbrowser.open(game.folder)
@@ -211,8 +258,8 @@ class WebBridge:
                 # 启动文件：若前端提供了新路径则更新 exe 与所在目录
                 new_exe = (data.get("exe_path") or "").strip()
                 if new_exe and os.path.exists(new_exe):
-                    g.exe_path = new_exe
-                    g.folder = os.path.dirname(new_exe)
+                    g.exe_path = os.path.normpath(new_exe)
+                    g.folder = os.path.dirname(g.exe_path)
                 self.manager.update_game(g)
         else:
             g.id = self.manager.scanner._generate_id(
@@ -430,6 +477,147 @@ class WebBridge:
         g = self.manager.get_running_game()
         return g.id if g else ""
 
+    # ---------- 游戏截图（Steam 式）----------
+    def takeScreenshot(self, game_id: str) -> str:
+        """为指定游戏截图（仅游戏画面）。game_id 为空时归入 _unsorted。返回 JSON。"""
+        from core import screenshot_service
+        pid = self._running_pid()
+        path = screenshot_service.take_screenshot(game_id or None, pid=pid)
+        if path:
+            self.notify("截图已保存")
+            return json.dumps({"ok": True, "path": path}, ensure_ascii=False)
+        return json.dumps({"ok": False, "path": ""}, ensure_ascii=False)
+
+    def takeScreenshotRunning(self) -> str:
+        """为当前运行中的游戏截图（热键触发用）。无运行游戏则存 _unsorted。"""
+        g = self.manager.get_running_game()
+        game_id = g.id if g else None
+        from core import screenshot_service
+        pid = self._running_pid()
+        path = screenshot_service.take_screenshot(game_id, pid=pid)
+        if path:
+            self._push_screenshot_toast(game_id, path, g.title if g else "")
+            return json.dumps({"ok": True, "path": path, "game_id": game_id or ""},
+                              ensure_ascii=False)
+        return json.dumps({"ok": False, "path": "", "game_id": game_id or ""},
+                          ensure_ascii=False)
+
+    def _running_pid(self) -> Optional[int]:
+        """当前运行游戏进程 PID（无则 None）"""
+        launcher = getattr(self.manager, "launcher", None)
+        proc = getattr(launcher, "current_process", None) if launcher else None
+        return proc.pid if proc and proc.poll() is None else None
+
+    def _running_game_hwnd(self) -> int:
+        """当前运行游戏主窗口句柄（无则 0）"""
+        pid = self._running_pid()
+        if not pid:
+            return 0
+        from core import screenshot_service
+        return screenshot_service.find_main_window_by_pid(pid)
+
+    def _get_overlay_client(self):
+        if self._overlay_client is None:
+            from core.overlay_client import OverlayClient
+            self._overlay_client = OverlayClient()
+        return self._overlay_client
+
+    def _push_screenshot_toast(self, game_id: str, path: str, title: str):
+        """截图成功后：驱动 C++ overlay 在游戏画面内弹 toast（仅游戏窗口，失败静默降级）"""
+        hwnd = self._running_game_hwnd()
+        if not hwnd:
+            return
+        try:
+            client = self._get_overlay_client()
+            client.show(hwnd, path or "", title or "")
+        except Exception as e:
+            logger.warning("游戏内 toast 发送失败: %s", e)
+
+    def getScreenshots(self, game_id: str) -> str:
+        """返回某游戏截图列表 JSON（含时间，不含图片内容）"""
+        from core import screenshot_service
+        return json.dumps(screenshot_service.get_screenshots(game_id),
+                          ensure_ascii=False)
+
+    def getScreenshotThumb(self, game_id: str, filename: str) -> str:
+        """返回单张截图的 base64 data URI（缩略图懒加载用）"""
+        from core import screenshot_service
+        shots = screenshot_service.get_screenshots(game_id)
+        p = ""
+        for s in shots:
+            if s["file"] == filename:
+                p = s["path"]
+                break
+        if not p or not os.path.exists(p):
+            return ""
+        try:
+            with open(p, "rb") as f:
+                raw = f.read()
+            if len(raw) > 8 * 1024 * 1024:
+                return ""
+            uri = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
+            return uri
+        except Exception:
+            return ""
+
+    def deleteScreenshot(self, game_id: str, filename: str) -> bool:
+        from core import screenshot_service
+        ok = screenshot_service.delete_screenshot(game_id, filename)
+        self.refresh()
+        return ok
+
+    def renameScreenshot(self, game_id: str, filename: str, new_name: str) -> bool:
+        from core import screenshot_service
+        ok = screenshot_service.rename_screenshot(game_id, filename, new_name)
+        self.refresh()
+        return ok
+
+    def openScreenshotFolder(self, game_id: str, filename: str) -> bool:
+        """在资源管理器中定位到截图文件（explorer /select）"""
+        from core import screenshot_service
+        shots = screenshot_service.get_screenshots(game_id)
+        p = ""
+        for s in shots:
+            if s["file"] == filename:
+                p = s["path"]
+                break
+        if not p or not os.path.exists(p):
+            return False
+        try:
+            if os.name == "nt":
+                import subprocess
+                subprocess.Popen(["explorer", "/select," + p])
+            else:
+                import webbrowser
+                webbrowser.open(os.path.dirname(p))
+            return True
+        except Exception as e:
+            logger.error("定位截图失败: %s", e)
+            return False
+
+    def copyScreenshotToClipboard(self, game_id: str, filename: str) -> bool:
+        """把截图复制到系统剪贴板"""
+        from core import screenshot_service
+        shots = screenshot_service.get_screenshots(game_id)
+        p = ""
+        for s in shots:
+            if s["file"] == filename:
+                p = s["path"]
+                break
+        if not p or not os.path.exists(p):
+            return False
+        try:
+            from PIL import Image
+            import io
+            img = Image.open(p).convert("RGB")
+            buf = io.BytesIO()
+            img.save(buf, "BMP")
+            dib = buf.getvalue()[14:]
+        except Exception as e:
+            logger.error("读取截图失败: %s", e)
+            return False
+        return _set_clipboard_dib(dib)
+
     # ---------- 封面更换 ----------
     def pickCover(self) -> str:
         if self._window is None:
@@ -615,6 +803,11 @@ class WebBridge:
             self._maximized = False
 
     def windowClose(self):
+        if self._overlay_client is not None:
+            try:
+                self._overlay_client.quit()
+            except Exception:
+                pass
         if self._window:
             self._window.destroy()
 
