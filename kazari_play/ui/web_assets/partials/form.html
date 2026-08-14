@@ -1,0 +1,36 @@
+<!-- 编辑 / 添加表单抽屉（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<div class="overlay" id="formOverlay">
+  <div class="dialog form edit-form">
+    <div class="form-scroll">
+      <div class="dlg-title"><span id="formTitle">编辑游戏</span>
+        <button class="close-btn" id="formClose">×</button></div>
+      <div class="form-row" id="fTitleRow"><label>标题</label><input id="fTitle"></div>
+      <div class="form-row" id="fEngineRow"><label>引擎</label><input id="fEngine"></div>
+      <div class="form-row" id="fDevRow"><label>开发商</label><input id="fDev"></div>
+      <div class="form-row" id="fRatingRow"><label>评分</label>
+        <select id="fRating"><option value="0">未评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+      <div class="form-row" id="fDescRow"><label>简介</label><textarea id="fDesc"></textarea></div>
+      <div class="form-row" id="fCoverRow" style="display:none">
+        <label>封面</label>
+        <div class="field"><img id="fCoverPrev" class="cover-prev" alt=""><button class="pill-btn" id="btnPickCover" style="flex:none">更换封面</button></div>
+      </div>
+      <div class="form-row" id="fMetaRow" style="display:none">
+        <label>元数据</label>
+        <div class="field" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="fSearchKw" placeholder="用标题搜索（混合 / 单源）" style="flex:1">
+            <button class="pill-btn" id="btnMetaSearch" style="flex:none">搜索</button>
+          </div>
+          <!-- 来源工具栏：混合 + 各源（favicon），点击切换检索范围 -->
+          <div class="src-bar" id="fSrcBar"></div>
+        </div>
+      </div>
+      <div id="fCands"></div>
+      <div class="form-row" id="fExeRow" style="display:none"><label>启动文件</label>
+        <input id="fExe" placeholder="选择游戏启动 exe"><button class="pill-btn" id="btnPickExe" style="flex:none">选择</button></div>
+    </div>
+    <div class="dlg-foot"><button class="pill-btn" id="formCancel">取消</button>
+      <button class="pill-btn primary" id="formSave">保存</button></div>
+  </div>
+</div>

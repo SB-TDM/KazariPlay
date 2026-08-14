@@ -1,0 +1,106 @@
+<!-- 设置窗口（main.py 注入到 index.html 的 PARTIALS 标记处，逻辑在 js/settings.js） -->
+
+<div class="overlay center" id="settingsOverlay">
+  <div class="dialog settings">
+    <div class="dlg-head">
+      <h3><span class="cog">⚙</span> 设置</h3>
+      <button class="close-btn" id="setClose">×</button>
+    </div>
+    <div class="dlg-body">
+      <div class="dlg-nav" id="setNav">
+        <button class="nav-item active" data-tab="general">常规</button>
+        <button class="nav-item" data-tab="theme">主题</button>
+        <button class="nav-item" data-tab="hotkey">快捷键</button>
+        <button class="nav-item" data-tab="disguise">伪装</button>
+        <button class="nav-item" data-tab="metadata">元数据</button>
+        <button class="nav-item" data-tab="about">关于</button>
+      </div>
+      <div class="dlg-content">
+        <div class="page" id="set-general">
+          <div class="group">
+            <div class="g-title">启动</div>
+            <div class="form-row">
+              <div class="label">自动扫描</div>
+              <div class="field">
+                <label class="switch"><input type="checkbox" id="setAutoScan"><span class="track"><span class="thumb"></span></span></label>
+                <span class="desc">启动时扫描库文件夹</span>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:6px">
+              <div class="label">封面尺寸</div>
+              <div class="field"><select id="setCoverSize"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></div>
+            </div>
+          </div>
+            <div class="group">
+              <div class="g-title">日志</div>
+              <div class="form-row">
+                <div class="label">日志级别</div>
+                <div class="field"><select id="setLogLevel"><option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option></select></div>
+              </div>
+              <div class="form-row" style="margin-top:6px">
+                <div class="label">显示日志窗口</div>
+                <div class="field">
+                  <label class="switch"><input type="checkbox" id="setShowConsole"><span class="track"><span class="thumb"></span></span></label>
+                  <span class="desc">启动时是否打开命令提示符</span>
+                </div>
+              </div>
+            </div>
+        </div>
+        <div class="page" id="set-theme" style="display:none">
+          <div class="group">
+            <div class="g-title">主题模式（选择即预览，保存后生效）</div>
+            <div class="theme-cards">
+              <div class="theme-card light" data-card="light" onclick="Settings.pickTheme('light')">
+                <div class="sw"><div class="bar"></div><div class="body"></div></div>
+                <div class="lbl">浅色 · Kawaii 主推</div>
+              </div>
+              <div class="theme-card dark" data-card="dark" onclick="Settings.pickTheme('dark')">
+                <div class="sw"><div class="bar"></div><div class="body"></div></div>
+                <div class="lbl">深色 · 夜间模式</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page" id="set-hotkey" style="display:none">
+          <div class="group">
+            <div class="g-title">全局快捷键（点击后按下组合键，保存后立即生效）</div>
+            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">游戏截图</div><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly></div></div>
+          </div>
+        </div>
+        <div class="page" id="set-disguise" style="display:none">
+          <div class="group">
+            <div class="g-title">避险伪装</div>
+            <div class="form-row">
+              <div class="label">伪装场景</div>
+              <div class="field"><select id="setDisguise"><option value="excel" selected>Excel</option><option value="word">Word</option><option value="browser">浏览器</option></select></div>
+            </div>
+            <div class="form-row"><div class="desc" style="padding-left:96px">触发紧急隐藏时，窗口伪装为所选场景。</div></div>
+          </div>
+        </div>
+        <div class="page" id="set-metadata" style="display:none">
+          <div class="group">
+            <div class="g-title">混合检索数据源</div>
+            <div class="form-row"><div class="desc" style="padding-left:0">勾选参与「混合」元数据搜索的源；「未接入」的源为占位，暂不可用。</div></div>
+            <div id="setSrcList"></div>
+          </div>
+        </div>
+        <div class="page" id="set-about" style="display:none">
+          <div class="about">
+            <div class="a-logo">☺</div>
+            <div class="a-name">KazariPlay</div>
+            <div class="a-ver">版本 v1.01</div>
+            <div class="a-meta">视觉小说本地库启动器<br><span id="setCfgPath"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <button class="reset" id="setReset">恢复默认</button>
+      <button class="pill-btn" id="setCancel">取消</button>
+      <button class="pill-btn primary" id="setSave">保存</button>
+    </div>
+  </div>
+</div>

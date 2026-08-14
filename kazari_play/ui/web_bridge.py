@@ -2,20 +2,24 @@
 
 - 通过 pywebview.create_window(js_api=WebBridge(...)) 注入，
   JS 侧用 `pywebview.api.method(...)`（Promise）调用
-- 数据变化（monitor 退出、扫描完成）经 evaluate_js 通知前端刷新
+- 数据变化（monitor 退出、扫描完成、封面/截图更新等）统一经 UISync
+  （ui/sync.py）合并推送前端，不在本类内直接拼 evaluate_js
 - 窗口控制（最小化/最大化/拖拽）也由此桥接
 """
 import base64
+import hashlib
 import json
 import os
 import shutil
 import threading
+from collections import OrderedDict
 from typing import Optional, Dict, Any
 
 import webview
 
 from core.game_manager import GameManager
 from core.game_model import Game
+from ui.sync import UISync
 from utils.config import Config
 from utils.path_utils import get_app_data_dir
 from utils.logger import get_logger
@@ -27,7 +31,41 @@ _RESOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(
 
 _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
          "webp": "image/webp", "gif": "image/gif"}
-_cover_cache: Dict[str, str] = {}
+
+# ---------- 封面 base64 缓存（LRU，防长期会话内存无界增长）----------
+# 封面以 data URI 形式常驻内存（原图 base64 再膨胀 ~33%），无上限缓存
+# 会在千库规模下累积数百 MB。这里按「条目数 + 总字节」双上限，超限时
+# 淘汰最久未使用的条目（OrderedDict.popitem(last=False)）。
+_MAX_COVER_CACHE_ENTRIES = 128
+_MAX_COVER_CACHE_BYTES = 48 * 1024 * 1024   # 总字节上限（base64 字符串长度）
+_cover_cache: "OrderedDict[str, str]" = OrderedDict()
+_cover_cache_bytes = 0
+
+
+def _cover_cache_get(path: str) -> Optional[str]:
+    """读取封面缓存；命中时标记为最近使用，未命中返回 None"""
+    uri = _cover_cache.get(path)
+    if uri is not None:
+        _cover_cache.move_to_end(path)
+    return uri
+
+
+def _cover_cache_put(path: str, uri: str) -> None:
+    """写入封面缓存并做 LRU 淘汰（超上限时移除最久未用条目）"""
+    global _cover_cache_bytes
+    _cover_cache[path] = uri          # 已存在时 OrderedDict 自动移到末尾
+    _cover_cache_bytes += len(uri)
+    while (_cover_cache_bytes > _MAX_COVER_CACHE_BYTES
+           or len(_cover_cache) > _MAX_COVER_CACHE_ENTRIES) and _cover_cache:
+        _, old = _cover_cache.popitem(last=False)
+        _cover_cache_bytes -= len(old)
+
+
+def _cover_cache_clear() -> None:
+    """清空缓存（封面更新后调用）"""
+    global _cover_cache_bytes
+    _cover_cache.clear()
+    _cover_cache_bytes = 0
 
 
 def _default_cover_path() -> str:
@@ -46,23 +84,76 @@ def _cover_version(g: Game) -> int:
     return 0
 
 
+# 封面缩略图参数：512px 宽在 200% 高分屏缩放（卡片 154→308、详情封面 240→480 设备像素）
+# 下仍清晰；JPEG q85 体积约 60~120KB，base64 后仍远小于原图（VNDB 数百 KB~数 MB）。
+_THUMB_WIDTH = 512
+_THUMB_QUALITY = 85
+
+
+def _cover_thumb_path(path: str) -> str:
+    """封面缩略图路径（文件名含 尺寸版本 + 原图 mtime：
+    封面更换或缩略图参数调整后自动失效重建，旧文件自然弃用）"""
+    try:
+        mtime = int(os.path.getmtime(path))
+    except OSError:
+        mtime = 0
+    digest = hashlib.md5(f"{path}|{mtime}".encode("utf-8")).hexdigest()[:16]
+    return os.path.join(get_app_data_dir(), "covers", "thumbs",
+                        f"{digest}_w{_THUMB_WIDTH}.jpg")
+
+
+def _ensure_cover_thumb(path: str) -> str:
+    """确保封面缩略图存在并返回其路径；生成失败回退原图路径
+
+    getCover 返回缩略图（512px 宽 JPEG，约 60~120KB）而非原图（VNDB 数百 KB、
+    手动封面上限 6MB）：既保证高分屏下的清晰度，又大幅降低 base64 体积与
+    桥线程 I/O，消除滚动时封面逐个加载的卡顿与弹入感。
+    按 原图路径+mtime 命名落盘，封面更换后自动重建（幂等）。
+    """
+    thumb = _cover_thumb_path(path)
+    if os.path.exists(thumb):
+        return thumb
+    try:
+        from PIL import Image
+    except Exception:
+        return path
+    try:
+        os.makedirs(os.path.dirname(thumb), exist_ok=True)
+        with Image.open(path) as im:
+            im = im.convert("RGB")
+            # 按宽度等比缩放（LANCZOS 高质量）；原图已 ≤512 宽则不放大
+            w, h = im.size
+            if w > _THUMB_WIDTH:
+                im = im.resize(
+                    (_THUMB_WIDTH, max(1, int(h * _THUMB_WIDTH / w))),
+                    Image.LANCZOS)
+            im.save(thumb, "JPEG", quality=_THUMB_QUALITY)
+        if os.path.exists(thumb) and os.path.getsize(thumb) > 0:
+            return thumb
+    except Exception:
+        pass
+    return path
+
+
 def _cover_data_uri(path: str) -> str:
-    """封面图 → base64 data URI（html= 模式下 file:// 会被 WebView2 拦截）"""
+    """封面图 → base64 data URI（优先缩略图；html= 模式下 file:// 会被 WebView2 拦截）"""
     if not path or not os.path.exists(path):
         path = _default_cover_path()
     if not path:
         return ""
-    if path in _cover_cache:
-        return _cover_cache[path]
+    src = _ensure_cover_thumb(path)   # 缩略图或原图（生成失败回退）
+    cached = _cover_cache_get(src)
+    if cached is not None:
+        return cached
     try:
-        with open(path, "rb") as f:
+        with open(src, "rb") as f:
             raw = f.read()
         if len(raw) > 6 * 1024 * 1024:
             return ""
-        ext = os.path.splitext(path)[1].lower().lstrip(".")
+        ext = os.path.splitext(src)[1].lower().lstrip(".")
         mime = _MIME.get(ext, "image/jpeg")
         uri = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-        _cover_cache[path] = uri
+        _cover_cache_put(src, uri)
         return uri
     except Exception:
         return ""
@@ -145,6 +236,7 @@ class WebBridge:
         self.manager = manager
         self._cfg = Config()
         self._window = None          # 由 create_window 后绑定
+        self._ui = UISync()          # 界面更新总线（全部前端推送经它合并发出）
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
         self._drag_anchor = None
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
@@ -156,6 +248,7 @@ class WebBridge:
 
     def bind_window(self, window):
         self._window = window
+        self._ui.bind_window(window)
 
     # ---------- 数据 ----------
     def getGames(self) -> str:
@@ -262,10 +355,21 @@ class WebBridge:
                     g.folder = os.path.dirname(g.exe_path)
                 self.manager.update_game(g)
         else:
-            g.id = self.manager.scanner._generate_id(
-                data.get("exe_path", "") or data.get("title", ""))
-            g.exe_path = data.get("exe_path", "")
-            g.folder = data.get("folder", "")
+            # 手动添加单个 exe：exe 必填；标题自动推导（exe 所在文件夹名，兜底文件名），
+            # 添加前不强制取名；引擎/开发商/简介留空，可进详情后编辑
+            exe_path = (data.get("exe_path") or "").strip()
+            if not exe_path:
+                self.notify("请先选择要添加的 exe 文件")
+                return
+            exe_path = os.path.normpath(exe_path)
+            title = (data.get("title") or "").strip()
+            if not title:
+                title = self.manager.scanner._generate_title(
+                    os.path.dirname(exe_path), os.path.basename(exe_path))
+            g.title = title
+            g.id = self.manager.scanner._generate_id(exe_path)
+            g.exe_path = exe_path
+            g.folder = os.path.dirname(exe_path)
             g.category_id = int(data.get("cat_id", 0) or 0)
             self.manager.add_game(g)
         self.refresh()
@@ -478,6 +582,19 @@ class WebBridge:
         return g.id if g else ""
 
     # ---------- 游戏截图（Steam 式）----------
+    def updateScreenshotHotkey(self, hotkey: str = "") -> bool:
+        """设置里修改截图热键后：写入配置并立即重新注册（无需重启）
+
+        同时写配置保证前后端一致（saveConfigs 是整包保存，这里幂等兜底）。
+        注册失败（keyboard 不可用/被拒）返回 False，不影响配置保存。
+        """
+        hotkey = (hotkey or "").strip()
+        if hotkey:
+            self._cfg.set("hotkeys.screenshot", hotkey)
+            self._cfg.save()
+        from utils.hotkeys import reconfigure_screenshot_hotkey
+        return reconfigure_screenshot_hotkey()
+
     def takeScreenshot(self, game_id: str) -> str:
         """为指定游戏截图（仅游戏画面）。game_id 为空时归入 _unsorted。返回 JSON。"""
         from core import screenshot_service
@@ -485,6 +602,7 @@ class WebBridge:
         path = screenshot_service.take_screenshot(game_id or None, pid=pid)
         if path:
             self.notify("截图已保存")
+            self._ui.invalidate("screenshots", game_id or None)
             return json.dumps({"ok": True, "path": path}, ensure_ascii=False)
         return json.dumps({"ok": False, "path": ""}, ensure_ascii=False)
 
@@ -497,6 +615,7 @@ class WebBridge:
         path = screenshot_service.take_screenshot(game_id, pid=pid)
         if path:
             self._push_screenshot_toast(game_id, path, g.title if g else "")
+            self._ui.invalidate("screenshots", game_id)
             return json.dumps({"ok": True, "path": path, "game_id": game_id or ""},
                               ensure_ascii=False)
         return json.dumps({"ok": False, "path": "", "game_id": game_id or ""},
@@ -652,15 +771,31 @@ class WebBridge:
             logger.error("更换封面失败: %s", e)
         self.refresh()
 
-    # ---------- 多源搜索手动匹配（VNDB + Bangumi） ----------
-    def searchMetadata(self, keyword: str) -> str:
+    # ---------- 多源搜索手动匹配（源可自行配置，见 core/multi_source.py）----------
+    def searchMetadata(self, keyword: str, sources_json: str = "") -> str:
+        """多源搜索元数据；sources_json 为源 id 列表，空则用用户配置的混合源"""
         from core import multi_source
         try:
-            cands = multi_source.search_metadata(keyword, limit_per_source=5)
+            sources = None
+            if sources_json and sources_json.strip():
+                sources = json.loads(sources_json)
+            cands = multi_source.search_metadata(keyword, sources=sources,
+                                                 limit_per_source=5)
             return json.dumps(cands, ensure_ascii=False)
         except Exception as e:
             logger.error("多源搜索失败: %s", e)
             return "[]"
+
+    def getMetadataSources(self) -> str:
+        """返回全部元数据源（id/名称/favicon/状态/是否启用），供设置页与工具栏展示"""
+        from core import multi_source
+        return json.dumps(multi_source.get_all_sources(), ensure_ascii=False)
+
+    def saveMetadataSources(self, sources_json: str):
+        """保存用户勾选的混合检索源（写 config，即时生效）"""
+        from core import multi_source
+        multi_source.set_mixed_sources(json.loads(sources_json))
+        self.notify("元数据源配置已保存")
 
     def applyCandidate(self, game_id: str, candidate_json: str):
         from core import multi_source
@@ -717,33 +852,19 @@ class WebBridge:
             if p and os.path.isdir(p):
                 threading.Thread(target=self._do_scan, args=(p,), daemon=True).start()
 
-    # ---------- 前端刷新 ----------
+    # ---------- 前端刷新（统一经 UISync 合并推送，见 ui/sync.py）----------
     def refresh(self):
-        """数据变化后通知前端刷新（可在任意线程调用）"""
-        try:
-            if self._window is not None:
-                self._window.evaluate_js("window.__app && window.__app.refresh();")
-        except Exception as e:
-            logger.warning("刷新前端失败: %s", e)
+        """数据变化后通知前端刷新（可在任意线程调用，微延迟合并）"""
+        self._ui.invalidate("games")
 
     def notify(self, msg: str):
-        """向前端弹 toast 提示（可在任意线程调用）"""
-        try:
-            if self._window is not None:
-                self._window.evaluate_js(
-                    f"window.__app && window.__app.toast({json.dumps(msg)});")
-        except Exception as e:
-            logger.warning("前端提示失败: %s", e)
+        """向前端弹 toast 提示（可在任意线程调用，微延迟合并）"""
+        self._ui.invalidate("toast", msg)
 
     def reloadCovers(self):
-        """封面更新后强制前端重新加载所有卡片封面（清缓存后调用）"""
-        _cover_cache.clear()
-        try:
-            if self._window is not None:
-                self._window.evaluate_js(
-                    "window.__app && window.__app.reloadCovers();")
-        except Exception as e:
-            logger.warning("前端封面重载失败: %s", e)
+        """封面更新后强制前端重新加载所有卡片封面（清缓存后定向推送）"""
+        _cover_cache_clear()
+        self._ui.invalidate("covers")
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         self.refresh()

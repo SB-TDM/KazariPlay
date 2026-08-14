@@ -1,0 +1,32 @@
+<!-- 收藏夹管理抽屉 + 管理游戏对话框（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<!-- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 -->
+<div class="overlay" id="collectionOverlay">
+  <div class="dialog tagmgr">
+    <div class="dlg-title"><span>收藏夹</span>
+      <button class="close-btn" id="collectionClose">×</button></div>
+    <div id="gameCollectionSection">
+      <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
+      <div class="taglist" id="gameCollectionList"></div>
+    </div>
+    <div class="section-ttl">点击收藏夹加入/退出</div>
+    <div class="dlg-foot"><button class="pill-btn" id="collectionDone">完成</button></div>
+  </div>
+</div>
+
+<!-- 管理游戏对话框：批量勾选某收藏夹下的游戏 -->
+<div class="overlay" id="manageGamesOverlay">
+  <div class="dialog tagmgr">
+    <div class="dlg-title"><span id="manageGamesTitle">管理游戏</span>
+      <button class="close-btn" id="manageGamesClose">×</button></div>
+    <div class="section-ttl">勾选要归入该收藏夹的游戏</div>
+    <div class="tagform"><input id="manageGamesKw" placeholder="搜索游戏…"></div>
+    <div class="manage-list" id="manageGamesList"></div>
+    <div class="dlg-foot">
+      <button class="pill-btn" id="manageGamesSelAll">全选</button>
+      <button class="pill-btn" id="manageGamesClear">清空</button>
+      <span class="manage-count" id="manageGamesCount">已选 0 个</span>
+      <button class="pill-btn primary" id="manageGamesSave">保存</button>
+    </div>
+  </div>
+</div>

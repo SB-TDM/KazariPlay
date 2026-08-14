@@ -49,13 +49,18 @@ overlay.exe 缺失或编译失败时，截图提示自动降级（不影响截�
 ```
 KazariPlay_V1.0/
 ├── kazari_play/
-│   ├── main.py                # pywebview 入口（无边框窗口 + js_api）
+│   ├── main.py                # pywebview 入口（无边框窗口 + js_api；html/js/css 启动时内联）
 │   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
 │   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
 │   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi）
 │   ├── ui/
 │   │   ├── web_bridge.py      # pywebview js_api 桥（后端能力暴露给前端）
-│   │   └── web_assets/        # index.html + css/ + js/（真实 UI）
+│   │   ├── sync.py            # 界面更新总线（数据变化 → 前端刷新的统一推送/合并）
+│   │   └── web_assets/        # 前端源码（详见 web_assets/README.md）
+│   │       ├── index.html     # 应用壳（侧边栏/主区/窗口手柄 + PARTIALS/SCRIPTS 占位符）
+│   │       ├── css/style.css
+│   │       ├── js/            # 12 个 JS 模块，按依赖顺序由 main.py 内联（_JS_MANIFEST）
+│   │       └── partials/      # 各窗口/对话框分块 HTML（_PARTIAL_MANIFEST）
 │   └── resources/
 ├── overlay/                   # C++ 游戏内截图 overlay（Direct2D + 命名管道 IPC）
 │   ├── src/                   # main / toast_window / pipe_server / protocol

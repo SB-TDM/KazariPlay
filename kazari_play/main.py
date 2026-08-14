@@ -39,26 +39,62 @@ def _icon_data_uri() -> str:
         return ""
 
 
+# JS 模块加载清单（按依赖顺序，勿随意调整；每项对应 ui/web_assets/js/ 下的文件）
+# 顶部 let/const/function 在多个经典 <script> 块间共享，等价于"按文件拆分的单文件脚本"。
+_JS_MANIFEST = [
+    "state.js",        # 全局共享状态（无依赖，最先加载）
+    "core.js",         # bridge 代理 + 通用工具（esc/toast/stars/loadCoverTo）
+    "ui.js",           # Sheet / 通用对话框 / 右键菜单基础设施
+    "window.js",       # 标题栏拖拽 / 缩放 / 最大化
+    "games.js",        # 游戏数据 + 卡片网格（渲染/过滤/懒加载/拖拽排序）
+    "detail.js",       # 详情底部抽屉
+    "screenshots.js",  # 截图卡片 / 预览 / 右键管理
+    "collections.js",  # 收藏夹树 / 收藏夹管理 / 管理游戏
+    "batch.js",        # 批量选择模式
+    "form.js",         # 编辑 / 添加表单 + 元数据候选
+    "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
+    "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
+]
+
+# HTML 分块清单（各窗口/对话框独立文件，注入到 index.html 的 <!-- PARTIALS --> 标记处；
+# 顺序即 DOM 顺序，全部 .overlay 同为 z-index:100，靠 DOM 顺序决定层叠）
+_PARTIAL_MANIFEST = [
+    "common.html",      # 通用输入 / 确认 / 选择器对话框
+    "detail.html",      # 详情抽屉 + 截图预览 + 截图右键菜单
+    "collections.html", # 收藏夹管理 + 管理游戏对话框
+    "form.html",        # 编辑 / 添加表单
+    "settings.html",    # 设置窗口
+]
+
+
 def _load_html() -> str:
-    """读取 index.html 并把 css/js 内联，避免外部相对资源加载问题"""
+    """读取 index.html 并把 css / js 模块 / 分块 html 内联，避免外部相对资源加载问题"""
     assets = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "ui", "web_assets")
 
-    def read(name: str) -> str:
-        with open(os.path.join(assets, name), encoding="utf-8") as f:
+    def read(rel: str) -> str:
+        with open(os.path.join(assets, rel), encoding="utf-8") as f:
             return f.read()
 
     html = read("index.html")
+
+    # 1) 注入分块 HTML（各窗口/对话框独立文件，便于维护）
+    partials = "\n".join(
+        read(os.path.join("partials", name)) for name in _PARTIAL_MANIFEST)
+    html = html.replace("<!-- PARTIALS -->", partials)
+
+    # 2) 注入 JS 模块（按清单顺序内联为多个 <script> 块）
+    scripts = "\n".join(
+        f"<script>\n{read(os.path.join('js', name))}\n</script>"
+        for name in _JS_MANIFEST)
+    html = html.replace("<!-- SCRIPTS -->", scripts)
+
+    # 3) css 内联
     css = read(os.path.join("css", "style.css"))
-    setjs = read(os.path.join("js", "settings.js"))
-    appjs = read(os.path.join("js", "app.js"))
     html = html.replace('<link rel="stylesheet" href="css/style.css">',
                         "<style>" + css + "</style>")
-    html = html.replace('<script src="js/settings.js"></script>',
-                        "<script>" + setjs + "</script>")
-    html = html.replace('<script src="js/app.js"></script>',
-                        "<script>" + appjs + "</script>")
-    # 笑脸占位符 → 真实图标（data URI，保留圆角）
+
+    # 4) 笑脸占位符 → 真实图标（data URI，保留圆角）
     icon = _icon_data_uri()
     if icon:
         img = f'<img class="logo-img" src="{icon}" alt="">'
@@ -149,27 +185,14 @@ def _apply_window_extras(bridge):
     threading.Timer(1.0, _do).start()
 
 
-def _start_screenshot_hotkey(cfg, bridge):
-    """后台线程监听全局截图热键（默认 F12）
+def _start_screenshot_hotkey(bridge):
+    """注册全局截图热键（默认 F12），失败静默降级。
 
-    keyboard 库需要系统级钩子；注册失败时静默降级（截图仍可通过前端按钮触发）。
+    注册逻辑在 utils/hotkeys.py（keyboard 库自带钩子线程，无需额外 wait）；
+    用户在设置里修改热键后，经 WebBridge.updateScreenshotHotkey 重新注册，立即生效。
     """
-    hotkey = (cfg.get("hotkeys") or {}).get("screenshot", "f12")
-
-    def _listen():
-        try:
-            import keyboard
-        except Exception as e:
-            logger.warning("keyboard 库不可用，全局截图热键禁用: %s", e)
-            return
-        try:
-            keyboard.add_hotkey(hotkey, lambda: bridge.takeScreenshotRunning())
-            logger.info("全局截图热键已注册: %s", hotkey)
-            keyboard.wait()
-        except Exception as e:
-            logger.warning("注册截图热键失败（可能需要管理员权限）: %s", e)
-
-    threading.Thread(target=_listen, daemon=True).start()
+    from utils.hotkeys import register_screenshot_hotkey
+    register_screenshot_hotkey(lambda: bridge.takeScreenshotRunning())
 
 
 def main():
@@ -189,7 +212,7 @@ def main():
     manager = GameManager()
     bridge = WebBridge(manager)
 
-    _start_screenshot_hotkey(cfg, bridge)
+    _start_screenshot_hotkey(bridge)
 
     sw, sh = _screen_size()
     w, h = int(sw * 0.82), int(sh * 0.82)

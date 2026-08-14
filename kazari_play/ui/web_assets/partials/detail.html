@@ -1,0 +1,58 @@
+<!-- 详情抽屉 + 截图预览/右键菜单（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<!-- 详情底部抽屉 -->
+<div class="overlay" id="detailOverlay">
+  <div class="dialog detail" id="detailDialog">
+    <div class="detail-cover" id="dlgCover"></div>
+    <div class="detail-body">
+      <div class="detail-head">
+        <h2 id="dlgTitle"></h2>
+        <div class="more-wrap">
+          <button class="close-btn" id="dlgMore">⋮</button>
+          <div class="more-menu" id="dlgMoreMenu">
+            <div class="item" data-act="vndb">VNDB 匹配</div>
+            <div class="item" data-act="open">打开本地目录</div>
+            <div class="item danger" data-act="del">删除</div>
+          </div>
+        </div>
+        <button class="close-btn" id="dlgClose">×</button>
+      </div>
+      <div class="info-grid" id="dlgInfo"></div>
+      <div class="detail-actions">
+        <button class="pill-btn primary" id="dlgStart">开始游戏</button>
+        <button class="pill-btn" id="dlgEdit">编辑</button>
+        <button class="pill-btn fav" id="dlgFav">☆ 收藏</button>
+      </div>
+      <div class="collections-row" id="dlgCollections"></div>
+      <div class="detail-desc" id="dlgDesc"></div>
+      <!-- 游戏截图（Steam 式） -->
+      <div class="screenshots-section">
+        <div class="shots-head">
+          <span class="shots-ttl">截图</span>
+          <span class="shots-hint">左键预览 · 右键管理</span>
+        </div>
+        <div class="shots-grid" id="shotsGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 截图大图预览 -->
+<div class="overlay center" id="shotPreviewOverlay">
+  <div class="dialog shot-preview">
+    <div class="dlg-title"><span id="shotPreviewTitle">截图</span>
+      <button class="close-btn" id="shotPreviewClose">×</button></div>
+    <div class="shot-preview-body">
+      <div class="shot-preview-loading" id="shotPreviewLoading">加载中…</div>
+      <img id="shotPreviewImg" alt="">
+    </div>
+  </div>
+</div>
+
+<!-- 截图右键菜单 -->
+<div class="shot-menu" id="shotMenu">
+  <div class="item" data-act="rename">重命名</div>
+  <div class="item" data-act="folder">打开所在位置</div>
+  <div class="item" data-act="copy">复制到剪贴板</div>
+  <div class="item danger" data-act="del">删除</div>
+</div>

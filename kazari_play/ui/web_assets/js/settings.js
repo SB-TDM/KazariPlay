@@ -54,11 +54,37 @@
       $('setHkHide').value = fmtKey(hk.emergency_hide) || 'Ctrl + F12';
       $('setHkFull').value = fmtKey(hk.fullscreen_toggle) || 'F11';
       $('setHkMute').value = fmtKey(hk.mute_toggle) || 'Ctrl + M';
+      $('setHkShot').value = fmtKey(hk.screenshot) || 'F12';
       $('setCfgPath').textContent = '配置目录：' + (cfg.path || '%APPDATA%\\KazariPlay');
       savedTheme = cfg.theme || 'light';
       pendingTheme = savedTheme;
       applyTheme(savedTheme);
       markThemeCard(savedTheme);
+    });
+    loadMetaSources();
+  }
+
+  // 元数据源列表（favicon + 名称 + 状态，勾选参与混合检索）
+  function loadMetaSources() {
+    const box = $('setSrcList');
+    if (!bridge || !box) return;
+    bridge.getMetadataSources(function (s) {
+      let sources = [];
+      try { sources = JSON.parse(s || '[]'); } catch (e) { }
+      box.innerHTML = '';
+      sources.forEach(src => {
+        const usable = src.status === 'ready' || src.status === 'experimental';
+        const statusText = { ready: '可用', experimental: '实验性', pending: '未接入' }[src.status] || src.status;
+        const row = document.createElement('label');
+        row.className = 'src-opt' + (usable ? '' : ' disabled');
+        row.innerHTML = `
+          <input type="checkbox" class="src-check" data-id="${esc(src.id)}" ${src.enabled && usable ? 'checked' : ''} ${usable ? '' : 'disabled'}>
+          <span class="src-box"></span>
+          <img class="src-fav" src="${esc(src.icon)}" onerror="this.style.display='none'" alt="">
+          <span class="src-name">${esc(src.name)}</span>
+          <span class="src-status">${statusText}</span>`;
+        box.appendChild(row);
+      });
     });
   }
 
@@ -81,9 +107,16 @@
         emergency_hide: $('setHkHide').value,
         fullscreen_toggle: $('setHkFull').value,
         mute_toggle: $('setHkMute').value,
+        screenshot: $('setHkShot').value,
       },
     };
     bridge.saveConfigs(JSON.stringify(data));
+    // 元数据源勾选（独立保存，即时生效）
+    const checkedSrc = [...document.querySelectorAll('#setSrcList .src-check:checked')]
+      .map(x => x.dataset.id);
+    bridge.saveMetadataSources(JSON.stringify(checkedSrc));
+    // 截图热键立即重注册（先写配置再重注册；注册失败静默，配置仍已保存）
+    bridge.updateScreenshotHotkey($('setHkShot').value);
     if (window.applyCoverSize) window.applyCoverSize(data.cover_size);
     savedTheme = pendingTheme || savedTheme;
     toast('设置已保存');
@@ -131,7 +164,7 @@
       loadConfig();
       toast('已恢复默认设置');
     };
-    ['setHkHide', 'setHkFull', 'setHkMute'].forEach((id) => bindHotkey($(id)));
+    ['setHkHide', 'setHkFull', 'setHkMute', 'setHkShot'].forEach((id) => bindHotkey($(id)));
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && $('settingsOverlay').classList.contains('show')) close();

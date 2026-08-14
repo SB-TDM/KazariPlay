@@ -16,6 +16,8 @@
     --glow-strong:rgba(255,111,145,.42);
     --scroll-thumb:#f0cfd9; --scroll-thumb-hover:#ffb3c1;
     --bounce:cubic-bezier(.34,1.56,.64,1); --soft:cubic-bezier(.22,.9,.36,1);
+    /* 卡片动画 token：框与封面共用同一时长+缓动，hover/选中时同频联动 */
+    --anim-card:.28s var(--bounce);
     --font:"Microsoft YaHei UI","Segoe UI","Microsoft YaHei",sans-serif;
     --font-cute:"Comic Sans MS","Segoe Print","Chalkboard SE","Microsoft YaHei UI",sans-serif;
   }
@@ -166,12 +168,20 @@
         overflow:hidden;position:relative;cursor:pointer;border:1.5px solid var(--border-soft);
         box-shadow:0 4px 12px var(--glow-soft);
         will-change:transform;
-        transition:transform .25s var(--bounce),box-shadow .25s var(--soft),border-color .25s;}
+        /* 懒加载布局稳定：离屏卡片不参与渲染/布局，占位尺寸=真实尺寸，
+           滚动条高度恒定，大库滚动不再跳动（与 .grid contain:layout、.scroll scrollbar-gutter 配合） */
+        content-visibility:auto;contain-intrinsic-size:var(--card-w) var(--card-h);
+        transition:transform var(--anim-card),box-shadow .28s var(--soft),border-color .28s var(--soft);}
   .card:hover{transform:translateY(-5px);border-color:var(--pink);box-shadow:0 10px 22px var(--glow-med);}
   .card .cover{height:calc(100% - 31px);position:relative;background-size:cover;background-position:center;
-    transition:transform .3s var(--soft);}
+    transition:transform var(--anim-card),filter .28s var(--soft);}
+  /* 封面懒加载淡入：占位渐变 → 实图平滑过渡，消除"弹入"感 */
+  .card .cover.loaded{animation:coverFade .35s ease;}
+  @keyframes coverFade{from{opacity:.25}to{opacity:1}}
   .card:hover .cover{transform:scale(1.04);}
   .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}
+  /* 选中态封面联动：与框的描边/光晕同频，封面轻微放大 + 提亮 */
+  .card.active .cover{transform:scale(1.03);filter:brightness(1.05) saturate(1.1);}
   .card.dragging{opacity:.5;transform:scale(.96);}
   .card.drag-over{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med);}
   .card .meta{height:31px;display:flex;align-items:center;justify-content:space-between;
@@ -322,15 +332,17 @@
   .shot-thumb{width:120px;height:68px;background:var(--bg-hover);background-size:cover;background-position:center;}
   .shot-meta{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;}
   .shot-time{font-size:11px;color:var(--text-sub);}
-  /* 截图大图预览 */
+  /* 截图大图预览：固定高度 + flex 居中，图片加载前后对话框尺寸恒定（不再跳变） */
   .dialog.shot-preview{max-width:900px;width:92%;padding:18px 20px 12px;}
-  .shot-preview-body{position:relative;min-height:240px;background:var(--bg-hover);border-radius:var(--radius-md);}
+  .shot-preview-body{position:relative;height:min(60vh,560px);background:var(--bg-hover);border-radius:var(--radius-md);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .shot-preview-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     gap:10px;color:var(--text-sub);font-size:13px;}
   .shot-preview-loading::before{content:'';width:20px;height:20px;border:2px solid var(--border-soft);
     border-top-color:var(--pink);border-radius:50%;animation:shotspin .8s linear infinite;}
   @keyframes shotspin{to{transform:rotate(360deg);}}
-  .dialog.shot-preview img{width:100%;border-radius:var(--radius-md);border:1.5px solid var(--border-soft);
+  .dialog.shot-preview img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+    border-radius:var(--radius-md);border:1.5px solid var(--border-soft);
     opacity:0;transition:opacity .45s var(--soft);}
   .dialog.shot-preview img.loaded{opacity:1;}
   .more-wrap{position:relative;}
@@ -464,6 +476,47 @@
   .dlg-foot .reset{background:transparent;border:none;color:var(--text-disabled);font-size:12.5px;
                    cursor:pointer;font-family:var(--font);margin-right:auto;}
   .dlg-foot .reset:hover{color:var(--pink-deep);}
+
+  /* 多源元数据：来源工具栏 / 设置页源列表 / 候选 favicon */
+  .src-bar{display:flex;flex-wrap:wrap;gap:6px;}
+  .src-chip{display:flex;align-items:center;gap:5px;padding:3px 11px;border:1.5px solid var(--border-soft);
+    border-radius:50px;font-size:12px;color:var(--text-sub);cursor:pointer;background:var(--bg-panel);
+    transition:all .2s var(--soft);user-select:none;}
+  .src-chip img{width:14px;height:14px;border-radius:3px;}
+  .src-chip:hover{border-color:var(--pink);color:var(--pink-deep);}
+  .src-chip.on{background:var(--grad-pink);color:#fff;border-color:transparent;}
+  .src-chip.on:hover{color:#fff;}
+  .src-chip.off{opacity:.5;cursor:default;}
+  .src-chip.off:hover{border-color:var(--border-soft);color:var(--text-sub);}
+  .cand-src-icon{width:15px;height:15px;border-radius:3px;vertical-align:-2px;margin-right:5px;}
+  .cand-src-name{font-size:11px;color:var(--text-disabled);margin-right:6px;}
+  .src-opt{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1.5px solid var(--border-soft);
+    border-radius:var(--radius-md);margin-bottom:7px;cursor:pointer;background:var(--bg-panel);
+    transition:background .2s var(--soft);}
+  .src-opt:hover{background:var(--bg-hover);}
+  .src-opt.disabled{opacity:.55;cursor:default;}
+  .src-opt.disabled:hover{background:var(--bg-panel);}
+  .src-opt .src-fav{width:18px;height:18px;border-radius:4px;}
+  .src-opt .src-name{font-size:13px;color:var(--text);flex:1;}
+  .src-opt .src-status{font-size:11px;color:var(--text-disabled);}
+  /* 自定义复选框（Kawaii 方块）：悬停随光标变色 + 勾选对勾弹出动画 */
+  .src-opt input[type=checkbox]{position:absolute;opacity:0;pointer-events:none;}
+  .src-box{flex:none;width:18px;height:18px;border-radius:6px;border:2px solid var(--border-strong);
+    background:var(--bg-panel);position:relative;
+    transition:border-color .2s var(--soft),background .2s var(--soft),transform .25s var(--bounce);}
+  /* 光标悬停：方块随行高亮变色并轻微放大 */
+  .src-opt:hover .src-box{border-color:var(--pink);background:var(--bg-hover);transform:scale(1.1);}
+  /* 勾选：渐变填充 + 对勾弹出动画（--bounce 弹性） */
+  .src-opt input:checked + .src-box{background:var(--grad-pink);border-color:transparent;}
+  .src-opt input:checked + .src-box{background:var(--grad-pink);border-color:transparent;}
+  .src-opt input:checked + .src-box::after{content:'';position:absolute;left:50%;top:50%;width:10px;height:5px;
+    border-left:2px solid #fff;border-bottom:2px solid #fff;
+    transform:translate(-50%,-50%) rotate(-45deg) scale(0);
+    animation:srcCheckPop .32s var(--bounce) forwards;}
+  @keyframes srcCheckPop{to{transform:translate(-50%,-50%) rotate(-45deg) scale(1);}}
+  /* 未接入（disabled）：方块静默，不响应悬停 */
+  .src-opt.disabled .src-box{border-color:var(--border-soft);}
+  .src-opt.disabled:hover .src-box{border-color:var(--border-soft);background:var(--bg-panel);transform:none;}
 
   /* 运行中标记 */
   .card .running{position:absolute;top:6px;left:8px;z-index:3;height:20px;padding:0 10px;

@@ -1,0 +1,32 @@
+<!-- 通用对话框：输入 / 确认 / 选择器（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<!-- 通用输入对话框（新建分组等，Kawaii 风格） -->
+<div class="overlay center" id="inputOverlay">
+  <div class="dialog form">
+    <div class="dlg-title"><span id="inputTitle">输入</span>
+      <button class="close-btn" id="inputClose">×</button></div>
+    <div class="form-row"><label id="inputLabel">名称</label><input id="inputValue" maxlength="20"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="inputCancel">取消</button>
+      <button class="pill-btn primary" id="inputOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 通用确认对话框（替代原生 confirm） -->
+<div class="overlay center" id="confirmOverlay">
+  <div class="dialog confirm">
+    <div class="dlg-title"><span id="confirmTitle">确认</span>
+      <button class="close-btn" id="confirmClose">×</button></div>
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="confirmCancel">取消</button>
+      <button class="pill-btn primary" id="confirmOk">确定</button></div>
+  </div>
+</div>
+
+<!-- 批量选择面板 -->
+<div class="overlay" id="pickerOverlay">
+  <div class="dialog picker">
+    <div class="dlg-title" id="pickerTitle">选择标签</div>
+    <div id="pickerList"></div>
+    <div class="dlg-foot"><button class="pill-btn" id="pickerClose">取消</button></div>
+  </div>
+</div>
