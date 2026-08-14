@@ -65,7 +65,7 @@
       </div>
       <div class="fab" id="fab">+</div>
       <div class="fabmenu" id="fabMenu">
-        <div class="item" id="fabAdd">手动添加单个游戏</div>
+        <div class="item" id="fabAdd">手动添加单个 exe</div>
         <div class="item" id="fabScan">批量扫描文件夹导入</div>
       </div>
 
@@ -84,250 +84,11 @@
   </div>
 </div>
 
-<!-- 详情底部抽屉 -->
-<div class="overlay" id="detailOverlay">
-  <div class="dialog detail" id="detailDialog">
-    <div class="detail-cover" id="dlgCover"></div>
-    <div class="detail-body">
-      <div class="detail-head">
-        <h2 id="dlgTitle"></h2>
-        <div class="more-wrap">
-          <button class="close-btn" id="dlgMore">⋮</button>
-          <div class="more-menu" id="dlgMoreMenu">
-            <div class="item" data-act="vndb">VNDB 匹配</div>
-            <div class="item" data-act="open">打开本地目录</div>
-            <div class="item danger" data-act="del">删除</div>
-          </div>
-        </div>
-        <button class="close-btn" id="dlgClose">×</button>
-      </div>
-      <div class="info-grid" id="dlgInfo"></div>
-      <div class="detail-actions">
-        <button class="pill-btn primary" id="dlgStart">开始游戏</button>
-        <button class="pill-btn" id="dlgEdit">编辑</button>
-        <button class="pill-btn fav" id="dlgFav">☆ 收藏</button>
-      </div>
-      <div class="collections-row" id="dlgCollections"></div>
-      <div class="detail-desc" id="dlgDesc"></div>
-      <!-- 游戏截图（Steam 式） -->
-      <div class="screenshots-section">
-        <div class="shots-head">
-          <span class="shots-ttl">截图</span>
-          <span class="shots-hint">左键预览 · 右键管理</span>
-        </div>
-        <div class="shots-grid" id="shotsGrid"></div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 -->
-<div class="overlay" id="collectionOverlay">
-  <div class="dialog tagmgr">
-    <div class="dlg-title"><span>收藏夹</span>
-      <button class="close-btn" id="collectionClose">×</button></div>
-    <div id="gameCollectionSection">
-      <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
-      <div class="taglist" id="gameCollectionList"></div>
-    </div>
-    <div class="section-ttl">点击收藏夹加入/退出</div>
-    <div class="dlg-foot"><button class="pill-btn" id="collectionDone">完成</button></div>
-  </div>
-</div>
-
-<!-- 管理游戏对话框：批量勾选某收藏夹下的游戏 -->
-<div class="overlay" id="manageGamesOverlay">
-  <div class="dialog tagmgr">
-    <div class="dlg-title"><span id="manageGamesTitle">管理游戏</span>
-      <button class="close-btn" id="manageGamesClose">×</button></div>
-    <div class="section-ttl">勾选要归入该收藏夹的游戏</div>
-    <div class="tagform"><input id="manageGamesKw" placeholder="搜索游戏…"></div>
-    <div class="manage-list" id="manageGamesList"></div>
-    <div class="dlg-foot">
-      <button class="pill-btn" id="manageGamesSelAll">全选</button>
-      <button class="pill-btn" id="manageGamesClear">清空</button>
-      <span class="manage-count" id="manageGamesCount">已选 0 个</span>
-      <button class="pill-btn primary" id="manageGamesSave">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 截图大图预览 -->
-<div class="overlay center" id="shotPreviewOverlay">
-  <div class="dialog shot-preview">
-    <div class="dlg-title"><span id="shotPreviewTitle">截图</span>
-      <button class="close-btn" id="shotPreviewClose">×</button></div>
-    <div class="shot-preview-body">
-      <div class="shot-preview-loading" id="shotPreviewLoading">加载中…</div>
-      <img id="shotPreviewImg" alt="">
-    </div>
-  </div>
-</div>
-
-<!-- 截图右键菜单 -->
-<div class="shot-menu" id="shotMenu">
-  <div class="item" data-act="rename">重命名</div>
-  <div class="item" data-act="folder">打开所在位置</div>
-  <div class="item" data-act="copy">复制到剪贴板</div>
-  <div class="item danger" data-act="del">删除</div>
-</div>
-
-<!-- 编辑 / 添加表单抽屉 -->
-<div class="overlay" id="formOverlay">
-  <div class="dialog form edit-form">
-    <div class="form-scroll">
-      <div class="dlg-title"><span id="formTitle">编辑游戏</span>
-        <button class="close-btn" id="formClose">×</button></div>
-      <div class="form-row"><label>标题</label><input id="fTitle"></div>
-      <div class="form-row"><label>引擎</label><input id="fEngine"></div>
-      <div class="form-row"><label>开发商</label><input id="fDev"></div>
-      <div class="form-row"><label>评分</label>
-        <select id="fRating"><option value="0">未评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
-      <div class="form-row"><label>简介</label><textarea id="fDesc"></textarea></div>
-      <div class="form-row" id="fCoverRow" style="display:none">
-        <label>封面</label>
-        <div class="field"><img id="fCoverPrev" class="cover-prev" alt=""><button class="pill-btn" id="btnPickCover" style="flex:none">更换封面</button></div>
-      </div>
-      <div class="form-row" id="fMetaRow" style="display:none">
-        <label>元数据</label>
-        <div class="field"><input id="fSearchKw" placeholder="用标题搜索 VNDB / Bangumi"><button class="pill-btn" id="btnMetaSearch" style="flex:none">搜索</button></div>
-      </div>
-      <div id="fCands"></div>
-      <div class="form-row" id="fExeRow" style="display:none"><label>启动文件</label>
-        <input id="fExe" placeholder="选择游戏启动 exe"><button class="pill-btn" id="btnPickExe" style="flex:none">选择</button></div>
-    </div>
-    <div class="dlg-foot"><button class="pill-btn" id="formCancel">取消</button>
-      <button class="pill-btn primary" id="formSave">保存</button></div>
-  </div>
-</div>
-
-<!-- 通用输入对话框（新建分组等，Kawaii 风格） -->
-<div class="overlay center" id="inputOverlay">
-  <div class="dialog form">
-    <div class="dlg-title"><span id="inputTitle">输入</span>
-      <button class="close-btn" id="inputClose">×</button></div>
-    <div class="form-row"><label id="inputLabel">名称</label><input id="inputValue" maxlength="20"></div>
-    <div class="dlg-foot"><button class="pill-btn" id="inputCancel">取消</button>
-      <button class="pill-btn primary" id="inputOk">确定</button></div>
-  </div>
-</div>
-
-<!-- 通用确认对话框（替代原生 confirm） -->
-<div class="overlay center" id="confirmOverlay">
-  <div class="dialog confirm">
-    <div class="dlg-title"><span id="confirmTitle">确认</span>
-      <button class="close-btn" id="confirmClose">×</button></div>
-    <div class="confirm-msg" id="confirmMsg"></div>
-    <div class="dlg-foot"><button class="pill-btn" id="confirmCancel">取消</button>
-      <button class="pill-btn primary" id="confirmOk">确定</button></div>
-  </div>
-</div>
-
-<!-- 批量选择面板 -->
-<div class="overlay" id="pickerOverlay">
-  <div class="dialog picker">
-    <div class="dlg-title" id="pickerTitle">选择标签</div>
-    <div id="pickerList"></div>
-    <div class="dlg-foot"><button class="pill-btn" id="pickerClose">取消</button></div>
-  </div>
-</div>
-
-<!-- 设置窗口 -->
-<div class="overlay center" id="settingsOverlay">
-  <div class="dialog settings">
-    <div class="dlg-head">
-      <h3><span class="cog">⚙</span> 设置</h3>
-      <button class="close-btn" id="setClose">×</button>
-    </div>
-    <div class="dlg-body">
-      <div class="dlg-nav" id="setNav">
-        <button class="nav-item active" data-tab="general">常规</button>
-        <button class="nav-item" data-tab="theme">主题</button>
-        <button class="nav-item" data-tab="hotkey">快捷键</button>
-        <button class="nav-item" data-tab="disguise">伪装</button>
-        <button class="nav-item" data-tab="about">关于</button>
-      </div>
-      <div class="dlg-content">
-        <div class="page" id="set-general">
-          <div class="group">
-            <div class="g-title">启动</div>
-            <div class="form-row">
-              <div class="label">自动扫描</div>
-              <div class="field">
-                <label class="switch"><input type="checkbox" id="setAutoScan"><span class="track"><span class="thumb"></span></span></label>
-                <span class="desc">启动时扫描库文件夹</span>
-              </div>
-            </div>
-            <div class="form-row" style="margin-top:6px">
-              <div class="label">封面尺寸</div>
-              <div class="field"><select id="setCoverSize"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></div>
-            </div>
-          </div>
-            <div class="group">
-              <div class="g-title">日志</div>
-              <div class="form-row">
-                <div class="label">日志级别</div>
-                <div class="field"><select id="setLogLevel"><option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option></select></div>
-              </div>
-              <div class="form-row" style="margin-top:6px">
-                <div class="label">显示日志窗口</div>
-                <div class="field">
-                  <label class="switch"><input type="checkbox" id="setShowConsole"><span class="track"><span class="thumb"></span></span></label>
-                  <span class="desc">启动时是否打开命令提示符</span>
-                </div>
-              </div>
-            </div>
-        </div>
-        <div class="page" id="set-theme" style="display:none">
-          <div class="group">
-            <div class="g-title">主题模式（选择即预览，保存后生效）</div>
-            <div class="theme-cards">
-              <div class="theme-card light" data-card="light" onclick="Settings.pickTheme('light')">
-                <div class="sw"><div class="bar"></div><div class="body"></div></div>
-                <div class="lbl">浅色 · Kawaii 主推</div>
-              </div>
-              <div class="theme-card dark" data-card="dark" onclick="Settings.pickTheme('dark')">
-                <div class="sw"><div class="bar"></div><div class="body"></div></div>
-                <div class="lbl">深色 · 夜间模式</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="page" id="set-hotkey" style="display:none">
-          <div class="group">
-            <div class="g-title">全局快捷键（点击后按下组合键）</div>
-            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly></div></div>
-          </div>
-        </div>
-        <div class="page" id="set-disguise" style="display:none">
-          <div class="group">
-            <div class="g-title">避险伪装</div>
-            <div class="form-row">
-              <div class="label">伪装场景</div>
-              <div class="field"><select id="setDisguise"><option value="excel" selected>Excel</option><option value="word">Word</option><option value="browser">浏览器</option></select></div>
-            </div>
-            <div class="form-row"><div class="desc" style="padding-left:96px">触发紧急隐藏时，窗口伪装为所选场景。</div></div>
-          </div>
-        </div>
-        <div class="page" id="set-about" style="display:none">
-          <div class="about">
-            <div class="a-logo">☺</div>
-            <div class="a-name">KazariPlay</div>
-            <div class="a-ver">版本 v1.01</div>
-            <div class="a-meta">视觉小说本地库启动器<br><span id="setCfgPath"></span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="dlg-foot">
-      <button class="reset" id="setReset">恢复默认</button>
-      <button class="pill-btn" id="setCancel">取消</button>
-      <button class="pill-btn primary" id="setSave">保存</button>
-    </div>
-  </div>
-</div>
+<!-- ============================================================
+     各窗口 / 对话框分块 HTML：由 main.py 按 _PARTIAL_MANIFEST
+     注入到本标记处（文件位于 ui/web_assets/partials/）
+     ============================================================ -->
+<!-- PARTIALS -->
 
 <!-- 窗口缩放手柄（四边 + 四角） -->
 <div class="resizer r-n" data-dir="n"></div>
@@ -339,7 +100,10 @@
 <div class="resizer r-se" data-dir="se"></div>
 <div class="resizer r-sw" data-dir="sw"></div>
 
-<script src="js/settings.js"></script>
-<script src="js/app.js"></script>
+<!-- ============================================================
+     JS 模块：由 main.py 按 _JS_MANIFEST 内联为多个 script 块
+     注入到本标记处（文件位于 ui/web_assets/js/，顺序即依赖顺序）
+     ============================================================ -->
+<!-- SCRIPTS -->
 </body>
 </html>

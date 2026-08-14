@@ -40,6 +40,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "toast_duration": 3.0,
         "position": "bottom_right",
     },
+    # 元数据多源检索（可在设置页勾选哪些源参与"混合"检索）
+    "metadata_sources": {
+        "single": "vndb",
+        "mixed": ["vndb", "bangumi"],
+    },
 }
 
 

@@ -4,6 +4,7 @@ __pycache__/
 *.log
 *.db
 .DS_Store
+kazari_play/data/
 
 # 测试缓存
 .pytest_cache/

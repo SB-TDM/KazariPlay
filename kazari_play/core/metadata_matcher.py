@@ -9,12 +9,11 @@
 - VNDB image.url 下载到 AppData/covers/{game_id}_vndb.jpg
 - 已有本地封面则不覆盖（保守策略）
 
-速率限制保护：
-- VNDB 限制 200 次/小时，本模块用滑动窗口跟踪最近 1 小时内的请求数
-- 接近 180 次（安全阈值）时主动停止匹配，避免被 VNDB 拒绝（429）
+速率限制：
+- VNDB 官方限制约 200 次/小时，本地速率限制已按需求移除（不再做请求记账）。
+  短时间内大量请求仍可能触发 VNDB 429，届时稍后再试即可。
 """
 import os
-import time
 from typing import Optional, Callable, List, Tuple
 from core.game_model import Game
 from utils import vndb_client
@@ -26,39 +25,6 @@ logger = get_logger()
 # 进度回调签名：callback(game_id, game_title, status, message)
 #   status: "skip" | "match" | "fail"
 ProgressCallback = Callable[[str, str, str, str], None]
-
-# ---------- VNDB 速率限制跟踪（滑动窗口，最近 1 小时）----------
-_request_times: List[float] = []  # 记录每次请求的时间戳
-_MAX_REQUESTS_PER_HOUR = 180      # 安全阈值（VNDB 限制 200/小时，留 20 次余量）
-
-
-def _register_request():
-    """记录一次 VNDB 请求（搜索或封面下载），并清理过期记录"""
-    now = time.time()
-    _request_times.append(now)
-    # 清理 1 小时前的记录（滑动窗口）
-    cutoff = now - 3600
-    while _request_times and _request_times[0] < cutoff:
-        _request_times.pop(0)
-
-
-def _is_rate_limited() -> bool:
-    """是否已达速率限制（已取消：始终返回 False）"""
-    return False
-
-
-def _remaining_requests() -> int:
-    """返回当前 1 小时窗口内剩余可用请求数"""
-    return max(0, _MAX_REQUESTS_PER_HOUR - len(_request_times))
-
-
-def reset_rate_limit():
-    """重置速率限制计数器
-
-    供调用方在用户明确要求重新开始批量匹配时调用
-   （VNDB 速率窗口可能已部分恢复，但本模块无法精确感知）。
-    """
-    _request_times.clear()
 
 
 def _normalize_title(title: str) -> str:
@@ -209,24 +175,15 @@ def match_single(game: Game, force: bool = False) -> Tuple[str, str]:
     result = None
     tried_queries = []
     for i, q in enumerate(queries_to_try):
-        # 速率限制检查：接近 VNDB 限制时主动停止，避免被 429 拒绝
-        if _is_rate_limited():
-            logger.warning("VNDB 速率限制触发，停止搜索: game_id=%s", game.id)
-            return "fail", (f"已达 VNDB 速率限制（{_MAX_REQUESTS_PER_HOUR}次/小时），"
-                           "请稍后再试")
         tried_queries.append(q)
-        logger.info("VNDB 搜索策略 %d: '%s' (剩余配额 %d)",
-                    i + 1, q, _remaining_requests())
+        logger.info("VNDB 搜索策略 %d: '%s'", i + 1, q)
         try:
             result = vndb_client.search_first_vn(q)
-            _register_request()  # 记录请求（无论成功失败，请求已发送）
         except Exception as e:
-            _register_request()  # 异常时也记录（请求可能已发送）
             logger.error("VNDB 搜索异常: q='%s', %s", q, e)
             continue
         if result:
             break
-        # 策略间不再停顿（已取消速率限制）
 
     if not result:
         logger.info("VNDB 未找到匹配: 尝试过 %s", tried_queries)
@@ -272,17 +229,12 @@ def match_single(game: Game, force: bool = False) -> Tuple[str, str]:
 
     # 封面（VNDB image.url 下载到本地，已有封面则不覆盖）
     if not game.cover_path and result["cover_url"]:
-        if _is_rate_limited():
-            logger.warning("封面下载跳过：已达 VNDB 速率限制, game_id=%s", game.id)
+        dest = _cover_dest_path(game.id, result["cover_url"])
+        if vndb_client.download_cover(result["cover_url"], dest):
+            game.cover_path = dest
+            updated_fields.append("cover_path")
         else:
-            dest = _cover_dest_path(game.id, result["cover_url"])
-            if vndb_client.download_cover(result["cover_url"], dest):
-                _register_request()  # 记录封面下载请求
-                game.cover_path = dest
-                updated_fields.append("cover_path")
-            else:
-                _register_request()  # 失败也记录（请求已发送）
-                logger.warning("封面下载失败，跳过: %s", result["cover_url"])
+            logger.warning("封面下载失败，跳过: %s", result["cover_url"])
 
     if not updated_fields:
         return "skip", "所有字段已存在，未更新"
@@ -312,20 +264,6 @@ def match_batch(
     total = len(games)
 
     for i, game in enumerate(games):
-        # 速率限制检查：接近限制时停止批量匹配，剩余游戏标记为失败
-        if _is_rate_limited():
-            remaining = total - i
-            failed += remaining
-            logger.warning("VNDB 速率限制触发，批量匹配提前终止: 已处理 %d/%d, 剩余 %d 个未处理",
-                           i, total, remaining)
-            if progress_cb:
-                try:
-                    progress_cb("", "", "fail",
-                                f"已达 VNDB 速率限制，剩余 {remaining} 个游戏未处理，请稍后再试")
-                except Exception:
-                    pass
-            break
-
         # 进度回调
         if progress_cb:
             try:
@@ -348,8 +286,6 @@ def match_batch(
             skipped += 1
         else:
             failed += 1
-
-        # 每条之间不再停顿（已取消速率限制）
 
     logger.info("VNDB 批量匹配完成: 共 %d, 成功 %d, 跳过 %d, 失败 %d",
                 total, matched, skipped, failed)
