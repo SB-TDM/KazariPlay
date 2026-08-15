@@ -52,6 +52,7 @@ _JS_MANIFEST = [
     "collections.js",  # 收藏夹树 / 收藏夹管理 / 管理游戏
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
+    "hook_select.js",  # Hook 点选择弹窗（V1.1，依赖 core/ui）
     "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
 ]
@@ -59,11 +60,12 @@ _JS_MANIFEST = [
 # HTML 分块清单（各窗口/对话框独立文件，注入到 index.html 的 <!-- PARTIALS --> 标记处；
 # 顺序即 DOM 顺序，全部 .overlay 同为 z-index:100，靠 DOM 顺序决定层叠）
 _PARTIAL_MANIFEST = [
-    "common.html",      # 通用输入 / 确认 / 选择器对话框
     "detail.html",      # 详情抽屉 + 截图预览 + 截图右键菜单
     "collections.html", # 收藏夹管理 + 管理游戏对话框
     "form.html",        # 编辑 / 添加表单
     "settings.html",    # 设置窗口
+    "hook_select.html", # Hook 选择对话框
+    "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）
 ]
 
 
@@ -229,6 +231,21 @@ def main():
         min_size=(900, 620),
     )
     bridge.bind_window(win)
+
+    # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时退出 overlay.exe，
+    # 避免独立 overlay 进程残留
+    def _on_window_closing():
+        try:
+            overlay = getattr(bridge, "_overlay_client", None)
+            if overlay is not None:
+                overlay.quit()
+        except Exception:
+            pass
+    try:
+        win.events.closing += _on_window_closing
+    except Exception:
+        pass
+
     # 设置窗口/任务栏图标（.ico 优先，Windows 任务栏需 ICO 格式）
     res = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
     icon_path = os.path.join(res, "app_icon.ico")

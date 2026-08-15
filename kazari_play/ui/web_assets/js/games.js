@@ -361,7 +361,7 @@ function renderEmpty(list) {
 // ---------- 卡片右键菜单（图标 + 分段，复用 ui.showContextMenu）----------
 function openCardMenu(g, x, y) {
   showContextMenu([
-    { icon: '▶', text: '启动游戏', action: () => bridge.launch(g.id) },
+    { icon: '▶', text: '启动游戏', action: () => launchGame(g.id) },
     { icon: '📂', text: '打开本地目录', action: () => bridge.openFolder(g.id) },
     'sep',
     { icon: '🗂️', text: '管理收藏夹', action: () => { currentGame = g; openCollectionManager(); } },

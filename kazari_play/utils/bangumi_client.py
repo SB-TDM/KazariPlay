@@ -21,6 +21,7 @@ import urllib.error
 from typing import List
 
 from utils.logger import get_logger
+from utils.proxy_utils import get_opener
 
 logger = get_logger()
 
@@ -44,7 +45,7 @@ def _http_get_json(url: str) -> dict:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        with get_opener().open(req, timeout=_REQUEST_TIMEOUT) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         body = ""
@@ -68,7 +69,7 @@ def _http_get(url: str) -> bytes:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        with get_opener().open(req, timeout=_REQUEST_TIMEOUT) as resp:
             return resp.read()
     except urllib.error.HTTPError as e:
         raise BangumiError(f"下载封面 HTTP {e.code}") from None
@@ -124,7 +125,11 @@ def search_subjects(keyword: str, limit: int = 5) -> List[dict]:
         logger.warning("Bangumi 搜索失败: keyword=%s, err=%s", keyword, e)
         return []
 
-    items = resp.get("results") or []
+    items = resp.get("list")
+    if not items:
+        # 兼容旧结构：results 直接是列表
+        _r = resp.get("results")
+        items = _r if isinstance(_r, list) else []
     parsed = []
     for item in items:
         try:
@@ -134,6 +139,11 @@ def search_subjects(keyword: str, limit: int = 5) -> List[dict]:
             continue
     logger.info("Bangumi 搜索 '%s' 返回 %d 条结果", keyword, len(parsed))
     return parsed[:limit]
+
+
+def search(keyword: str, count: int = 5) -> List[dict]:
+    """multi_source 统一调用入口（参数名对齐 count）"""
+    return search_subjects(keyword, limit=count)
 
 
 def download_cover(cover_url: str, dest_path: str) -> bool:

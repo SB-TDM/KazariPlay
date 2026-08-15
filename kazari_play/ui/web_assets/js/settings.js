@@ -7,6 +7,26 @@
   const $ = (id) => document.getElementById(id);
   let savedTheme = 'light';
   let pendingTheme = null;
+  let savedOverlay = {};   // 保留 overlay 其他配置（合并保存用）
+
+  // 清洗过滤器清单（与 C++ overlay/src/filter_chain.cpp 注册保持一致）
+  // agg=true 为"激进"过滤器：默认关闭，误伤正常字幕风险高（叠词/短重复/ABAB），需手动开启
+  const FILTER_DEFS = [
+    { id: 'dedup_chars', name: '重复字符去重', desc: 'AAAABBBB→AB' },
+    { id: 'dedup_lines', name: '整句重复去重', desc: 'ABCDABCD→ABCD' },
+    { id: 'dedup_mixed_lines', name: '混合重复行去重', desc: 'S1S1S2S2→S1S2', agg: true },
+    { id: 'incremental_dedup', name: '递增拼接去重', desc: '「マ「マジ…→「マジ', agg: true },
+    { id: 'furigana', name: '注音清理', desc: '{漢字/かな}→漢字' },
+    { id: 'html_tag', name: 'HTML 标签清理', desc: '<div>x</div>→x' },
+    { id: 'control_char', name: '控制字符过滤', desc: '丢弃 ASCII 控制符' },
+    { id: 'shift_jis', name: '非日文字符过滤', desc: '乱码清除', agg: true },
+    { id: 'english_symbol', name: '英文标点过滤', desc: '丢弃 ASCII 标点', agg: true },
+    { id: 'quote_only', name: '仅保留「」内容', desc: '会丢旁白', agg: true },
+    { id: 'unicode_normalize', name: '全角转半角', desc: 'Unicode 正规化' },
+    { id: 'line_trimmer', name: '行截取', desc: '只留前/后 N 行', agg: true },
+    { id: 'regex_replace', name: '正则替换', desc: '用户自定义规则', agg: true },
+  ];
+  window.CLEAN_FILTER_DEFS = FILTER_DEFS;   // 供游戏详情页清洗配置共用
 
   function applyTheme(t) {
     const root = document.documentElement;
@@ -60,6 +80,21 @@
       pendingTheme = savedTheme;
       applyTheme(savedTheme);
       markThemeCard(savedTheme);
+      // Hook 实时翻译配置
+      savedOverlay = cfg.overlay || {};
+      const tr = cfg.translate || {};
+      const tx = cfg.textractor || {};
+      $('setAiBaseUrl').value = (tr.ai && tr.ai.base_url) || 'https://api.deepseek.com';
+      $('setAiApiKey').value = (tr.ai && tr.ai.api_key) || '';
+      $('setAiModel').value = (tr.ai && tr.ai.model) || 'deepseek-chat';
+      $('setSrcLang').value = tr.source_lang || 'ja';
+      $('setDstLang').value = tr.target_lang || 'zh';
+      $('setHostDir').value = tx.host_dir || '';
+      $('setTextCodepage').value = String(tx.codepage || 0);
+      $('setSubtitleEnabled').checked = (savedOverlay.subtitle_enabled !== false);
+      const cln = cfg.clean || {};
+      $('setAiClean').checked = !!cln.ai_assist_enabled;
+      $('setAiCleanTh').value = cln.ai_assist_threshold === 'always' ? 'always' : 'dirty';
     });
     loadMetaSources();
   }
@@ -108,6 +143,25 @@
         fullscreen_toggle: $('setHkFull').value,
         mute_toggle: $('setHkMute').value,
         screenshot: $('setHkShot').value,
+      },
+      overlay: Object.assign({}, savedOverlay, { subtitle_enabled: $('setSubtitleEnabled').checked }),
+      textractor: {
+        host_dir: $('setHostDir').value.trim(),
+        codepage: parseInt($('setTextCodepage').value, 10) || 0,
+      },
+      translate: {
+        engine: 'ai',
+        ai: {
+          base_url: $('setAiBaseUrl').value.trim(),
+          api_key: $('setAiApiKey').value.trim(),
+          model: $('setAiModel').value.trim() || 'deepseek-chat',
+        },
+        source_lang: $('setSrcLang').value,
+        target_lang: $('setDstLang').value,
+      },
+      clean: {
+        ai_assist_enabled: $('setAiClean').checked,
+        ai_assist_threshold: $('setAiCleanTh').value,
       },
     };
     bridge.saveConfigs(JSON.stringify(data));
@@ -158,6 +212,17 @@
     $('setClose').onclick = close;
     $('setCancel').onclick = close;
     $('setSave').onclick = save;
+    // 翻译测试（用已保存配置；未保存时先点保存）
+    $('setTransTest').onclick = function () {
+      const resEl = $('setTransTestRes');
+      resEl.textContent = '测试中…（使用已保存配置）';
+      bridge.testTranslation('こんにちは、世界', function (s) {
+        try {
+          const r = JSON.parse(s || '{}');
+          resEl.textContent = r.ok ? ('✓ ' + r.msg) : ('✗ ' + r.msg);
+        } catch (e) { resEl.textContent = '✗ 测试失败'; }
+      });
+    };
     $('setReset').onclick = function () {
       if (!bridge) return;
       bridge.resetConfig();

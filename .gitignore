@@ -12,4 +12,9 @@ kazari_play/data/
 # 截图与编译产物
 screenshots/
 overlay/bin/
+overlay/bin32/
 *.obj
+*.pdb
+
+# 本地 skill / 工具配置（不上传）
+.dsh/

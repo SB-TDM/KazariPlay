@@ -28,6 +28,9 @@ class GameManager:
         self.scanner = GameScanner()
         self.launcher = GameLauncher()
         self.monitor = GameMonitor(self.repository, self.launcher)
+        # 游戏退出（自然退出或换游戏）时停止 Hook 翻译会话
+        self.monitor.register_callback(
+            "on_exit", lambda *a: self.launcher.stop_translation())
         from database.tag_repository import TagRepository
         self.tag_repo = TagRepository()
         from database.collection_repository import CollectionRepository

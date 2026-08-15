@@ -186,6 +186,9 @@ def _game_dict(g: Game) -> Dict[str, Any]:
         "cover_url": "",
         "has_cover": bool(g.cover_path and os.path.exists(g.cover_path)),
         "cover_version": _cover_version(g),
+        # Hook 实时翻译（V1.1）
+        "translate_enabled": bool(g.translate_enabled),
+        "has_hook_code": bool(g.hook_code),
     }
 
 
@@ -295,10 +298,146 @@ class WebBridge:
         self.manager.toggle_favorite(game_id)
         self.refresh()
 
-    def launch(self, game_id: str):
+    def launch(self, game_id: str) -> str:
         ok = self.manager.launch(game_id)
         logger.info("启动游戏 %s: %s", game_id, ok)
         self.refresh()
+        # 返回 JSON：need_hook_select=True 时前端弹 Hook 点选择窗
+        need = False
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        if ok and coord is not None:
+            need = bool(getattr(coord, "_awaiting_selection", False))
+        return json.dumps({"ok": ok, "need_hook_select": need}, ensure_ascii=False)
+
+    # ---------- Hook 实时翻译（V1.1） ----------
+
+    def getHookCandidates(self) -> str:
+        """返回 C++ 收集的 Hook 候选列表（+ 最近错误），供 Hook 选择弹窗轮询"""
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        if not coord:
+            return json.dumps({"list": [], "error": ""}, ensure_ascii=False)
+        return json.dumps({
+            "list": getattr(coord, "_last_candidates", []) or [],
+            "error": getattr(coord, "_last_error", "") or "",
+        }, ensure_ascii=False)
+
+    def selectHook(self, game_id: str, handle: int, hook_code: str) -> bool:
+        """用户选定 Hook 点：通知 C++ + 持久化 hook_code"""
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        if coord:
+            coord.select_hook(int(handle), hook_code or "")
+        if game_id:
+            self.manager.repository.update_hook_code(game_id, hook_code or "")
+        self.refresh()
+        return True
+
+    def clearHookCode(self, game_id: str) -> bool:
+        """清除已保存的 Hook 点（重新选择入口）"""
+        if game_id:
+            self.manager.repository.update_hook_code(game_id, "")
+        self.refresh()
+        return True
+
+    def toggleGameTranslation(self, game_id: str, enabled: bool) -> bool:
+        """设置游戏翻译开关（游戏运行中联动字幕窗口显示/隐藏）"""
+        if game_id:
+            self.manager.repository.set_translate_enabled(game_id, bool(enabled))
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        if coord and getattr(coord, "_running", False):
+            self._get_overlay_client().send_set_subtitle_enabled(bool(enabled))
+        self.refresh()
+        return True
+
+    def testTranslation(self, text: str = "こんにちは、世界") -> str:
+        """测试翻译是否通：调 C++ AI 翻译（用已保存配置），同步等待结果"""
+        import threading
+        from core.overlay_client import OverlayClient
+        ai = {
+            "base_url": self._cfg.get("translate.ai.base_url", "") or "",
+            "api_key": self._cfg.get("translate.ai.api_key", "") or "",
+            "model": self._cfg.get("translate.ai.model", "") or "",
+            "source_lang": self._cfg.get("translate.source_lang", "ja") or "ja",
+            "target_lang": self._cfg.get("translate.target_lang", "zh") or "zh",
+        }
+        overlay = self._get_overlay_client()
+        result = {"ok": False, "msg": "等待超时"}
+        evt = threading.Event()
+
+        def on_result(ok, result_text, err):
+            result["ok"] = ok
+            result["msg"] = result_text if ok else (err or "翻译失败")
+            evt.set()
+
+        overlay.on_test_translate_result = on_result
+        if not overlay.send_test_translate(text, ai):
+            return json.dumps({"ok": False, "msg": "overlay 不可用，请先启动一次游戏"},
+                              ensure_ascii=False)
+        evt.wait(timeout=30)
+        return json.dumps(result, ensure_ascii=False)
+
+    # ---------- 文本清洗配置（每游戏，V1.1） ----------
+
+    def getCleanFilterConfig(self, game_id: str) -> str:
+        """获取某游戏的清洗过滤器配置：
+        - 游戏运行中：查 C++ 当前生效（含引擎默认）
+        - 未运行：返回该游戏 override（非空）或引擎默认（空）
+        返回带 source 标记（runtime/override/engine）供前端提示来源。"""
+        import threading
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        running = bool(coord and getattr(coord, "_running", False))
+        if running:
+            overlay = self._get_overlay_client()
+            result = {}
+            evt = threading.Event()
+
+            def on_cfg(filters):
+                result["filters"] = filters or []
+                evt.set()
+
+            overlay.on_filter_config = on_cfg
+            if overlay.send_query_filter_config():
+                evt.wait(timeout=3)
+            overlay.on_filter_config = None
+            if result:
+                return json.dumps({"filters": result["filters"], "source": "runtime"},
+                                  ensure_ascii=False)
+        game = self.manager.get_game(game_id) if game_id else None
+        ov = (game.clean_filter_override if game else "") or ""
+        try:
+            filters = json.loads(ov) or []
+        except (ValueError, TypeError):
+            filters = []
+        if filters:
+            return json.dumps({"filters": filters, "source": "override"},
+                              ensure_ascii=False)
+        # 无 override：返回引擎默认勾选，方便用户看到当前生效的策略
+        from utils.engine_policy import default_filter_config
+        engine = (game.engine if game else "") or ""
+        return json.dumps({"filters": default_filter_config(engine), "source": "engine"},
+                          ensure_ascii=False)
+
+    def setCleanFilterConfig(self, game_id: str, filters_json) -> bool:
+        """保存某游戏的清洗过滤器配置（override），该游戏运行中实时下发 C++"""
+        logger.info("setCleanFilterConfig: game=%s filters_len=%s", game_id,
+                    len(filters_json or ""))
+        if game_id:
+            self.manager.repository.update_clean_filter_override(
+                game_id, filters_json or "")
+        launcher = getattr(self.manager, "launcher", None)
+        coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
+        if coord and getattr(coord, "_running", False):
+            try:
+                filters = json.loads(filters_json or "[]") or []
+            except (ValueError, TypeError):
+                filters = []
+            self._get_overlay_client().send_update_filter_config(filters)
+        self.refresh()
+        return True
 
     def openFolder(self, game_id: str):
         game = self.manager.get_game(game_id)
@@ -372,6 +511,9 @@ class WebBridge:
             g.folder = os.path.dirname(exe_path)
             g.category_id = int(data.get("cat_id", 0) or 0)
             self.manager.add_game(g)
+            # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
+            threading.Thread(target=self._run_vndb_match, args=([g],),
+                             daemon=True).start()
         self.refresh()
 
     # ---------- 标签 / 分类 ----------
@@ -641,12 +783,37 @@ class WebBridge:
             self._overlay_client = OverlayClient()
         return self._overlay_client
 
+    def _game_window_fullscreen(self, hwnd: int) -> bool:
+        """检测游戏窗口是否全屏（rect 覆盖整个屏幕，含无边框全屏）
+
+        独占全屏（exclusive fullscreen）下 Windows 不允许 layered 置顶窗口
+        （overlay）覆盖，toast/字幕会不可见；此检测用于提示用户切换窗口化。
+        """
+        if not hwnd:
+            return False
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            r = wintypes.RECT()
+            user32.GetWindowRect(hwnd, ctypes.byref(r))
+            sw = user32.GetSystemMetrics(0)
+            sh = user32.GetSystemMetrics(1)
+            gw = r.right - r.left
+            gh = r.bottom - r.top
+            return gw >= sw - 2 and gh >= sh - 2   # 允许 2px 容差
+        except Exception:
+            return False
+
     def _push_screenshot_toast(self, game_id: str, path: str, title: str):
         """截图成功后：驱动 C++ overlay 在游戏画面内弹 toast（仅游戏窗口，失败静默降级）"""
         hwnd = self._running_game_hwnd()
         if not hwnd:
             return
         try:
+            if self._game_window_fullscreen(hwnd):
+                # 全屏（尤其独占全屏）下游戏内提示不可见，前端先提示用户
+                self.notify("提示：游戏为全屏模式，游戏内截图提示/字幕可能不可见，建议切换窗口化")
             client = self._get_overlay_client()
             client.show(hwnd, path or "", title or "")
         except Exception as e:

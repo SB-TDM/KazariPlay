@@ -67,7 +67,10 @@ class DatabaseManager:
                 vndb_id TEXT DEFAULT '',
                 released TEXT DEFAULT '',
                 developer TEXT DEFAULT '',
-                length_minutes INTEGER DEFAULT 0
+                length_minutes INTEGER DEFAULT 0,
+                hook_code TEXT DEFAULT '',
+                hook_code_custom TEXT DEFAULT '',
+                translate_enabled INTEGER DEFAULT 0
             )
         """)
 
@@ -126,6 +129,12 @@ class DatabaseManager:
         self._ensure_column(conn, "games", "length_minutes", "INTEGER DEFAULT 0")
         # 分类归属字段（v2.4 新增；0 = 未分类）
         self._ensure_column(conn, "games", "category_id", "INTEGER DEFAULT 0")
+        # Hook 实时翻译字段（V1.1 新增）
+        self._ensure_column(conn, "games", "hook_code", "TEXT DEFAULT ''")
+        self._ensure_column(conn, "games", "hook_code_custom", "TEXT DEFAULT ''")
+        self._ensure_column(conn, "games", "translate_enabled", "INTEGER DEFAULT 0")
+        # 每游戏清洗过滤器覆盖（V1.1；JSON 数组，空 = 引擎默认）
+        self._ensure_column(conn, "games", "clean_filter_override", "TEXT DEFAULT ''")
 
         # 收藏夹系统（V1.0 collections）：树形收藏夹 + 游戏多对多归类
         self._create_collections_tables(conn)
@@ -257,8 +266,12 @@ class DatabaseManager:
 
         check_same_thread=False：连接可跨线程使用（由 _DB_LOCK 串行化，
         不会并发复用同一连接）。
+        row_factory=sqlite3.Row：支持列名访问（row["col"]），避免
+        ALTER 追加列导致的新老库列序差异引发的索引错位。
         """
-        return sqlite3.connect(self.db_path, check_same_thread=False)
+        conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        return conn
 
     def execute(self, sql: str, params: tuple = ()) -> bool:
         """执行 SQL（增删改），线程安全"""
