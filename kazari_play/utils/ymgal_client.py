@@ -17,6 +17,7 @@ import urllib.error
 from typing import List, Optional
 
 from utils.logger import get_logger
+from utils.proxy_utils import get_opener
 
 logger = get_logger()
 
@@ -39,7 +40,7 @@ class YmgalError(Exception):
 def _request(url: str, headers: Optional[dict] = None, timeout: int = _TIMEOUT) -> bytes:
     req = urllib.request.Request(url, headers=headers or {"User-Agent": _UA})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with get_opener().open(req, timeout=timeout) as resp:
             return resp.read()
     except urllib.error.HTTPError as e:
         raise YmgalError(f"Ymgal HTTP {e.code}") from None
@@ -80,19 +81,24 @@ def _auth_headers() -> Optional[dict]:
 
 def _parse_game(item: dict) -> dict:
     """解析单个 game 档案为统一候选格式（字段名做防御式兼容）"""
-    title = (item.get("originalName") or item.get("title")
-             or item.get("name") or item.get("cnName") or "")
-    cover = (item.get("cover") or item.get("coverUrl")
-             or (item.get("images") or {}).get("cover") or "")
+    # 列表接口返回：id(=gid) / name(原名) / chineseName(中文名) / mainImg / releaseDate / score
+    title = (item.get("chineseName") or item.get("name")
+             or item.get("originalName") or item.get("title") or "")
+    cover = (item.get("mainImg") or item.get("cover")
+             or item.get("coverUrl") or "")
     released = item.get("releaseDate") or item.get("release_date") or ""
-    description = item.get("description") or item.get("intro") or ""
-    rating_raw = item.get("rating") or item.get("score") or 0
-    rating_5 = round(int(rating_raw) / 20) if isinstance(rating_raw, (int, float)) and rating_raw else 0
+    description = item.get("introduction") or item.get("description") or ""
+    # score 可能是数字字符串（文档示例为 ""），防御式转换
+    score = item.get("score") or item.get("rating") or 0
+    try:
+        rating_5 = round(float(score) / 20)
+    except (ValueError, TypeError):
+        rating_5 = 0
     if rating_5 < 1:
         rating_5 = 0
     return {
         "source": "ymgal",
-        "source_id": str(item.get("gid") or item.get("id") or ""),
+        "source_id": str(item.get("id") or item.get("gid") or ""),
         "title": title,
         "alt_title": "",
         "cover_url": cover,
@@ -106,14 +112,14 @@ def _parse_game(item: dict) -> dict:
 
 
 def search(keyword: str, count: int = 5) -> List[dict]:
-    """搜索游戏（列表接口），失败返回空列表（静默降级）"""
+    """搜索游戏列表（mode=list），失败返回空列表（静默降级）"""
     keyword = (keyword or "").strip()
     if not keyword:
         return []
     headers = _auth_headers()
     if not headers:
         return []
-    url = (f"{_SEARCH_URL}?keyword={urllib.parse.quote(keyword)}"
+    url = (f"{_SEARCH_URL}?mode=list&keyword={urllib.parse.quote(keyword)}"
            f"&pageNum=1&pageSize={min(max(count, 1), 20)}")
     try:
         raw = _request(url, headers)
@@ -122,12 +128,13 @@ def search(keyword: str, count: int = 5) -> List[dict]:
         logger.warning("Ymgal 搜索失败: keyword=%s, %s", keyword, e)
         return []
     if not data.get("success"):
-        logger.warning("Ymgal 搜索未命中: keyword=%s, resp=%s",
-                       keyword, str(data)[:120])
+        logger.warning("Ymgal 搜索未命中: keyword=%s, code=%s, msg=%s",
+                       keyword, data.get("code"), data.get("msg"))
         return []
-    # 响应结构：列表接口返回 { success, data: { list: [game...] } }（防御式兼容多形态）
+    # 分页接口：列表在 data.result（防御式兼容 list / records / game 单对象）
     payload = data.get("data") or {}
-    items = (payload.get("list")
+    items = (payload.get("result")
+             or payload.get("list")
              or payload.get("records")
              or (payload.get("game") and [payload["game"]])
              or [])

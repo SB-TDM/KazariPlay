@@ -28,8 +28,9 @@ function closeSheet(id, instant) {
   if (id === 'detailOverlay') setActiveCard(null);
 }
 
-// 点击遮罩关闭
+// 点击遮罩关闭（Hook 选择弹窗除外：误关后只能重启游戏才能再选）
 document.querySelectorAll('.overlay').forEach(o => {
+  if (o.id === 'hookSelectOverlay') return;
   o.addEventListener('click', e => { if (e.target === o) closeSheet(o.id); });
 });
 
@@ -81,6 +82,15 @@ function inputOk() {
   closeSheet('inputOverlay');
   if (inputCb) { inputCb(v); inputCb = null; }
 }
+
+// ---------- 通用对话框按钮绑定（input/confirm 的打开与关闭由本模块负责）----------
+document.getElementById('inputClose').onclick = () => { inputCb = null; closeSheet('inputOverlay'); };
+document.getElementById('inputCancel').onclick = () => { inputCb = null; closeSheet('inputOverlay'); };
+document.getElementById('inputOk').onclick = inputOk;
+document.getElementById('inputValue').addEventListener('keydown', e => { if (e.key === 'Enter') inputOk(); });
+document.getElementById('confirmClose').onclick = () => { confirmCb = null; closeSheet('confirmOverlay'); };
+document.getElementById('confirmCancel').onclick = () => { confirmCb = null; closeSheet('confirmOverlay'); };
+document.getElementById('confirmOk').onclick = confirmOk;
 
 // ---------- 通用选择器（批量收藏夹选择等）----------
 function openPicker(title, items, onPick) {

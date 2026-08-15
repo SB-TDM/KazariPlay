@@ -1,0 +1,19 @@
+<!-- Hook 点选择弹窗（首次启用翻译且无 hook_code 时弹出，逻辑在 js/hook_select.js） -->
+<div class="overlay center" id="hookSelectOverlay">
+  <div class="dialog hook-select">
+    <div class="dlg-head">
+      <h3>选择 Hook 点</h3>
+      <button class="close-btn" id="hookSelClose">×</button>
+    </div>
+    <div class="dlg-body">
+      <div class="hook-desc">
+        在游戏里显示一句<b>对话</b>，然后点选下方对应的 Hook 点（文本最长的通常是对话）。
+      </div>
+      <div class="hook-toolbar">
+        <span class="hook-hint" id="hookSelHint">等待游戏文本…</span>
+        <button class="pill-btn mini" id="hookSelRefresh">刷新</button>
+      </div>
+      <div id="hookSelList" class="hook-list"></div>
+    </div>
+  </div>
+</div>

@@ -33,6 +33,11 @@ class Game:
     developer: str = ""          # 开发商名称
     length_minutes: int = 0      # 预计游玩时长（分钟，VNDB length 字段转换）
     category_id: int = 0         # 分类归属（0 = 未分类；v2.4 新增）
+    # Hook 实时翻译（V1.1 新增）
+    hook_code: str = ""          # 已选定的 HookCode（空 = 未配置）
+    hook_code_custom: str = ""   # 用户自定义 HookCode
+    translate_enabled: bool = False  # 该游戏是否启用实时翻译
+    clean_filter_override: str = ""  # 该游戏清洗过滤器覆盖（JSON 数组，空 = 引擎默认）
 
     def to_dict(self) -> dict:
         """序列化为字典（供 repository 写入数据库使用）"""
@@ -58,6 +63,10 @@ class Game:
             "developer": self.developer or "",
             "length_minutes": self.length_minutes or 0,
             "category_id": self.category_id or 0,
+            "hook_code": self.hook_code or "",
+            "hook_code_custom": self.hook_code_custom or "",
+            "translate_enabled": 1 if self.translate_enabled else 0,
+            "clean_filter_override": self.clean_filter_override or "",
         }
 
     @classmethod
@@ -89,6 +98,10 @@ class Game:
             developer=data.get("developer", "") or "",
             length_minutes=data.get("length_minutes", 0) or 0,
             category_id=data.get("category_id", 0) or 0,
+            hook_code=data.get("hook_code", "") or "",
+            hook_code_custom=data.get("hook_code_custom", "") or "",
+            translate_enabled=bool(data.get("translate_enabled", 0)),
+            clean_filter_override=data.get("clean_filter_override", "") or "",
         )
 
     def add_tag(self, tag: str) -> None:

@@ -27,6 +27,7 @@ import urllib.parse
 import urllib.error
 from typing import List, Dict, Optional
 from utils.logger import get_logger
+from utils.proxy_utils import get_opener
 
 logger = get_logger()
 
@@ -95,7 +96,7 @@ def _http_post_json(url: str, data: dict) -> dict:
 
     def send():
         try:
-            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+            with get_opener().open(req, timeout=_REQUEST_TIMEOUT) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
             body = ""
@@ -124,7 +125,7 @@ def _http_get(url: str) -> bytes:
 
     def send():
         try:
-            with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+            with get_opener().open(req, timeout=_REQUEST_TIMEOUT) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
             raise VndbError(f"下载封面 HTTP {e.code}") from None
@@ -244,6 +245,10 @@ def search_first_vn(title: str) -> Optional[dict]:
     """搜索并返回第一个匹配结果（自动选策略用）"""
     results = search_vn(title, count=1)
     return results[0] if results else None
+
+
+# multi_source 统一调用 client.search(keyword, count=...) 的入口
+search = search_vn
 
 
 def download_cover(cover_url: str, dest_path: str) -> bool:

@@ -101,11 +101,13 @@ def set_mixed_sources(source_ids: List[str]) -> None:
 
 
 def _wrap(result: dict, source_id: str) -> dict:
-    """给统一候选补 favicon 与显示名"""
+    """给统一候选补 favicon 与显示名（并统一 source_id 字段）"""
     out = dict(result)
     out["source"] = source_id
     out["source_icon"] = SOURCES[source_id]["icon"]
     out["source_name"] = SOURCES[source_id]["name"]
+    if not out.get("source_id") and out.get("vndb_id"):
+        out["source_id"] = out["vndb_id"]
     return out
 
 

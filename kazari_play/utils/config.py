@@ -39,6 +39,28 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "exe_path": "",
         "toast_duration": 3.0,
         "position": "bottom_right",
+        "subtitle_enabled": True,   # 是否显示字幕（V1.1 新增）
+    },
+    # Hook 实时翻译（V1.1 新增）
+    "textractor": {
+        "host_dir": "",             # host.dll + texthook*.dll 所在目录（空 = overlay 目录自动查找）
+        "codepage": 0,              # 文本编码：0=引擎默认(Shift-JIS)/932日文/936简体中文/65001 UTF-8
+    },
+    "translate": {
+        "engine": "ai",             # 仅 AI（OpenAI 兼容大模型，默认 DeepSeek）
+        "ai": {
+            "base_url": "https://api.deepseek.com",   # OpenAI 兼容端点（自动补 /chat/completions）
+            "api_key": "",
+            "model": "deepseek-chat",
+        },
+        "source_lang": "ja",
+        "target_lang": "zh",
+    },
+    # 文本清洗（Hook 模式，见 Hook文本清洗策略计划书）
+    # 过滤器 override 已改为每游戏（games.clean_filter_override），不再全局配置
+    "clean": {
+        "ai_assist_enabled": False,  # AI 兜底清洗总开关（过滤器链无法确定的脏文本走 AI）
+        "ai_assist_threshold": "dirty",  # 触发阈值：off / dirty(仅脏文本) / always(每条都洗)
     },
     # 元数据多源检索（可在设置页勾选哪些源参与"混合"检索）
     "metadata_sources": {
@@ -56,6 +78,17 @@ class Config:
     修改后需显式调用 save() 才会持久化。
     """
 
+    @staticmethod
+    def _deep_merge(base: dict, extra: dict) -> dict:
+        """递归合并：旧配置缺失的新嵌套字段（如 textractor.codepage）补默认值"""
+        out = dict(base)
+        for k, v in extra.items():
+            if isinstance(v, dict) and isinstance(out.get(k), dict):
+                out[k] = Config._deep_merge(out[k], v)
+            else:
+                out[k] = v
+        return out
+
     def __init__(self, config_path: Optional[str] = None):
         # 单例装饰器会复用实例，这里用标志位避免重复初始化
         if getattr(self, "_loaded", False):
@@ -71,8 +104,8 @@ class Config:
             try:
                 with open(self._path, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
-                # 合并默认值（保证新字段有默认值，旧配置不丢字段）
-                self._data = {**DEFAULT_CONFIG, **loaded}
+                # 深合并默认值：旧配置缺失的嵌套新字段自动补默认
+                self._data = self._deep_merge(DEFAULT_CONFIG, loaded)
             except (json.JSONDecodeError, OSError):
                 self._data = DEFAULT_CONFIG.copy()
         else:

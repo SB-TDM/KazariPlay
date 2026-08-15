@@ -26,8 +26,9 @@ class GameRepository:
             (id, title, exe_path, folder, cover_path, engine, tags,
              is_favorite, play_count, play_time, last_played, date_added, rating,
              logo_path, description, launch_exe_path,
-             vndb_id, released, developer, length_minutes, category_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             vndb_id, released, developer, length_minutes, category_id,
+             hook_code, hook_code_custom, translate_enabled, clean_filter_override)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         return self.db.execute(sql, (
             data["id"], data["title"], data["exe_path"], data["folder"],
@@ -36,7 +37,9 @@ class GameRepository:
             data["last_played"], data["date_added"], data["rating"],
             data["logo_path"], data["description"], data["launch_exe_path"],
             data["vndb_id"], data["released"], data["developer"], data["length_minutes"],
-            data["category_id"]
+            data["category_id"],
+            data["hook_code"], data["hook_code_custom"], data["translate_enabled"],
+            data["clean_filter_override"]
         ))
 
     def get_by_id(self, game_id: str) -> Optional[Game]:
@@ -103,9 +106,9 @@ class GameRepository:
         )
 
     def update_game(self, game: Game) -> bool:
-        """更新游戏的全部可编辑字段（标题/引擎/标签/Logo/封面/描述/启动路径/VNDB元数据/分类）
+        """更新游戏的全部可编辑字段（标题/引擎/评分/标签/Logo/封面/描述/启动路径/VNDB元数据/分类）
 
-        play_count/play_time/last_played/date_added/is_favorite/rating 不变。
+        play_count/play_time/last_played/date_added/is_favorite 不变。
         标签不写 games.tags 列（由 GameManager 联动 TagRepository 写关联表）。
         """
         return self.db.execute(
@@ -114,7 +117,9 @@ class GameRepository:
                cover_path = ?, logo_path = ?, description = ?,
                launch_exe_path = ?, exe_path = ?, folder = ?,
                vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
-               category_id = ?
+               category_id = ?, rating = ?,
+               hook_code = ?, hook_code_custom = ?, translate_enabled = ?,
+               clean_filter_override = ?
                WHERE id = ?""",
             (game.title, game.engine or "", "",
              game.cover_path or "", game.logo_path or "",
@@ -122,9 +127,34 @@ class GameRepository:
              game.exe_path or "", game.folder or "",
              game.vndb_id or "", game.released or "",
              game.developer or "", game.length_minutes or 0,
-             game.category_id or 0, game.id)
+             game.category_id or 0, game.rating or 0,
+             game.hook_code or "", game.hook_code_custom or "",
+             1 if game.translate_enabled else 0,
+             game.clean_filter_override or "",
+             game.id)
         )
-    
+
+    def update_hook_code(self, game_id: str, hook_code: str) -> bool:
+        """保存选定的 HookCode（持久化，重启游戏无需重新选择）"""
+        return self.db.execute(
+            "UPDATE games SET hook_code = ? WHERE id = ?",
+            (hook_code or "", game_id)
+        )
+
+    def set_translate_enabled(self, game_id: str, enabled: bool) -> bool:
+        """设置游戏翻译开关"""
+        return self.db.execute(
+            "UPDATE games SET translate_enabled = ? WHERE id = ?",
+            (1 if enabled else 0, game_id)
+        )
+
+    def update_clean_filter_override(self, game_id: str, override: str) -> bool:
+        """保存该游戏的清洗过滤器覆盖（JSON 数组字符串，空 = 引擎默认）"""
+        return self.db.execute(
+            "UPDATE games SET clean_filter_override = ? WHERE id = ?",
+            (override or "", game_id)
+        )
+
     def record_play(self, game_id: str):
         """记录游玩时间（更新 last_played，不再递增 play_count）"""
         from datetime import datetime
@@ -146,7 +176,11 @@ class GameRepository:
         return rows[0][0] if rows else 0
     
     def _row_to_game(self, row) -> Game:
-        """将数据库行转换为 Game 对象（标签从关联表加载）"""
+        """将数据库行转换为 Game 对象（标签从关联表加载）
+
+        row 为 sqlite3.Row：支持列名访问。category_id 与 Hook 翻译字段
+        必须用列名（ALTER 追加列在不同库版本的列序不同，索引会错位）。
+        """
         return Game(
             id=row[0],
             title=row[1],
@@ -162,14 +196,18 @@ class GameRepository:
             last_played=row[10],
             date_added=row[11] or "",
             rating=row[12] or 0,
-            logo_path=row[13] if len(row) > 13 else "",
-            description=row[14] if len(row) > 14 else "",
-            launch_exe_path=row[15] if len(row) > 15 else "",
-            vndb_id=row[16] if len(row) > 16 else "",
-            released=row[17] if len(row) > 17 else "",
-            developer=row[18] if len(row) > 18 else "",
-            length_minutes=row[19] if len(row) > 19 else 0,
-            category_id=row[20] if len(row) > 20 else 0,
+            logo_path=row["logo_path"] if "logo_path" in row.keys() else "",
+            description=row["description"] if "description" in row.keys() else "",
+            launch_exe_path=row["launch_exe_path"] if "launch_exe_path" in row.keys() else "",
+            vndb_id=row["vndb_id"] if "vndb_id" in row.keys() else "",
+            released=row["released"] if "released" in row.keys() else "",
+            developer=row["developer"] if "developer" in row.keys() else "",
+            length_minutes=row["length_minutes"] if "length_minutes" in row.keys() else 0,
+            category_id=row["category_id"] if "category_id" in row.keys() else 0,
+            hook_code=row["hook_code"] if "hook_code" in row.keys() else "",
+            hook_code_custom=row["hook_code_custom"] if "hook_code_custom" in row.keys() else "",
+            translate_enabled=bool(row["translate_enabled"]) if "translate_enabled" in row.keys() else False,
+            clean_filter_override=row["clean_filter_override"] if "clean_filter_override" in row.keys() else "",
         )
 
     def _load_tags(self, game_id: str) -> List[str]:

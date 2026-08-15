@@ -38,6 +38,21 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
+// 统一启动入口：所有启动按钮/菜单都走这里（详情页、卡片右键等），
+// 保证「首次启用翻译且无 hook_code」时 Hook 选择弹窗必然弹出；
+// 否则字幕会被等待选择状态吞掉（_awaiting_selection），用户看不到任何字幕。
+function launchGame(gameId) {
+  if (!bridge) return;
+  bridge.launch(gameId, function (res) {
+    try {
+      const r = JSON.parse(res || '{}');
+      if (r && r.ok && r.need_hook_select && window.HookSelect) {
+        HookSelect.open(gameId);
+      }
+    } catch (e) { }
+  });
+}
+
 // 星级字符串（1-5，0 表示未评分）
 function stars(r) {
   r = Math.max(0, Math.min(5, r || 0));

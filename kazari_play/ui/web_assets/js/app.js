@@ -6,8 +6,15 @@
 // ============================================================
 
 // ---------- 初始化 ----------
+// pywebview 注入时序：先注入 window.pywebview（api 为空对象 {}），导航完成后
+// 才 _createApi 填充方法并派发 pywebviewready。因此不能只凭 api 真值判定就绪
+// （空对象也为真，会过早执行导致全部桥接调用拿到空 api）。
+// 这里用「方法数 > 0」判断就绪 + 轮询兜底 + pywebviewready 事件三重保障，且防重复执行。
 function init() {
+  let _ready = false;
   const onReady = function () {
+    if (_ready) return;
+    _ready = true;
     window.bridgeReady = true;
     bridge.getConfig(function (s) {
       try {
@@ -19,8 +26,24 @@ function init() {
     refreshAll(true);
     setInterval(() => refreshAll(false), 30000);   // 长轮询兜底（数据无变化时不重建）
   };
-  if (window.pywebview && window.pywebview.api) { onReady(); }
-  else { window.addEventListener('pywebviewready', onReady); }
+
+  const apiReady = function () {
+    const api = window.pywebview && window.pywebview.api;
+    // 空对象 {} 不算就绪（_createApi 尚未填充）
+    return !!(api && typeof api === 'object' && Object.keys(api).length > 0);
+  };
+
+  if (apiReady()) { onReady(); }
+  else {
+    // 事件 + 轮询双保险：任一先到都就绪（_ready 防重复）
+    window.addEventListener('pywebviewready', onReady);
+    const poll = function () {
+      if (_ready) return;
+      if (apiReady()) { onReady(); }
+      else setTimeout(poll, 100);
+    };
+    setTimeout(poll, 100);
+  }
 }
 
 // ---------- 筛选下拉 ----------

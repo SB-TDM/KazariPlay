@@ -2,10 +2,12 @@
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
-原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理。
+原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理；V1.1 引入 **Hook 实时翻译（实验性）**。
 
 ## 特性
 
+- **Hook 实时翻译（V1.1 新增，⚠️ 实验性）**：Hook 提取游戏对话文本（基于 Textractor，支持 KRKR/Ren'Py/Unity/RPGMaker 等）+ C++ 内部 AI 翻译（OpenAI 兼容 API，默认 DeepSeek），字幕先显示原文、AI 翻译完成后替换为译文；含过滤器链文本清洗（去重/注音/标签/乱码）、每游戏独立清洗配置、字幕窗口跟随游戏窗口、实时翻译开关联动
+  > ⚠️ **实验性功能，使用隐患**：Hook 兼容性依游戏与 Hook 点而异，可能出现文本抓取不完整/错乱；AI 翻译质量不保证、可能误译人名与专有名词；实时翻译会调用第三方 AI API（如 DeepSeek）并产生实际费用；文本清洗过滤器可能误伤正常字幕（默认保守策略，激进过滤器需手动开启）。请在理解这些风险后使用。
 - **Kawaii Minimal 视觉**：UI 为 HTML/CSS（`kazari_play/ui/web_assets/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
 - **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
 - **Steam 式截图管理**：详情页截图卡片左键放大预览、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），预览窗口带加载动画
