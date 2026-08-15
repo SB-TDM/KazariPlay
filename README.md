@@ -79,3 +79,11 @@ KazariPlay_V1.0/
 - 配置：`%APPDATA%\KazariPlay\config.json`（默认浅色 Kawaii 主题）
 - 截图：`KazariPlay_V1.0/screenshots/{game_id}/`
 - 从旧版 Minato Launcher 升级时，`%APPDATA%\MinatoLauncher` 下已有的数据会自动迁移
+
+## 开源许可
+
+本项目以 **GNU General Public License v3.0（GPL-3.0）** 授权，详见 [LICENSE](LICENSE)。
+
+- **`overlay/` 部分（C++ overlay.exe）因静态链接 [Textractor](https://github.com/Artikash/Textractor)（GPL-3.0）而受 GPL-3.0 约束**，其源码与构建脚本（`overlay/build.bat`、`overlay/build32.bat`、`overlay/CMakeLists.txt`）随项目提供。
+- 第三方组件（pywebview / Pillow / keyboard / pywin32 / numpy / nlohmann-json 等）的使用与许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
+- 完整源码：https://github.com/SB-TDM/KazariPlay
