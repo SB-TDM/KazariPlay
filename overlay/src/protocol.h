@@ -23,7 +23,9 @@ enum class MsgType {
     SelectHook,
     UpdateFilterConfig, QueryFilterConfig,
     SetSubtitleEnabled,
+    SetSubtitleStyle, SetSubtitleDrag, PreviewSubtitle,
     StableText, HookCandidates, HookError, TestTranslateResult, FilterConfigResponse,
+    SubtitlePos,
     Unknown
 };
 
@@ -83,6 +85,15 @@ struct SetSubtitleEnabledMessage {
     bool enabled = true;
 };
 
+// 控制面板下发字幕样式（SubtitleStyle 的完整 JSON，见 subtitle_style.h）
+struct SetSubtitleStyleMessage {
+    std::string style_json;   // 嵌套 style 对象的 dump
+};
+
+struct SetSubtitleDragMessage {
+    bool drag = false;        // true=进入拖拽定位模式
+};
+
 // Python -> C++ 统一命令结构
 struct Command {
     MsgType type = MsgType::Unknown;
@@ -93,6 +104,8 @@ struct Command {
     SelectHookMessage select_hook;
     UpdateFilterConfigMessage update_filter_config;
     SetSubtitleEnabledMessage set_subtitle_enabled;
+    SetSubtitleStyleMessage set_subtitle_style;
+    SetSubtitleDragMessage set_subtitle_drag;
 };
 
 inline Command parseCommand(const std::string& line) {
@@ -161,6 +174,16 @@ inline Command parseCommand(const std::string& line) {
         } else if (type == "set_subtitle_enabled") {
             cmd.type = MsgType::SetSubtitleEnabled;
             cmd.set_subtitle_enabled.enabled = j.value("enabled", true);
+        } else if (type == "set_subtitle_style") {
+            cmd.type = MsgType::SetSubtitleStyle;
+            if (j.contains("style") && j["style"].is_object()) {
+                cmd.set_subtitle_style.style_json = j["style"].dump();
+            }
+        } else if (type == "set_subtitle_drag") {
+            cmd.type = MsgType::SetSubtitleDrag;
+            cmd.set_subtitle_drag.drag = j.value("drag", false);
+        } else if (type == "preview_subtitle") {
+            cmd.type = MsgType::PreviewSubtitle;
         }
     } catch (...) {
         cmd.type = MsgType::Unknown;
@@ -232,6 +255,15 @@ inline std::string serializeFilterConfigResponse(
         list.push_back(std::move(item));
     }
     j["filters"] = std::move(list);
+    return j.dump();
+}
+
+// 字幕拖拽结束回传位置百分比（x: 字幕中心/窗口宽, y: 字幕条顶/窗口高）
+inline std::string serializeSubtitlePos(float xPct, float yPct) {
+    nlohmann::json j;
+    j["type"] = "subtitle_pos";
+    j["x"] = xPct;
+    j["y"] = yPct;
     return j.dump();
 }
 

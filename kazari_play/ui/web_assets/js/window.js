@@ -11,7 +11,10 @@ function toggleMax() {
   const willMax = b && b.textContent === '□';
   bridge.windowToggleMaximize();
   document.body.classList.toggle('maximized', !!willMax);   // 最大化时隐藏缩放手柄
-  if (b) b.textContent = willMax ? '❐' : '□';
+  if (b) {
+    b.setAttribute('aria-label', willMax ? '还原窗口' : '最大化');
+    b.textContent = willMax ? '❐' : '□';
+  }
 }
 
 // ---------- 标题栏拖拽 ----------

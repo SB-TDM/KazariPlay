@@ -4,8 +4,8 @@
 <div class="overlay center" id="inputOverlay">
   <div class="dialog form">
     <div class="dlg-title"><span id="inputTitle">输入</span>
-      <button class="close-btn" id="inputClose">×</button></div>
-    <div class="form-row"><label id="inputLabel">名称</label><input id="inputValue" maxlength="20"></div>
+      <button class="close-btn" id="inputClose" aria-label="关闭">×</button></div>
+    <div class="form-row"><label id="inputLabel" for="inputValue">名称</label><input id="inputValue" maxlength="20" autocomplete="off"></div>
     <div class="dlg-foot"><button class="pill-btn" id="inputCancel">取消</button>
       <button class="pill-btn primary" id="inputOk">确定</button></div>
   </div>
@@ -15,7 +15,7 @@
 <div class="overlay center" id="confirmOverlay">
   <div class="dialog confirm">
     <div class="dlg-title"><span id="confirmTitle">确认</span>
-      <button class="close-btn" id="confirmClose">×</button></div>
+      <button class="close-btn" id="confirmClose" aria-label="关闭">×</button></div>
     <div class="confirm-msg" id="confirmMsg"></div>
     <div class="dlg-foot"><button class="pill-btn" id="confirmCancel">取消</button>
       <button class="pill-btn primary" id="confirmOk">确定</button></div>
@@ -27,6 +27,6 @@
   <div class="dialog picker">
     <div class="dlg-title" id="pickerTitle">选择标签</div>
     <div id="pickerList"></div>
-    <div class="dlg-foot"><button class="pill-btn" id="pickerClose">取消</button></div>
+    <div class="dlg-foot"><button class="pill-btn" id="pickerClose" aria-label="取消">取消</button></div>
   </div>
 </div>

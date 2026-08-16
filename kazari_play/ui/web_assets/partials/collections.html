@@ -4,7 +4,7 @@
 <div class="overlay" id="collectionOverlay">
   <div class="dialog tagmgr">
     <div class="dlg-title"><span>收藏夹</span>
-      <button class="close-btn" id="collectionClose">×</button></div>
+      <button class="close-btn" id="collectionClose" aria-label="关闭">×</button></div>
     <div id="gameCollectionSection">
       <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
       <div class="taglist" id="gameCollectionList"></div>
@@ -18,9 +18,9 @@
 <div class="overlay" id="manageGamesOverlay">
   <div class="dialog tagmgr">
     <div class="dlg-title"><span id="manageGamesTitle">管理游戏</span>
-      <button class="close-btn" id="manageGamesClose">×</button></div>
+      <button class="close-btn" id="manageGamesClose" aria-label="关闭">×</button></div>
     <div class="section-ttl">勾选要归入该收藏夹的游戏</div>
-    <div class="tagform"><input id="manageGamesKw" placeholder="搜索游戏…"></div>
+    <div class="tagform"><input id="manageGamesKw" placeholder="搜索游戏…" autocomplete="off" aria-label="搜索游戏"></div>
     <div class="manage-list" id="manageGamesList"></div>
     <div class="dlg-foot">
       <button class="pill-btn" id="manageGamesSelAll">全选</button>

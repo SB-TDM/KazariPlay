@@ -13,23 +13,23 @@
     <div class="brand"><div class="logo">☺</div><div class="name">KazariPlay</div></div>
     <div class="spacer"></div>
     <div class="winbtns">
-      <div class="winbtn" onclick="bridge&&bridge.windowMinimize()">─</div>
-      <div class="winbtn" id="btnMax" onclick="toggleMax()">□</div>
-      <div class="winbtn close" onclick="bridge&&bridge.windowClose()">✕</div>
+      <button type="button" class="winbtn" aria-label="最小化" onclick="bridge&&bridge.windowMinimize()">─</button>
+      <button type="button" class="winbtn" id="btnMax" aria-label="最大化" onclick="toggleMax()">□</button>
+      <button type="button" class="winbtn close" aria-label="关闭窗口" onclick="bridge&&bridge.windowClose()">✕</button>
     </div>
   </div>
 
   <div class="row">
     <!-- 侧边栏 -->
     <div class="sidebar" id="sidebar">
-      <div class="side-item active" data-nav="全部作品">全部作品</div>
-      <div class="side-item" data-nav="继续游玩">继续游玩</div>
-      <div class="side-item" data-nav="我的收藏">我的收藏</div>
+      <button type="button" class="side-item active" data-nav="全部作品">全部作品</button>
+      <button type="button" class="side-item" data-nav="继续游玩">继续游玩</button>
+      <button type="button" class="side-item" data-nav="我的收藏">我的收藏</button>
       <div class="side-sep"></div>
       <div class="collection-tree" id="collectionTree"></div>
-      <div class="side-item" id="btnNewCollection">＋ 新建收藏夹</div>
+      <button type="button" class="side-item" id="btnNewCollection">＋ 新建收藏夹</button>
       <div class="side-spacer"></div>
-      <div class="side-item" id="btnSettings">设置</div>
+      <button type="button" class="side-item" id="btnSettings">设置</button>
     </div>
 
     <!-- 主区域 -->
@@ -37,17 +37,17 @@
       <div class="navbar">
         <div class="search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9aeb9" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
-          <input id="searchInput" placeholder="搜索游戏、标签、开发商……">
+          <input id="searchInput" placeholder="搜索游戏、标签、开发商……" autocomplete="off" aria-label="搜索游戏">
         </div>
         <div class="navbtns">
           <button class="navbtn" id="batchBtn">批量选择</button>
-          <button class="navbtn" id="filterBtn">筛选 ▾</button>
+          <button class="navbtn" id="filterBtn">排序 ▾</button>
         </div>
-        <div class="dropdown" id="filterMenu">
+        <div class="dropdown" id="filterMenu" role="menu">
           <div class="ttl">排序</div>
-          <div class="item" data-sort="时间">按添加时间</div>
-          <div class="item" data-sort="名称">按名称</div>
-          <div class="item" data-sort="评分">按评分</div>
+          <button type="button" class="item" role="menuitem" data-sort="时间">按添加时间</button>
+          <button type="button" class="item" role="menuitem" data-sort="名称">按名称</button>
+          <button type="button" class="item" role="menuitem" data-sort="评分">按评分</button>
         </div>
       </div>
 
@@ -56,17 +56,17 @@
       <div class="empty" id="empty">
         <h2 id="emptyTitle">游戏库还是空的</h2>
         <p id="emptySub">扫描游戏文件夹，开始构建你的游戏库</p>
-        <div><button class="primary" id="btnScan">扫描文件夹</button>
+        <div><button class="primary" id="btnScan">扫描游戏文件夹</button>
              <button class="soft" id="btnShowAll" style="display:none">显示全部游戏</button></div>
       </div>
 
-      <div class="fab fab-refresh" id="fabRefresh" title="刷新游戏列表">
+      <button type="button" class="fab fab-refresh" id="fabRefresh" title="刷新游戏列表" aria-label="刷新游戏列表">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
-      </div>
-      <div class="fab" id="fab">+</div>
-      <div class="fabmenu" id="fabMenu">
-        <div class="item" id="fabAdd">手动添加单个 exe</div>
-        <div class="item" id="fabScan">批量扫描文件夹导入</div>
+      </button>
+      <button type="button" class="fab" id="fab" aria-label="添加游戏">+</button>
+      <div class="fabmenu" id="fabMenu" role="menu">
+        <button type="button" class="item" id="fabAdd">手动添加单个 exe</button>
+        <button type="button" class="item" id="fabScan">批量扫描游戏文件夹</button>
       </div>
 
       <div class="batchbar" id="batchBar">
@@ -79,7 +79,15 @@
         <button class="danger" id="btnBDel">从库中移除</button>
       </div>
 
-      <div class="toast" id="toast"></div>
+      <div class="toast" id="toast" aria-live="polite"></div>
+      <div class="batch-progress" id="batchProgress" aria-live="polite">
+        <div class="bp-head">
+          <span class="bp-title" id="bpTitle">批量处理中…</span>
+          <span class="bp-pct" id="bpPct">0%</span>
+        </div>
+        <div class="bp-bar"><div class="bp-fill" id="bpFill"></div></div>
+        <div class="bp-sub" id="bpSub"></div>
+      </div>
     </div>
   </div>
 </div>

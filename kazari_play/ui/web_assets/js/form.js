@@ -14,7 +14,7 @@ function setFormRows(showList, hideList) {
 
 // 打开编辑表单（复用详情对象的数据）
 function openEdit(g) {
-  editingId = g.id;
+  App.data.editingId = g.id;
   document.getElementById('formTitle').textContent = '编辑游戏';
   document.getElementById('fTitle').value = g.title || '';
   document.getElementById('fEngine').value = g.engine || '';
@@ -33,7 +33,7 @@ function openEdit(g) {
 
 // 打开手动添加表单：只保留「启动文件」，不强制取名（标题由后端自动推导为 exe 文件夹名）
 function openAdd() {
-  editingId = '';
+  App.data.editingId = '';
   document.getElementById('formTitle').textContent = '手动添加单个 exe';
   ['fTitle', 'fEngine', 'fDev', 'fDesc', 'fExe'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fRating').value = '0';
@@ -42,7 +42,32 @@ function openAdd() {
   showSheet('formOverlay');
 }
 
+// ---------- 表单内联校验错误 ----------
+// 错误显示在对应行下方并聚焦首个错误字段（替代一次性 toast，避免提示一闪而过）
+function showFormError(rowId, msg) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  clearFormError(rowId);
+  row.classList.add('has-error');
+  const err = document.createElement('div');
+  err.className = 'form-error';
+  err.textContent = msg;
+  row.appendChild(err);
+  const input = row.querySelector('input, select, textarea');
+  if (input) input.focus();
+}
+
+function clearFormError(rowId) {
+  const row = document.getElementById(rowId);
+  if (!row) return;
+  row.classList.remove('has-error');
+  const old = row.querySelector('.form-error');
+  if (old) old.remove();
+}
+
 function saveForm() {
+  clearFormError('fTitleRow');
+  clearFormError('fExeRow');
   const data = {
     title: document.getElementById('fTitle').value,
     engine: document.getElementById('fEngine').value,
@@ -52,9 +77,9 @@ function saveForm() {
     exe_path: document.getElementById('fExe').value
   };
   // 编辑：标题仍必填；添加：只要求 exe（标题由后端自动推导，不强制取名）
-  if (editingId && !data.title.trim()) { toast('标题不能为空'); return; }
-  if (!editingId && !data.exe_path.trim()) { toast('请先选择要添加的 exe 文件'); return; }
-  bridge.saveGame(editingId, JSON.stringify(data));
+  if (App.data.editingId && !data.title.trim()) { showFormError('fTitleRow', '标题不能为空'); return; }
+  if (!App.data.editingId && !data.exe_path.trim()) { showFormError('fExeRow', '请先选择要添加的 exe 文件'); return; }
+  bridge.saveGame(App.data.editingId, JSON.stringify(data));
   closeSheet('formOverlay');
 }
 
@@ -113,8 +138,8 @@ function renderCandidates(cands) {
     d.innerHTML = `<div class="cand-title">${icon}${srcName}${esc(c.title || '')}</div>
       <div class="cand-sub">${esc(c.developer || '')}${c.released ? ' · ' + esc(c.released) : ''}${c.rating ? ' · ★' + (+c.rating).toFixed(1) : ''}</div>`;
     d.onclick = () => {
-      if (!editingId) return;
-      bridge.applyCandidate(editingId, JSON.stringify(c));
+      if (!App.data.editingId) return;
+      bridge.applyCandidate(App.data.editingId, JSON.stringify(c));
       toast('已应用元数据（空字段已填充）');
     };
     box.appendChild(d);
@@ -126,13 +151,13 @@ document.getElementById('btnPickExe').onclick = () => {
   if (bridge) bridge.selectExe(function (p) { if (p) document.getElementById('fExe').value = p; });
 };
 document.getElementById('btnPickCover').onclick = () => {
-  if (!editingId) { toast('请先保存游戏再更换封面'); return; }
+  if (!App.data.editingId) { toast('请先保存游戏再更换封面'); return; }
   bridge.pickCover(function (s) {
     let r = {};
     try { r = JSON.parse(s || '{}'); } catch (e) { }
     if (r.path) {
       document.getElementById('fCoverPrev').src = r.preview || '';
-      bridge.setCover(editingId, r.path);
+      bridge.setCover(App.data.editingId, r.path);
       toast('封面已更换');
     }
   });
@@ -150,3 +175,6 @@ document.getElementById('btnMetaSearch').onclick = () => {
 document.getElementById('formClose').onclick = () => closeSheet('formOverlay');
 document.getElementById('formCancel').onclick = () => closeSheet('formOverlay');
 document.getElementById('formSave').onclick = saveForm;
+// 输入即清除对应行的校验错误
+document.getElementById('fTitle').addEventListener('input', () => clearFormError('fTitleRow'));
+document.getElementById('fExe').addEventListener('input', () => clearFormError('fExeRow'));

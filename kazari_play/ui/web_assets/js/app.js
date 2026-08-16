@@ -51,7 +51,7 @@ function bindFilterMenu() {
   const m = document.getElementById('filterMenu');
   m.querySelectorAll('.item').forEach(it => {
     it.onclick = () => {
-      state.sort = it.dataset.sort;
+      App.ui.state.sort = it.dataset.sort;
       m.classList.remove('show');
       document.querySelectorAll('#filterMenu .item').forEach(x => x.classList.remove('on'));
       it.classList.add('on');
@@ -61,8 +61,17 @@ function bindFilterMenu() {
 }
 
 // ---------- 事件绑定 ----------
-// 搜索框
-document.getElementById('searchInput').addEventListener('input', e => { state.kw = e.target.value.trim(); renderAll(); });
+// 搜索框（防抖：连续输入只触发一次过滤渲染，避免大库逐键全量重建）
+let searchTimer = null;
+document.getElementById('searchInput').addEventListener('input', e => {
+  const kw = e.target.value.trim();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (App.ui.state.kw === kw) return;
+    App.ui.state.kw = kw;
+    renderAll();
+  }, 200);
+});
 // 筛选按钮 + 下拉
 document.getElementById('filterBtn').onclick = function (e) {
   e.stopPropagation();
@@ -74,8 +83,8 @@ bindFilterMenu();
 document.querySelectorAll('#sidebar .side-item').forEach(it => {
   if (it.id === 'btnNewCollection' || it.id === 'btnSettings') return;
   it.onclick = () => {
-    state.nav = it.dataset.nav;
-    state.collectionId = null;
+    App.ui.state.nav = it.dataset.nav;
+    App.ui.state.collectionId = null;
     document.querySelectorAll('#sidebar .side-item').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('#collectionTree .collection-item').forEach(x => x.classList.remove('active'));
     it.classList.add('active');
@@ -112,11 +121,11 @@ document.addEventListener('click', () => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     hideShotMenu();
-    if (state.batch) {
-      state.batch = false;
+    if (App.ui.state.batch) {
+      App.ui.state.batch = false;
       document.body.classList.remove('batch');
       document.getElementById('batchBtn').classList.remove('active');
-      state.selected.clear();
+      App.ui.state.selected.clear();
       renderAll();
     }
     else closeTopSheet();

@@ -4,7 +4,7 @@
   <div class="dialog settings">
     <div class="dlg-head">
       <h3><span class="cog">⚙</span> 设置</h3>
-      <button class="close-btn" id="setClose">×</button>
+      <button class="close-btn" id="setClose" aria-label="关闭设置">×</button>
     </div>
     <div class="dlg-body">
       <div class="dlg-nav" id="setNav">
@@ -14,6 +14,7 @@
         <button class="nav-item" data-tab="disguise">伪装</button>
         <button class="nav-item" data-tab="metadata">元数据</button>
         <button class="nav-item" data-tab="translate">翻译</button>
+        <button class="nav-item" data-tab="subtitle">字幕</button>
         <button class="nav-item" data-tab="about">关于</button>
       </div>
       <div class="dlg-content">
@@ -23,7 +24,7 @@
             <div class="form-row">
               <div class="label">自动扫描</div>
               <div class="field">
-                <label class="switch"><input type="checkbox" id="setAutoScan"><span class="track"><span class="thumb"></span></span></label>
+                <label class="switch"><input type="checkbox" id="setAutoScan" aria-label="自动扫描"><span class="track"><span class="thumb"></span></span></label>
                 <span class="desc">启动时扫描库文件夹</span>
               </div>
             </div>
@@ -41,7 +42,7 @@
               <div class="form-row" style="margin-top:6px">
                 <div class="label">显示日志窗口</div>
                 <div class="field">
-                  <label class="switch"><input type="checkbox" id="setShowConsole"><span class="track"><span class="thumb"></span></span></label>
+                  <label class="switch"><input type="checkbox" id="setShowConsole" aria-label="显示日志窗口"><span class="track"><span class="thumb"></span></span></label>
                   <span class="desc">启动时是否打开命令提示符</span>
                 </div>
               </div>
@@ -51,24 +52,24 @@
           <div class="group">
             <div class="g-title">主题模式（选择即预览，保存后生效）</div>
             <div class="theme-cards">
-              <div class="theme-card light" data-card="light" onclick="Settings.pickTheme('light')">
+              <button type="button" class="theme-card light" data-card="light" onclick="Settings.pickTheme('light')">
                 <div class="sw"><div class="bar"></div><div class="body"></div></div>
                 <div class="lbl">浅色 · Kawaii 主推</div>
-              </div>
-              <div class="theme-card dark" data-card="dark" onclick="Settings.pickTheme('dark')">
+              </button>
+              <button type="button" class="theme-card dark" data-card="dark" onclick="Settings.pickTheme('dark')">
                 <div class="sw"><div class="bar"></div><div class="body"></div></div>
                 <div class="lbl">深色 · 夜间模式</div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
         <div class="page" id="set-hotkey" style="display:none">
           <div class="group">
             <div class="g-title">全局快捷键（点击后按下组合键，保存后立即生效）</div>
-            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">游戏截图</div><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly></div></div>
+            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly aria-label="紧急隐藏快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly aria-label="全屏切换快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly aria-label="游戏静音快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><div class="label">游戏截图</div><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly aria-label="游戏截图快捷键"></div></div>
           </div>
         </div>
         <div class="page" id="set-disguise" style="display:none">
@@ -99,7 +100,7 @@
               </div>
               <div class="form-row" style="margin-top:6px">
                 <div class="label">API Key</div>
-                <div class="field"><input type="password" id="setAiApiKey" placeholder="sk-..."></div>
+                <div class="field"><input type="password" id="setAiApiKey" placeholder="sk-…" autocomplete="off" spellcheck="false"></div>
               </div>
               <div class="form-row" style="margin-top:6px">
                 <div class="label">模型</div>
@@ -126,14 +127,7 @@
             </div>
             <div class="form-row" style="margin-top:6px">
               <div class="label">测试翻译</div>
-              <div class="field"><button class="pill-btn mini" id="setTransTest">测试</button><span class="desc" id="setTransTestRes" style="margin-left:8px"></span></div>
-            </div>
-            <div class="form-row" style="margin-top:6px">
-              <div class="label">显示字幕</div>
-              <div class="field">
-                <label class="switch"><input type="checkbox" id="setSubtitleEnabled" checked><span class="track"><span class="thumb"></span></span></label>
-                <span class="desc">游戏画面底部显示日文原文 + 中文译文</span>
-              </div>
+              <div class="field"><button class="pill-btn mini" id="setTransTest">测试</button><span class="desc" id="setTransTestRes" style="margin-left:8px" aria-live="polite"></span></div>
             </div>
             <div class="form-row" style="margin-top:6px">
               <div class="label">host.dll 目录</div>
@@ -148,7 +142,7 @@
             <div class="form-row" style="margin-top:6px">
               <div class="label">AI 兜底清洗</div>
               <div class="field">
-                <label class="switch"><input type="checkbox" id="setAiClean"><span class="track"><span class="thumb"></span></span></label>
+                <label class="switch"><input type="checkbox" id="setAiClean" aria-label="AI 兜底清洗"><span class="track"><span class="thumb"></span></span></label>
                 <span class="desc">过滤器链处理不干净的文本交给 AI 清洗（只清洗不翻译）</span>
                 <div style="margin-top:4px;padding-left:0">
                   <select id="setAiCleanTh" style="width:180px">
@@ -157,6 +151,143 @@
                   </select>
                   <span class="desc" style="margin-left:6px">触发阈值</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 字幕样式（独立 tab，改动实时下发 C++，无需点保存） -->
+        <div class="page" id="set-subtitle" style="display:none">
+          <div class="sub-note">字幕样式改动<b>实时生效</b>，无需点「保存」；游戏运行中立即更新。</div>
+          <div class="group">
+            <div class="form-row" style="margin-top:0">
+              <div class="label">显示字幕</div>
+              <div class="field">
+                <label class="switch"><input type="checkbox" id="setSubtitleEnabled" checked aria-label="显示字幕"><span class="track"><span class="thumb"></span></span></label>
+                <span class="desc">游戏画面底部显示日文原文 + 中文译文</span>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:6px">
+              <div class="label">预设</div>
+              <div class="field">
+                <select id="setSubPreset" style="width:140px">
+                  <option value="">选择预设…</option>
+                </select>
+                <button class="pill-btn mini" id="setSubLoad">加载</button>
+                <button class="pill-btn mini danger" id="setSubDelPreset">删除</button>
+              </div>
+            </div>
+            <div class="form-row" style="margin-top:6px">
+              <div class="label">存为预设</div>
+              <div class="field">
+                <input type="text" id="setSubPresetName" placeholder="输入预设名称后保存" maxlength="20">
+                <button class="pill-btn mini primary" id="setSubSavePreset">保存命名</button>
+              </div>
+            </div>
+
+            <div class="sub-sec" data-sec="bg">
+              <h4>背景</h4>
+              <div class="seg" id="setSubBgMode">
+                <button type="button" class="opt on" data-v="0">自适应底板</button>
+                <button type="button" class="opt" data-v="1">全屏通栏</button>
+                <button type="button" class="opt" data-v="2">无底板</button>
+              </div>
+              <div class="row">
+                <span class="lbl">背景色</span>
+                <input type="color" id="setSubBgColor" aria-label="背景色">
+                <input type="range" id="setSubBgAlpha" min="0" max="100" step="1" aria-label="背景不透明度">
+                <span class="val" id="setSubBgAlphaV">72%</span>
+              </div>
+              <div class="row">
+                <span class="lbl">圆角</span><input type="range" id="setSubCorner" min="0" max="40" step="1" aria-label="圆角"><span class="val" id="setSubCornerV">10</span>
+              </div>
+              <div class="row">
+                <span class="lbl">内边距</span><input type="range" id="setSubPadding" min="0" max="40" step="1" aria-label="内边距"><span class="val" id="setSubPaddingV">14</span>
+              </div>
+              <div class="row">
+                <span class="lbl">效果</span>
+                <label class="check"><input type="checkbox" id="setSubGradient"><span>垂直渐变</span></label>
+                <label class="check"><input type="checkbox" id="setSubBorder"><span>边框</span></label>
+                <input type="color" id="setSubGradColor" title="渐变第二色" aria-label="渐变第二色">
+                <input type="color" id="setSubBorderColor" title="边框颜色" aria-label="边框颜色">
+              </div>
+              <div class="row">
+                <span class="lbl">边框粗</span><input type="range" id="setSubBorderW" min="0" max="8" step="0.5" aria-label="边框粗细"><span class="val" id="setSubBorderWV">1.5</span>
+              </div>
+            </div>
+
+            <div class="sub-sec" data-sec="font">
+              <h4>文字</h4>
+              <div class="row">
+                <span class="lbl">字体</span>
+                <select id="setSubFontSel" style="flex:1">
+                  <option value="Microsoft YaHei UI">微软雅黑</option>
+                  <option value="SimHei">黑体</option>
+                  <option value="SimSun">宋体</option>
+                  <option value="Microsoft JhengHei UI">微软正黑</option>
+                  <option value="MS Gothic">MS Gothic</option>
+                  <option value="Yu Gothic UI">Yu Gothic</option>
+                  <option value="Segoe UI">Segoe UI</option>
+                </select>
+              </div>
+              <div class="row">
+                <span class="lbl">字号</span><input type="range" id="setSubFontSize" min="10" max="40" step="1" aria-label="字号"><span class="val" id="setSubFontSizeV">22</span>
+              </div>
+              <div class="row">
+                <span class="lbl">字重</span><input type="range" id="setSubFontWeight" min="400" max="900" step="100" aria-label="字重"><span class="val" id="setSubFontWeightV">700</span>
+              </div>
+              <div class="row">
+                <span class="lbl">文字色</span><input type="color" id="setSubTextColor" aria-label="文字色">
+                <span class="lbl" style="width:auto">描边</span><input type="checkbox" id="setSubOutline"><input type="color" id="setSubOutlineColor" aria-label="描边颜色">
+              </div>
+              <div class="row">
+                <span class="lbl">描边粗</span><input type="range" id="setSubOutlineW" min="0" max="8" step="0.5" aria-label="描边粗细"><span class="val" id="setSubOutlineWV">1.5</span>
+              </div>
+              <div class="row">
+                <span class="lbl">阴影</span><input type="checkbox" id="setSubShadow">
+                <span class="lbl" style="width:auto">偏移</span><input type="range" id="setSubShadowOff" min="0" max="12" step="0.5" style="flex:1" aria-label="阴影偏移"><span class="val" id="setSubShadowOffV">2</span>
+              </div>
+              <div class="seg" id="setSubAlign">
+                <button type="button" class="opt on" data-v="0">居中</button>
+                <button type="button" class="opt" data-v="1">左对齐</button>
+                <button type="button" class="opt" data-v="2">右对齐</button>
+              </div>
+              <div class="row">
+                <span class="lbl">行间距</span><input type="range" id="setSubLineGap" min="0" max="20" step="1" aria-label="行间距"><span class="val" id="setSubLineGapV">4</span>
+              </div>
+              <div class="row">
+                <span class="lbl">最大宽</span><input type="range" id="setSubMaxWidth" min="20" max="100" step="1" aria-label="最大宽度"><span class="val" id="setSubMaxWidthV">90%</span>
+              </div>
+              <div class="row">
+                <label class="check"><input type="checkbox" id="setSubShowSource" checked><span>显示源语言字幕（原文行）</span></label>
+              </div>
+            </div>
+
+            <div class="sub-sec" data-sec="pos">
+              <h4>位置</h4>
+              <div class="row">
+                <span class="lbl">水平</span><input type="range" id="setSubPosX" min="0" max="100" step="1" aria-label="水平位置"><span class="val" id="setSubPosXV">50%</span>
+              </div>
+              <div class="row">
+                <span class="lbl">垂直</span><input type="range" id="setSubPosY" min="0" max="100" step="1" aria-label="垂直位置"><span class="val" id="setSubPosYV">82%</span>
+              </div>
+              <div class="row">
+                <span class="lbl">拖拽</span>
+                <button class="pill-btn mini" id="setSubDrag">拖拽调整字幕</button>
+                <span class="desc" id="setSubDragHint">点击后直接拖动画面上的字幕，松开自动保存</span>
+              </div>
+              <div class="row">
+                <span class="lbl">避让</span>
+                <label class="check"><input type="checkbox" id="setSubAvoidBottom"><span>避开游戏对话框</span></label>
+                <input type="range" id="setSubAvoidPx" min="0" max="200" step="5" style="flex:1" aria-label="底部避让高度"><span class="val" id="setSubAvoidPxV">60</span>
+              </div>
+            </div>
+
+            <div class="sub-sec" data-sec="ops">
+              <h4>快捷操作</h4>
+              <div class="row">
+                <button class="pill-btn mini" id="setSubPreview">预览字幕</button>
+                <button class="pill-btn mini danger" id="setSubHide">临时隐藏</button>
               </div>
             </div>
           </div>

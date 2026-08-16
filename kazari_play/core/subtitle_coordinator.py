@@ -77,6 +77,12 @@ class SubtitleCoordinator:
             ov = []
         if ov:
             self._overlay.send_update_filter_config(ov)
+        # 应用全局字幕总开关（设置页「显示字幕」；C++ 默认开启，需显式下发）
+        try:
+            sub_enabled = bool(self._cfg.get("subtitle.enabled", True))
+            self._overlay.send_set_subtitle_enabled(sub_enabled)
+        except Exception as e:
+            logger.error("下发字幕开关失败: %s", e)
         return True
 
     def select_hook(self, handle: int, hook_code: str = ""):

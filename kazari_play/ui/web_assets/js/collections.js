@@ -14,17 +14,17 @@
 function renderCollectionTree() {
   const cl = document.getElementById('collectionTree');
   cl.innerHTML = '';
-  state.collectionTree.forEach(group => cl.appendChild(renderCollectionGroup(group)));
+  App.ui.state.collectionTree.forEach(group => cl.appendChild(renderCollectionGroup(group)));
   bindCollectionItems();
 }
 
 function renderCollectionGroup(group) {
   const el = document.createElement('div');
   el.className = 'collection-group';
-  const open = state.openGroupId === group.id;
+  const open = App.ui.state.openGroupId === group.id;
   const hasChildren = (group.children || []).length > 0;
   el.innerHTML = `
-    <div class="collection-group-header ${state.collectionId === group.id ? 'active' : ''}" data-id="${group.id}">
+    <div class="collection-group-header ${App.ui.state.collectionId === group.id ? 'active' : ''}" data-id="${group.id}">
       ${hasChildren ? `<button class="toggle ${open ? 'open' : ''}" title="${open ? '收起' : '展开'}">${open ? '▾' : '▸'}</button>` : ''}
       <span class="name">${esc(group.name)}</span>
       <span class="count">${group.game_count || 0}</span>
@@ -32,7 +32,10 @@ function renderCollectionGroup(group) {
     ${hasChildren && open ? `<div class="collection-children">${(group.children || []).map(renderCollectionCategory).join('')}</div>` : ''}`;
   const hdr = el.querySelector('.collection-group-header');
   // 点击分组名 → 直接筛选该分组（含子分类），不展开
+  hdr.setAttribute('role', 'button');
+  hdr.tabIndex = 0;
   hdr.addEventListener('click', () => selectCollection(group.id, group));
+  hdr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hdr.click(); } });
   hdr.addEventListener('contextmenu', (e) => { e.preventDefault(); showCollectionCtx(e.clientX, e.clientY, group); });
   // 小按钮 → 仅展开/收起子分类（手风琴），不筛选
   const tgl = el.querySelector('.toggle');
@@ -42,13 +45,13 @@ function renderCollectionGroup(group) {
 
 // 手风琴：仅切换分组展开/收起（不改变筛选）
 function toggleExpand(group) {
-  state.openGroupId = state.openGroupId === group.id ? null : group.id;
+  App.ui.state.openGroupId = App.ui.state.openGroupId === group.id ? null : group.id;
   renderCollectionTree();
 }
 
 function renderCollectionCategory(cat) {
   return `
-    <div class="collection-item ${state.collectionId === cat.id ? 'active' : ''}" data-id="${cat.id}">
+    <div class="collection-item ${App.ui.state.collectionId === cat.id ? 'active' : ''}" data-id="${cat.id}">
       <span class="name">${esc(cat.name)}</span>
       <span class="count">${cat.game_count || 0}</span>
     </div>`;
@@ -57,7 +60,11 @@ function renderCollectionCategory(cat) {
 function bindCollectionItems() {
   document.querySelectorAll('#collectionTree .collection-item').forEach(it => {
     const cid = +it.dataset.id;
+    // 键盘可达：分类项作为可聚焦按钮（Enter/空格 触发）
+    it.setAttribute('role', 'button');
+    it.tabIndex = 0;
     it.onclick = () => selectCollection(cid, findCollectionNode(cid));
+    it.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); it.onclick(); } };
     it.oncontextmenu = (e) => {
       e.preventDefault();
       const node = findCollectionNode(cid);
@@ -67,7 +74,7 @@ function bindCollectionItems() {
 }
 
 function findCollectionNode(id) {
-  for (const g of state.collectionTree) {
+  for (const g of App.ui.state.collectionTree) {
     if (g.id === id) return g;
     const c = (g.children || []).find(x => x.id === id);
     if (c) return c;
@@ -78,26 +85,29 @@ function findCollectionNode(id) {
 // 收藏夹选择：分组显示其全部（含子分类），分类仅显示自身
 function selectCollection(id, node) {
   const isGroup = node && node.parent_id == null;
-  state.collectionId = id;
-  state.collectionGroupId = isGroup ? id : (node ? findParentGroupId(id) : null);
-  state.nav = 'collection';
+  App.ui.state.collectionId = id;
+  App.ui.state.collectionGroupId = isGroup ? id : (node ? findParentGroupId(id) : null);
+  App.ui.state.nav = 'collection';
+  // 高亮互斥：清除「全部作品 / 继续游玩 / 我的收藏」等侧边栏项高亮，
+  // 只保留当前收藏夹项呈现粉色胶囊效果（与 clearCollectionFilter 对称）
+  document.querySelectorAll('#sidebar .side-item').forEach(x => x.classList.remove('active'));
   // 选子分类时确保其父分组展开
   if (node && !isGroup) {
     const pg = findParentGroupId(id);
-    if (pg) state.openGroupId = pg;
+    if (pg) App.ui.state.openGroupId = pg;
   }
-  // 拉取收藏夹内 sort_order 顺序（拖拽排序用）
-  state.collectionOrder = [];
+  // 拉取收藏夹内 sort_order 顺序（拖拽排序用）；统一在此渲染一次，
+  // 避免立即渲染 + 回调渲染两次全量重建（order 是排序必需的，回调即到）
+  App.ui.state.collectionOrder = [];
   bridge.getGamesInCollection(id, function (idsStr) {
-    try { state.collectionOrder = JSON.parse(idsStr || '[]'); } catch (e) { }
+    try { App.ui.state.collectionOrder = JSON.parse(idsStr || '[]'); } catch (e) { }
     renderAll();
   });
   renderCollectionTree();
-  renderAll();
 }
 
 function findParentGroupId(id) {
-  for (const g of state.collectionTree) {
+  for (const g of App.ui.state.collectionTree) {
     if ((g.children || []).some(c => c.id === id)) return g.id;
   }
   return null;
@@ -105,8 +115,8 @@ function findParentGroupId(id) {
 
 // 清除收藏夹筛选，回到「全部作品」
 function clearCollectionFilter() {
-  state.collectionId = null; state.collectionGroupId = null; state.openGroupId = null;
-  state.collectionOrder = []; state.nav = '全部作品'; state.kw = '';
+  App.ui.state.collectionId = null; App.ui.state.collectionGroupId = null; App.ui.state.openGroupId = null;
+  App.ui.state.collectionOrder = []; App.ui.state.nav = '全部作品'; App.ui.state.kw = '';
   renderCollectionTree();
   document.querySelectorAll('#sidebar .side-item').forEach(x => {
     x.classList.toggle('active', x.dataset.nav === '全部作品');
@@ -155,15 +165,15 @@ function delCollection(node) {
 
 // ---------- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 ----------
 function openCollectionManager() {
-  if (!currentGame) return;
+  if (!App.data.currentGame) return;
   // 异步拉取最新数据（右键进入时 currentGame 可能是快照），再渲染
-  bridge.getGame(currentGame.id, function (s) {
+  bridge.getGame(App.data.currentGame.id, function (s) {
     try {
       const fresh = JSON.parse(s || '{}');
       if (fresh && fresh.id) {
-        currentGame = fresh;
-        const gi = GAMES.findIndex(x => x.id === fresh.id);
-        if (gi >= 0) GAMES[gi] = fresh;
+        App.data.currentGame = fresh;
+        const gi = App.data.games.findIndex(x => x.id === fresh.id);
+        if (gi >= 0) App.data.games[gi] = fresh;
       }
     } catch (e) { }
     renderGameCollections();
@@ -173,15 +183,15 @@ function openCollectionManager() {
 
 function renderGameCollections() {
   const sec = document.getElementById('gameCollectionSection');
-  if (!currentGame) { sec.style.display = 'none'; return; }
+  if (!App.data.currentGame) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
-  document.getElementById('gameCollectionTitle').textContent = '当前游戏：' + currentGame.title;
-  const curIds = new Set((currentGame.collections || []).map(c => c.id));
+  document.getElementById('gameCollectionTitle').textContent = '当前游戏：' + App.data.currentGame.title;
+  const curIds = new Set((App.data.currentGame.collections || []).map(c => c.id));
   const t = document.getElementById('gameCollectionList');
   t.innerHTML = '';
   // 全部分组 + 子分类（带完整路径），均可勾选
   const all = [];
-  state.collectionTree.forEach(g => {
+  App.ui.state.collectionTree.forEach(g => {
     all.push({ id: g.id, label: g.name, color: g.color, icon: g.icon });
     (g.children || []).forEach(c => all.push({ id: c.id, label: (g.name + ' / ' + c.name), color: c.color, icon: c.icon }));
   });
@@ -195,11 +205,11 @@ function renderGameCollections() {
     c.onclick = () => {
       const next = new Set(curIds);
       if (next.has(col.id)) next.delete(col.id); else next.add(col.id);
-      bridge.setGameCollections(currentGame.id, JSON.stringify([...next]));
+      bridge.setGameCollections(App.data.currentGame.id, JSON.stringify([...next]));
       // 本地同步 currentGame.collections，立即反映选中态（后端 refresh 也会回写）
       const had = curIds.has(col.id);
-      if (had) { currentGame.collections = currentGame.collections.filter(x => x.id !== col.id); }
-      else { currentGame.collections = currentGame.collections.concat([{ id: col.id, name: col.label, color: col.color, icon: col.icon || '' }]); }
+      if (had) { App.data.currentGame.collections = App.data.currentGame.collections.filter(x => x.id !== col.id); }
+      else { App.data.currentGame.collections = App.data.currentGame.collections.concat([{ id: col.id, name: col.label, color: col.color, icon: col.icon || '' }]); }
       toast(had ? '已移除收藏夹' : '已加入收藏夹');
       renderGameCollections();
     };
@@ -225,7 +235,7 @@ function openManageGames(node) {
     : [node.id];
   const allSel = new Set();
   let pending = idsToFetch.length;
-  if (!pending) { manageGamesSel = new Set(); manageGamesData = GAMES.slice(); renderManageGames(); return; }
+  if (!pending) { manageGamesSel = new Set(); manageGamesData = App.data.games.slice(); renderManageGames(); return; }
   idsToFetch.forEach(cid => {
     bridge.getGamesInCollection(cid, function (idsStr) {
       let ids = [];
@@ -233,7 +243,7 @@ function openManageGames(node) {
       ids.forEach(i => allSel.add(i));
       if (--pending === 0) {
         manageGamesSel = allSel;
-        manageGamesData = GAMES.slice();
+        manageGamesData = App.data.games.slice();
         renderManageGames();
       }
     });
@@ -250,13 +260,20 @@ function renderManageGames() {
     const checked = manageGamesSel.has(g.id);
     const d = document.createElement('div');
     d.className = 'mg-item' + (checked ? ' on' : '');
-    d.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}><span class="mg-title">${esc(g.title)}</span>`;
+    // 行整体作为可聚焦复选框（role=checkbox）；内部 checkbox 仅作视觉展示
+    d.setAttribute('role', 'checkbox');
+    d.setAttribute('aria-checked', checked ? 'true' : 'false');
+    d.setAttribute('aria-label', g.title || '游戏');
+    d.tabIndex = 0;
+    d.innerHTML = `<input type="checkbox" tabindex="-1" aria-hidden="true" ${checked ? 'checked' : ''}><span class="mg-title">${esc(g.title)}</span>`;
     d.onclick = () => {
       if (manageGamesSel.has(g.id)) manageGamesSel.delete(g.id); else manageGamesSel.add(g.id);
+      d.setAttribute('aria-checked', manageGamesSel.has(g.id) ? 'true' : 'false');
       d.classList.toggle('on', manageGamesSel.has(g.id));
       const cb = d.querySelector('input'); if (cb) cb.checked = manageGamesSel.has(g.id);
       updateManageCount();
     };
+    d.onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); d.onclick(); } };
     t.appendChild(d);
   });
   updateManageCount();
@@ -293,7 +310,11 @@ document.getElementById('btnNewCollection').onclick = () => {
 document.getElementById('collectionClose').onclick = () => closeSheet('collectionOverlay');
 document.getElementById('collectionDone').onclick = () => closeSheet('collectionOverlay');
 document.getElementById('manageGamesClose').onclick = () => closeSheet('manageGamesOverlay');
-document.getElementById('manageGamesKw').addEventListener('input', () => renderManageGames());
+let mgKwTimer = null;
+document.getElementById('manageGamesKw').addEventListener('input', () => {
+  clearTimeout(mgKwTimer);
+  mgKwTimer = setTimeout(renderManageGames, 200);   // 防抖：连续输入只过滤一次
+});
 document.getElementById('manageGamesSelAll').onclick = () => {
   manageGamesData.forEach(g => manageGamesSel.add(g.id));
   renderManageGames();
