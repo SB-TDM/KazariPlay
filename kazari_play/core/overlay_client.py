@@ -80,6 +80,7 @@ class OverlayClient:
         self.on_error = None            # (msg)
         self.on_test_translate_result = None   # (ok, result, error)
         self.on_filter_config = None    # (list) 过滤器配置回传
+        self.on_subtitle_pos = None     # (x_pct, y_pct) 字幕拖拽结束回传位置
 
     @property
     def pipe_path(self) -> str:
@@ -264,6 +265,10 @@ class OverlayClient:
                                           msg.get("error", "") or "")
         elif t == "filter_config_response" and self.on_filter_config:
             self.on_filter_config(msg.get("filters", []) or [])
+        elif t == "subtitle_pos":
+            if self.on_subtitle_pos:
+                self.on_subtitle_pos(float(msg.get("x", 0.5)),
+                                     float(msg.get("y", 0.8)))
 
     def _raw_write(self, data: bytes) -> bool:
         """重叠写（不自启动进程、不加锁；供 _send_long 与 _quit_current 复用）"""
@@ -375,6 +380,24 @@ class OverlayClient:
             "type": "set_subtitle_enabled",
             "enabled": bool(enabled),
         })
+
+    def send_subtitle_style(self, style: dict) -> bool:
+        """下发字幕样式到 C++（游戏运行中实时重绘字幕；未运行则仅保存配置）"""
+        return self._send_long({
+            "type": "set_subtitle_style",
+            "style": style or {},
+        })
+
+    def send_subtitle_drag(self, drag: bool) -> bool:
+        """进入/退出字幕拖拽定位模式（拖拽结束经 on_subtitle_pos 回传位置）"""
+        return self._send_long({
+            "type": "set_subtitle_drag",
+            "drag": bool(drag),
+        })
+
+    def send_preview_subtitle(self) -> bool:
+        """显示示例字幕（控制面板实时预览用，不依赖游戏运行）"""
+        return self._send_long({"type": "preview_subtitle"})
 
     def send_test_translate(self, text: str, ai_config: dict = None) -> bool:
         """设置页测试翻译：C++ 同步调用 AI，结果经 test_translate_result 回传"""

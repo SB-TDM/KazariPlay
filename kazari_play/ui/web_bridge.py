@@ -241,9 +241,11 @@ class WebBridge:
         self._window = None          # 由 create_window 后绑定
         self._ui = UISync()          # 界面更新总线（全部前端推送经它合并发出）
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
+        self._sub_pos_bound = False  # 字幕位置回传转发是否已绑定
         self._drag_anchor = None
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
         self._vndb_counter = 0       # VNDB 进度节流计数
+        self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
         except Exception as e:
@@ -284,6 +286,13 @@ class WebBridge:
     def saveConfigs(self, data_json: str):
         data = json.loads(data_json)
         for k, v in data.items():
+            # dict 值做浅合并：保留该键下未涉及的子字段（如 subtitle.style 不被 enabled 覆盖）
+            if isinstance(v, dict):
+                old = self._cfg.get(k)
+                if isinstance(old, dict):
+                    merged = dict(old)
+                    merged.update(v)
+                    v = merged
             self._cfg.set(k, v)
         self._cfg.save()
 
@@ -349,7 +358,8 @@ class WebBridge:
         coord = getattr(launcher, "subtitle_coordinator", None) if launcher else None
         if coord and getattr(coord, "_running", False):
             self._get_overlay_client().send_set_subtitle_enabled(bool(enabled))
-        self.refresh()
+        # 不触发全量刷新：开关仅影响详情页开关态（前端已本地同步）与 C++ 字幕，
+        # 卡片网格不展示翻译状态，刷新无可见收益反而重建网格+详情
         return True
 
     def testTranslation(self, text: str = "こんにちは、世界") -> str:
@@ -436,7 +446,8 @@ class WebBridge:
             except (ValueError, TypeError):
                 filters = []
             self._get_overlay_client().send_update_filter_config(filters)
-        self.refresh()
+        # 不触发全量刷新：勾选状态前端已本地维护，卡片网格不展示清洗配置，
+        # 刷新仅重建网格+详情，无可见收益
         return True
 
     def openFolder(self, game_id: str):
@@ -661,6 +672,8 @@ class WebBridge:
     def _run_vndb_match(self, games: list):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""
         self._vndb_counter = 0
+        if games:
+            self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
         try:
             matched, skipped, failed = self.manager.match_vndb_for_games(
                 games, force=False, progress_cb=self._vndb_progress)
@@ -669,13 +682,32 @@ class WebBridge:
                 f"VNDB 匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
         except Exception as e:
             logger.error("VNDB 批量匹配异常: %s", e)
+        finally:
+            if self._batch_ctx is not None:
+                self._batch_ctx["running"] = False
 
     def _vndb_progress(self, game_id: str, title: str, status: str, msg: str):
         if status == "start":
             return
+        if self._batch_ctx is not None:
+            self._batch_ctx["done"] = min(self._batch_ctx.get("done", 0) + 1,
+                                          self._batch_ctx.get("total", 1))
         self._vndb_counter += 1
         if self._vndb_counter % 3 == 0:
             self.notify(f"VNDB 匹配中：{title[:24]}")
+
+    def getBatchProgress(self) -> str:
+        """返回当前批量任务进度 JSON（无任务返回 running=false）"""
+        ctx = self._batch_ctx
+        if not ctx:
+            return json.dumps({"running": False, "type": "", "total": 0, "done": 0},
+                              ensure_ascii=False)
+        return json.dumps({
+            "running": bool(ctx.get("running")),
+            "type": ctx.get("type", ""),
+            "total": ctx.get("total", 0),
+            "done": ctx.get("done", 0),
+        }, ensure_ascii=False)
 
     def selectExe(self) -> str:
         if self._window is None:
@@ -959,10 +991,10 @@ class WebBridge:
         return json.dumps(multi_source.get_all_sources(), ensure_ascii=False)
 
     def saveMetadataSources(self, sources_json: str):
-        """保存用户勾选的混合检索源（写 config，即时生效）"""
+        """保存用户勾选的混合检索源（写 config，即时生效）。
+        保存提示统一由前端 settings.save() 弹出（'设置已保存'），避免双 toast 互相覆盖。"""
         from core import multi_source
         multi_source.set_mixed_sources(json.loads(sources_json))
-        self.notify("元数据源配置已保存")
 
     def applyCandidate(self, game_id: str, candidate_json: str):
         from core import multi_source
@@ -1027,6 +1059,147 @@ class WebBridge:
     def notify(self, msg: str):
         """向前端弹 toast 提示（可在任意线程调用，微延迟合并）"""
         self._ui.invalidate("toast", msg)
+
+    # ---------- 字幕样式桥接口（控制面板并入主设置页）----------
+
+    def _ensure_subtitle_pos_handler(self):
+        """把 C++ 字幕拖拽结束回传转发给主窗口设置页滑块（仅绑定一次）"""
+        client = self._get_overlay_client()
+        if getattr(self, "_sub_pos_bound", False):
+            return
+        self._sub_pos_bound = True
+
+        def _forward(x, y):
+            # 转发给主窗口（设置页「字幕样式」区的滑块）
+            if self._window is not None:
+                try:
+                    self._window.evaluate_js(
+                        "window.updateSubtitlePos && window.updateSubtitlePos(%s,%s)" % (x, y))
+                except Exception:
+                    pass
+            # 同时写回配置，保证下次启动位置一致
+            try:
+                st = dict(self._cfg.get("subtitle.style", {}) or {})
+                st["pos_x"] = x
+                st["pos_y"] = y
+                self._cfg.set("subtitle.style", st)
+                self._cfg.save()
+            except Exception:
+                pass
+        client.on_subtitle_pos = _forward
+
+    def getSubtitleStyle(self) -> str:
+        """返回当前字幕样式 JSON（设置页初始化用）"""
+        return json.dumps(self._cfg.get("subtitle.style", {}), ensure_ascii=False)
+
+    def setSubtitleStyle(self, style_json: str):
+        """保存字幕样式并下发到 C++ overlay（游戏运行中实时重绘字幕）"""
+        try:
+            style = json.loads(style_json or "{}")
+            if not isinstance(style, dict):
+                style = {}
+            self._cfg.set("subtitle.style", style)
+            self._cfg.save()
+            self._get_overlay_client().send_subtitle_style(style)
+        except Exception as e:
+            logger.error("setSubtitleStyle 失败: %s", e)
+
+    def previewSubtitle(self):
+        """显示示例字幕（不依赖游戏运行，便于实时预览样式）"""
+        self._get_overlay_client().send_preview_subtitle()
+
+    def setSubtitleDrag(self, drag: bool):
+        """进入/退出字幕拖拽定位模式"""
+        self._ensure_subtitle_pos_handler()
+        self._get_overlay_client().send_subtitle_drag(bool(drag))
+
+    def hideSubtitle(self):
+        """临时隐藏当前字幕"""
+        self._get_overlay_client().send_hide_subtitle()
+
+    def setSubtitleEnabled(self, enabled: bool):
+        """字幕总开关（关闭后不再显示新字幕）"""
+        try:
+            self._cfg.set("subtitle.enabled", bool(enabled))
+            self._cfg.save()
+        except Exception:
+            pass
+        self._get_overlay_client().send_set_subtitle_enabled(bool(enabled))
+
+    def getSubtitleStylePresets(self) -> str:
+        """返回字幕样式预设：内置 3 套（原作/极简/半透黑底）+ 用户自命名预设（config.subtitle.presets）"""
+        builtin = {
+            "original": {
+                "bg_mode": 0, "bg_r": 0.0, "bg_g": 0.0, "bg_b": 0.0, "bg_a": 0.72,
+                "corner": 10, "padding": 14, "gradient": False,
+                "border": False, "font_size": 22, "font_weight": 700,
+                "text_r": 1.0, "text_g": 1.0, "text_b": 1.0, "text_a": 1.0,
+                "outline": False, "shadow": False, "align": 0, "line_gap": 4,
+                "max_width": 0.9, "pos_x": 0.5, "pos_y": 0.82,
+                "avoid_bottom": True, "avoid_bottom_px": 60, "show_source": True,
+            },
+            "minimal": {
+                "bg_mode": 2, "bg_r": 0.0, "bg_g": 0.0, "bg_b": 0.0, "bg_a": 0.0,
+                "corner": 0, "padding": 6, "gradient": False,
+                "border": False, "font_size": 20, "font_weight": 600,
+                "text_r": 1.0, "text_g": 1.0, "text_b": 1.0, "text_a": 1.0,
+                "outline": True, "outline_w": 1.5, "outline_a": 0.8,
+                "shadow": False, "align": 0, "line_gap": 3,
+                "max_width": 0.9, "pos_x": 0.5, "pos_y": 0.82,
+                "avoid_bottom": True, "avoid_bottom_px": 60, "show_source": True,
+            },
+            "darkglass": {
+                "bg_mode": 1, "bg_r": 0.05, "bg_g": 0.05, "bg_b": 0.08, "bg_a": 0.55,
+                "corner": 8, "padding": 12, "gradient": True,
+                "grad_r": 0.15, "grad_g": 0.13, "grad_b": 0.2, "grad_a": 0.7,
+                "border": True, "border_w": 1.0, "border_r": 0.3, "border_g": 0.3,
+                "border_b": 0.4, "border_a": 0.4,
+                "font_size": 22, "font_weight": 700,
+                "text_r": 1.0, "text_g": 1.0, "text_b": 1.0, "text_a": 1.0,
+                "outline": False, "shadow": True, "shadow_off": 2, "shadow_a": 0.5,
+                "align": 0, "line_gap": 4, "max_width": 0.92,
+                "pos_x": 0.5, "pos_y": 0.85, "avoid_bottom": True, "avoid_bottom_px": 60,
+                "show_source": True,
+            },
+        }
+        user = dict(self._cfg.get("subtitle.presets", {}) or {})
+        presets = dict(builtin)
+        presets.update(user)   # 用户预设覆盖同名内置（用于改名/复写）
+        return json.dumps(presets, ensure_ascii=False)
+
+    def saveSubtitlePreset(self, name: str, style_json: str) -> str:
+        """把当前字幕样式保存为用户命名预设（config.subtitle.presets[name]）"""
+        try:
+            name = (name or "").strip()
+            if not name:
+                return json.dumps({"ok": False, "msg": "预设名称不能为空"})
+            style = json.loads(style_json or "{}")
+            if not isinstance(style, dict):
+                style = {}
+            presets = dict(self._cfg.get("subtitle.presets", {}) or {})
+            presets[name] = style
+            self._cfg.set("subtitle.presets", presets)
+            self._cfg.save()
+            return json.dumps({"ok": True, "name": name}, ensure_ascii=False)
+        except Exception as e:
+            logger.error("saveSubtitlePreset 失败: %s", e)
+            return json.dumps({"ok": False, "msg": str(e)}, ensure_ascii=False)
+
+    def deleteSubtitlePreset(self, name: str) -> str:
+        """删除用户命名预设（内置预设不可删）"""
+        try:
+            name = (name or "").strip()
+            if name in ("original", "minimal", "darkglass"):
+                return json.dumps({"ok": False, "msg": "内置预设不可删除"}, ensure_ascii=False)
+            presets = dict(self._cfg.get("subtitle.presets", {}) or {})
+            if name in presets:
+                del presets[name]
+                self._cfg.set("subtitle.presets", presets)
+                self._cfg.save()
+            return json.dumps({"ok": True}, ensure_ascii=False)
+        except Exception as e:
+            logger.error("deleteSubtitlePreset 失败: %s", e)
+            return json.dumps({"ok": False, "msg": str(e)}, ensure_ascii=False)
 
     def reloadCovers(self):
         """封面更新后强制前端重新加载所有卡片封面（清缓存后定向推送）"""

@@ -18,3 +18,7 @@ overlay/bin32/
 
 # 本地 skill / 工具配置（不上传）
 .dsh/
+
+# UI 审查临时图片与面板测试截图（未使用，不上传）
+kazari_play/ui/web_assets/images/
+tests/shot_*.png

@@ -4,13 +4,13 @@
   <div class="dialog form edit-form">
     <div class="form-scroll">
       <div class="dlg-title"><span id="formTitle">编辑游戏</span>
-        <button class="close-btn" id="formClose">×</button></div>
-      <div class="form-row" id="fTitleRow"><label>标题</label><input id="fTitle"></div>
-      <div class="form-row" id="fEngineRow"><label>引擎</label><input id="fEngine"></div>
-      <div class="form-row" id="fDevRow"><label>开发商</label><input id="fDev"></div>
-      <div class="form-row" id="fRatingRow"><label>评分</label>
+        <button class="close-btn" id="formClose" aria-label="关闭">×</button></div>
+      <div class="form-row" id="fTitleRow"><label for="fTitle">标题</label><input id="fTitle" name="title" autocomplete="off"></div>
+      <div class="form-row" id="fEngineRow"><label for="fEngine">引擎</label><input id="fEngine" name="engine" autocomplete="off"></div>
+      <div class="form-row" id="fDevRow"><label for="fDev">开发商</label><input id="fDev" name="developer" autocomplete="off"></div>
+      <div class="form-row" id="fRatingRow"><label for="fRating">评分</label>
         <select id="fRating"><option value="0">未评分</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
-      <div class="form-row" id="fDescRow"><label>简介</label><textarea id="fDesc"></textarea></div>
+      <div class="form-row" id="fDescRow"><label for="fDesc">简介</label><textarea id="fDesc" name="description" autocomplete="off"></textarea></div>
       <div class="form-row" id="fCoverRow" style="display:none">
         <label>封面</label>
         <div class="field"><img id="fCoverPrev" class="cover-prev" alt=""><button class="pill-btn" id="btnPickCover" style="flex:none">更换封面</button></div>

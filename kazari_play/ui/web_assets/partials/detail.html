@@ -8,14 +8,14 @@
       <div class="detail-head">
         <h2 id="dlgTitle"></h2>
         <div class="more-wrap">
-          <button class="close-btn" id="dlgMore">⋮</button>
-          <div class="more-menu" id="dlgMoreMenu">
-            <div class="item" data-act="vndb">VNDB 匹配</div>
-            <div class="item" data-act="open">打开本地目录</div>
-            <div class="item danger" data-act="del">删除</div>
+          <button class="close-btn" id="dlgMore" aria-label="更多操作">⋮</button>
+          <div class="more-menu" id="dlgMoreMenu" role="menu">
+            <button type="button" class="item" data-act="vndb">VNDB 匹配</button>
+            <button type="button" class="item" data-act="open">打开本地目录</button>
+            <button type="button" class="item danger" data-act="del">删除</button>
           </div>
         </div>
-        <button class="close-btn" id="dlgClose">×</button>
+        <button class="close-btn" id="dlgClose" aria-label="关闭详情">×</button>
       </div>
       <div class="info-grid" id="dlgInfo"></div>
       <div class="detail-actions">
@@ -23,30 +23,33 @@
         <button class="pill-btn" id="dlgEdit">编辑</button>
         <button class="pill-btn fav" id="dlgFav">☆ 收藏</button>
       </div>
-      <!-- Hook 实时翻译（V1.1） -->
-      <div class="trans-card" id="dlgTransRow" style="display:none">
-        <div class="trans-head">
-          <span class="trans-lbl">💬 实时翻译</span>
-          <label class="switch"><input type="checkbox" id="dlgTrans"><span class="track"><span class="thumb"></span></span></label>
-        </div>
-        <div class="trans-body">
-          <span class="hook-badge" id="dlgHookBadge">未配置 Hook 点</span>
-          <button class="pill-btn mini" id="dlgRehook">启动后选择</button>
-          <button class="pill-btn mini" id="dlgCleanCfg">清洗配置</button>
-        </div>
-        <div class="trans-body" id="dlgCleanPanel" style="display:none">
-          <div class="trans-desc" id="dlgCleanSrc" style="padding-left:0;margin-bottom:4px"></div>
-          <div id="dlgCleanFilters"></div>
-          <div style="margin-top:8px">
-            <button class="pill-btn mini" id="dlgCleanSave">保存</button>
-            <button class="pill-btn mini" id="dlgCleanReset">恢复引擎默认</button>
-            <span class="trans-desc" id="dlgCleanRes"></span>
-          </div>
-        </div>
-        <div class="trans-desc">启动游戏后自动注入 Hook，游戏画面底部显示原文+译文</div>
-      </div>
-      <div class="collections-row" id="dlgCollections"></div>
       <div class="detail-desc" id="dlgDesc"></div>
+      <div class="collections-row" id="dlgCollections"></div>
+      <!-- Hook 实时翻译（V1.1，折叠卡片：点击展开配置） -->
+      <div class="trans-card" id="dlgTransRow" style="display:none">
+        <div class="trans-head" id="dlgTransHead">
+          <span class="trans-lbl">💬 实时翻译</span>
+          <label class="switch"><input type="checkbox" id="dlgTrans" aria-label="实时翻译"><span class="track"><span class="thumb"></span></span></label>
+          <span class="trans-arrow" id="dlgTransArrow">▸</span>
+        </div>
+        <div class="trans-body" id="dlgTransBody" style="display:none">
+          <div class="trans-row">
+            <span class="hook-badge" id="dlgHookBadge">未配置 Hook 点</span>
+            <button class="pill-btn mini" id="dlgRehook">启动后选择</button>
+            <button class="pill-btn mini" id="dlgCleanCfg">清洗配置</button>
+          </div>
+          <div id="dlgCleanPanel" style="display:none">
+            <div class="trans-desc" id="dlgCleanSrc" style="padding-left:0;margin-bottom:4px"></div>
+            <div id="dlgCleanFilters"></div>
+            <div style="margin-top:8px">
+              <button class="pill-btn mini" id="dlgCleanSave">保存</button>
+              <button class="pill-btn mini" id="dlgCleanReset">恢复引擎默认</button>
+              <span class="trans-desc" id="dlgCleanRes"></span>
+            </div>
+          </div>
+          <div class="trans-desc" style="margin-top:8px">启动游戏后自动注入 Hook，游戏画面底部显示原文+译文</div>
+        </div>
+      </div>
       <!-- 游戏截图（Steam 式） -->
       <div class="screenshots-section">
         <div class="shots-head">
@@ -63,7 +66,7 @@
 <div class="overlay center" id="shotPreviewOverlay">
   <div class="dialog shot-preview">
     <div class="dlg-title"><span id="shotPreviewTitle">截图</span>
-      <button class="close-btn" id="shotPreviewClose">×</button></div>
+      <button class="close-btn" id="shotPreviewClose" aria-label="关闭预览">×</button></div>
     <div class="shot-preview-body">
       <div class="shot-preview-loading" id="shotPreviewLoading">加载中…</div>
       <img id="shotPreviewImg" alt="">
@@ -72,9 +75,9 @@
 </div>
 
 <!-- 截图右键菜单 -->
-<div class="shot-menu" id="shotMenu">
-  <div class="item" data-act="rename">重命名</div>
-  <div class="item" data-act="folder">打开所在位置</div>
-  <div class="item" data-act="copy">复制到剪贴板</div>
-  <div class="item danger" data-act="del">删除</div>
+<div class="shot-menu" id="shotMenu" role="menu">
+  <button type="button" class="item" data-act="rename">重命名</button>
+  <button type="button" class="item" data-act="folder">打开所在位置</button>
+  <button type="button" class="item" data-act="copy">复制到剪贴板</button>
+  <button type="button" class="item danger" data-act="del">删除</button>
 </div>

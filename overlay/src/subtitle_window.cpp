@@ -6,6 +6,7 @@
 #include <d2d1helper.h>
 #include <dwrite.h>
 #include <wincodec.h>
+#include <windowsx.h>   // GET_X_LPARAM / GET_Y_LPARAM
 
 #include <algorithm>
 #include <string>
@@ -48,7 +49,7 @@ bool SubtitleWindow::initialize(HINSTANCE hInstance) {
     wc.lpfnWndProc = &SubtitleWindow::wndProc;
     wc.hInstance = hInstance;
     wc.lpszClassName = kClassName;
-    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hCursor = LoadCursor(nullptr, IDC_SIZEALL);
     RegisterClassExW(&wc);
 
     // 与 toast 相同：分层 + 透明穿透 + 置顶 + 不激活
@@ -79,13 +80,16 @@ bool SubtitleWindow::initialize(HINSTANCE hInstance) {
         return false;
     }
 
-    // 字体：日文 MS Gothic（显示完整），中文 Microsoft YaHei UI
+    // 文本格式：按当前样式（默认）创建；样式变更时由 applyStyle 重建
+    auto weight = static_cast<DWRITE_FONT_WEIGHT>(m_style.font_weight);
     m_dwriteFactory->CreateTextFormat(
-        L"MS Gothic", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, 15.0f, L"ja-jp", &m_origFormat);
+        m_style.font.c_str(), nullptr, weight, DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, m_style.font_size, L"zh-cn", &m_transFormat);
+    auto origWeight = static_cast<DWRITE_FONT_WEIGHT>(
+        std::max(100, static_cast<int>(m_style.font_weight * 0.7f)));
     m_dwriteFactory->CreateTextFormat(
-        L"Microsoft YaHei UI", nullptr, DWRITE_FONT_WEIGHT_BOLD, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, 22.0f, L"zh-cn", &m_transFormat);
+        m_style.font.c_str(), nullptr, origWeight, DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL, m_style.font_size * 0.7f, L"ja-jp", &m_origFormat);
 
     return ensureSize(m_width, m_height);
 }
@@ -120,20 +124,6 @@ bool SubtitleWindow::ensureSize(int width, int height) {
     if (FAILED(hr)) {
         return false;
     }
-
-    // 半透明黑背景（alpha≈0.72），原文半透明白，译文纯白
-    if (!m_bgBrush) {
-        m_renderTarget->CreateSolidColorBrush(
-            D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.72f), &m_bgBrush);
-    }
-    if (!m_origBrush) {
-        m_renderTarget->CreateSolidColorBrush(
-            D2D1::ColorF(1.0f, 1.0f, 1.0f, 0.65f), &m_origBrush);
-    }
-    if (!m_transBrush) {
-        m_renderTarget->CreateSolidColorBrush(
-            D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f), &m_transBrush);
-    }
     return true;
 }
 
@@ -156,35 +146,141 @@ HWND SubtitleWindow::findGameWindow() {
     return ctx.hwnd;
 }
 
+// 返回 rc 所在显示器的工作区边界；rc 未命中任何显示器时回退 rc 自身
+RECT SubtitleWindow::monitorRectFor(const RECT& rc) const {
+    HMONITOR mon = MonitorFromRect(&rc, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(mon, &mi)) {
+        return mi.rcMonitor;
+    }
+    return rc;
+}
+
+// 按样式 + 目标 rect 计算字幕窗口几何（宽=全宽，高=内容高，位置按百分比）
+void SubtitleWindow::computeGeometry(const RECT& gr, int& sx, int& sy, int& sw, int& sh) {
+    sw = gr.right - gr.left;
+    int gh = gr.bottom - gr.top;
+    sh = static_cast<int>(contentHeight());
+    if (sh < 8) sh = 8;
+    if (sh > gh / 2) sh = gh / 2;   // 上限：窗口高的一半
+    sx = static_cast<int>(gr.left + m_style.pos_x * sw - sw / 2.0f);
+    sy = static_cast<int>(gr.top + m_style.pos_y * gh);
+    if (m_style.avoid_bottom) {
+        int maxSy = gr.bottom - sh - static_cast<int>(m_style.avoid_bottom_px);
+        if (sy > maxSy) sy = maxSy;
+    }
+    if (sy < gr.top) sy = gr.top;
+    // clamp 到目标显示器内（多显示器下以 gr 所在显示器为准，防止滑块拖出可视区）
+    RECT mon = monitorRectFor(gr);
+    int scrL = mon.left;
+    int scrT = mon.top;
+    int scrW = mon.right - mon.left;
+    int scrH = mon.bottom - mon.top;
+    sx = std::max(scrL, std::min(sx, scrL + scrW - sw));
+    sy = std::max(scrT, std::min(sy, scrT + scrH - sh));
+}
+
+float SubtitleWindow::contentHeight() const {
+    float origH = m_style.font_size * 0.7f * 1.35f;
+    float transH = m_style.font_size * 1.35f;
+    float pad = m_style.bg_mode == 2 ? 2.0f : m_style.padding;
+    if (!m_style.show_source) {
+        return transH + 2.0f * pad;   // 仅译文行
+    }
+    return origH + m_style.line_gap + transH + 2.0f * pad;
+}
+
+float SubtitleWindow::measureTextWidth(const std::wstring& text, IDWriteTextFormat* fmt,
+                                       float maxW) {
+    if (text.empty() || !fmt || maxW <= 0) {
+        return 0.0f;
+    }
+    IDWriteTextLayout* layout = nullptr;
+    if (FAILED(m_dwriteFactory->CreateTextLayout(
+            text.c_str(), static_cast<UINT32>(text.size()), fmt, maxW, 10000.0f, &layout))) {
+        return 0.0f;
+    }
+    DWRITE_TEXT_METRICS m = {};
+    layout->GetMetrics(&m);
+    layout->Release();
+    return m.width;
+}
+
+void SubtitleWindow::applyWindowTransparent(bool transparent) {
+    LONG_PTR ex = GetWindowLongPtrW(m_hwnd, GWL_EXSTYLE);
+    if (transparent) {
+        ex |= WS_EX_TRANSPARENT;
+    } else {
+        ex &= ~WS_EX_TRANSPARENT;
+    }
+    SetWindowLongPtrW(m_hwnd, GWL_EXSTYLE, ex);
+}
+
+// 目标 rect：优先游戏窗口；无则回退主显示器（预览模式也能量化定位）
+RECT SubtitleWindow::resolveTargetRect() {
+    RECT gr = {};
+    HWND g = m_gameHwnd;
+    if (g && !IsWindow(g)) {
+        g = nullptr;
+    }
+    if (!g) {
+        g = findGameWindow();
+    }
+    if (g && GetWindowRect(g, &gr) && gr.right > gr.left && gr.bottom > gr.top) {
+        return gr;
+    }
+    // 无游戏窗口：以字幕窗口当前所在显示器为基准（拖拽/预览在多显示器下保持一致）
+    HMONITOR mon = MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    if (GetMonitorInfoW(mon, &mi)) {
+        return mi.rcMonitor;
+    }
+    gr.left = 0;
+    gr.top = 0;
+    gr.right = GetSystemMetrics(SM_CXSCREEN);
+    gr.bottom = GetSystemMetrics(SM_CYSCREEN);
+    return gr;
+}
+
+// 按目标 rect 重新定位 + 重绘（几何无变化且非 force 时跳过）
+void SubtitleWindow::reposition(const RECT& gr, bool force) {
+    if (!m_visible) {
+        return;
+    }
+    int sx, sy, sw, sh;
+    computeGeometry(gr, sx, sy, sw, sh);
+    const bool geomChanged = (sx != m_lastX || sy != m_lastY ||
+                              sw != m_lastW || sh != m_lastH);
+    if (!force && !geomChanged) {
+        return;
+    }
+    if (!ensureSize(sw, sh)) {
+        return;
+    }
+    render();
+    paintLayered(sx, sy);
+    if (geomChanged) {
+        SetWindowPos(m_hwnd, HWND_TOPMOST, sx, sy, sw, sh,
+                     SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        m_lastX = sx; m_lastY = sy; m_lastW = sw; m_lastH = sh;
+        LogSub("reposition: " + std::to_string(sx) + "," + std::to_string(sy) +
+               " " + std::to_string(sw) + "x" + std::to_string(sh));
+    }
+}
+
 void SubtitleWindow::show(HWND gameHwnd, const std::wstring& original) {
+    if (!m_style.enabled) {
+        return;   // 字幕总开关关闭：不显示
+    }
     if (!gameHwnd) {
         gameHwnd = findGameWindow();
     }
-    RECT gr = {};
-    bool ok = gameHwnd && GetWindowRect(gameHwnd, &gr) &&
-              gr.right > gr.left && gr.bottom > gr.top;
-    if (!ok) {
-        LogSub("show: no game window (pid=" + std::to_string(m_gamePid) +
-               "), fallback to primary monitor");
-        // 找不到游戏窗口（未 start_hook 或窗口已关）：回退到主显示器底部
-        POINT pt = {0, 0};
-        HMONITOR mon = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
-        MONITORINFO mi = {};
-        mi.cbSize = sizeof(mi);
-        if (GetMonitorInfoW(mon, &mi)) {
-            gr = mi.rcMonitor;
-        } else {
-            gr.left = 0; gr.top = 0;
-            gr.right = GetSystemMetrics(SM_CXSCREEN);
-            gr.bottom = GetSystemMetrics(SM_CYSCREEN);
-        }
-    }
-    int gw = gr.right - gr.left;
-    int gh = gr.bottom - gr.top;
-    int sw = gw;
-    int sh = std::max(1, gh / 5);            // 高度 = 高度 / 5
-    int sx = gr.left;
-    int sy = gr.bottom - sh;
+    m_gameHwnd = gameHwnd;
+    RECT gr = resolveTargetRect();
+    int sx, sy, sw, sh;
+    computeGeometry(gr, sx, sy, sw, sh);
 
     if (!ensureSize(sw, sh)) {
         LogSub("show: ensureSize FAIL");
@@ -198,10 +294,9 @@ void SubtitleWindow::show(HWND gameHwnd, const std::wstring& original) {
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     ShowWindow(m_hwnd, SW_SHOWNOACTIVATE);
     m_visible = true;
-    // 跟随游戏窗口：记录目标与当前几何，启动轮询 timer
-    m_gameHwnd = gameHwnd;
+    // 跟随游戏窗口：记录目标与当前几何，启动轮询 timer（拖拽模式不跟随）
     m_lastX = sx; m_lastY = sy; m_lastW = sw; m_lastH = sh;
-    if (!m_followTimer) {
+    if (!m_dragMode && !m_followTimer) {
         m_followTimer = SetTimer(m_hwnd, TIMER_FOLLOW, FOLLOW_INTERVAL_MS, nullptr);
     }
     LogSub("show: ok size=" + std::to_string(sw) + "x" + std::to_string(sh) +
@@ -234,19 +329,74 @@ void SubtitleWindow::stopFollow() {
     m_gameHwnd = nullptr;
 }
 
+void SubtitleWindow::applyStyle(const std::string& styleJson) {
+    m_style = ParseSubtitleStyle(styleJson);
+    // 重建文本格式（字体/字号/字重可能变化）
+    if (m_dwriteFactory) {
+        if (m_transFormat) { m_transFormat->Release(); m_transFormat = nullptr; }
+        if (m_origFormat) { m_origFormat->Release(); m_origFormat = nullptr; }
+        auto weight = static_cast<DWRITE_FONT_WEIGHT>(m_style.font_weight);
+        m_dwriteFactory->CreateTextFormat(
+            m_style.font.c_str(), nullptr, weight, DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL, m_style.font_size, L"zh-cn", &m_transFormat);
+        auto origWeight = static_cast<DWRITE_FONT_WEIGHT>(
+            std::max(100, static_cast<int>(m_style.font_weight * 0.7f)));
+        m_dwriteFactory->CreateTextFormat(
+            m_style.font.c_str(), nullptr, origWeight, DWRITE_FONT_STYLE_NORMAL,
+            DWRITE_FONT_STRETCH_NORMAL, m_style.font_size * 0.7f, L"ja-jp", &m_origFormat);
+    }
+    LogSub("applyStyle: mode=" + std::to_string(m_style.bg_mode) +
+           " size=" + std::to_string(static_cast<int>(m_style.font_size)) +
+           " pos=" + std::to_string(m_style.pos_x) + "," + std::to_string(m_style.pos_y));
+    // 运行中立即按新样式强制重绘（无游戏窗口时回退主显示器，预览模式同样生效）
+    if (m_visible) {
+        reposition(resolveTargetRect(), true);
+    }
+}
+
+void SubtitleWindow::setDragMode(bool drag) {
+    m_dragMode = drag;
+    if (drag) {
+        applyWindowTransparent(false);   // 拖拽时需要接收鼠标（去掉穿透）
+        if (!m_visible) {
+            showPreview();   // 无字幕时显示预览字幕供拖拽
+            return;          // show 内部按 m_dragMode 不会启动跟随
+        }
+        stopFollow();
+    } else {
+        applyWindowTransparent(true);
+        if (m_visible && m_gamePid && !m_followTimer) {
+            m_gameHwnd = findGameWindow();
+            m_followTimer = SetTimer(m_hwnd, TIMER_FOLLOW, FOLLOW_INTERVAL_MS, nullptr);
+        }
+    }
+    LogSub(std::string("setDragMode: ") + (drag ? "on" : "off"));
+}
+
+void SubtitleWindow::showPreview() {
+    // 控制面板预览：示例字幕（无游戏窗口时回退主显示器）
+    show(nullptr, L"こんにちは、世界");
+    updateTranslated(L"你好，世界");
+}
+
 // 跟随：游戏窗口移动/缩放后重新定位字幕（每 200ms 轮询一次几何变化）
 void SubtitleWindow::updatePosition() {
-    if (!m_visible) {
+    if (!m_visible || m_dragMode) {
         return;
     }
     // 跟随目标失效时，用游戏 PID 重新查找窗口（避免永久停在全屏回退位置）
     if (!m_gameHwnd || !IsWindow(m_gameHwnd)) {
         m_gameHwnd = findGameWindow();
         if (!m_gameHwnd) {
-            LogSub("updatePosition: findGameWindow null (pid=" +
-                   std::to_string(m_gamePid) + ")");
+            // 日志节流：状态稳定时只记录一次，避免无游戏场景下每 200ms 刷盘
+            if (!m_noWinLogged) {
+                LogSub("updatePosition: no game window (pid=" +
+                       std::to_string(m_gamePid) + ")");
+                m_noWinLogged = true;
+            }
             return;
         }
+        m_noWinLogged = false;
         LogSub("updatePosition: refound game window (pid=" +
                std::to_string(m_gamePid) + ")");
     }
@@ -255,25 +405,7 @@ void SubtitleWindow::updatePosition() {
         gr.right <= gr.left || gr.bottom <= gr.top) {
         return;
     }
-    int gw = gr.right - gr.left;
-    int gh = gr.bottom - gr.top;
-    int sw = gw;
-    int sh = std::max(1, gh / 5);
-    int sx = gr.left;
-    int sy = gr.bottom - sh;
-    if (sx == m_lastX && sy == m_lastY && sw == m_lastW && sh == m_lastH) {
-        return;   // 未变化
-    }
-    if (!ensureSize(sw, sh)) {
-        return;
-    }
-    render();
-    paintLayered(sx, sy);
-    SetWindowPos(m_hwnd, HWND_TOPMOST, sx, sy, sw, sh,
-                 SWP_NOACTIVATE | SWP_SHOWWINDOW);
-    m_lastX = sx; m_lastY = sy; m_lastW = sw; m_lastH = sh;
-    LogSub("follow: reposition to " + std::to_string(sx) + "," + std::to_string(sy) +
-           " " + std::to_string(sw) + "x" + std::to_string(sh));
+    reposition(gr);
 }
 
 void SubtitleWindow::shutdown() {
@@ -288,33 +420,160 @@ void SubtitleWindow::render() {
     if (!m_renderTarget) {
         return;
     }
-    m_renderTarget->BeginDraw();
-    m_renderTarget->Clear(D2D1::ColorF(0, 0, 0, 0));   // 全透明
+    ID2D1RenderTarget* rt = m_renderTarget;
+    rt->BeginDraw();
+    rt->Clear(D2D1::ColorF(0, 0, 0, 0));   // 全透明
 
-    float w = static_cast<float>(m_width);
-    float h = static_cast<float>(m_height);
+    const float w = static_cast<float>(m_width);
+    const float pad = m_style.bg_mode == 2 ? 4.0f : m_style.padding;
+    const float origH = m_style.font_size * 0.7f * 1.35f;
+    const float transH = m_style.font_size * 1.35f;
+    const float boardH = contentHeight();
 
-    // 半透明黑色背景
-    m_renderTarget->FillRectangle(D2D1::RectF(0, 0, w, h), m_bgBrush);
+    // 背景：无底板时不画
+    if (m_style.bg_mode != 2) {
+        // 测量文本宽度（仅译文时只看译文；自适应底板取最大行；通栏取全宽）
+        float maxW = w * m_style.max_width;
+        float origW = m_style.show_source ? measureTextWidth(m_original, m_origFormat, maxW) : 0.0f;
+        float transW = measureTextWidth(m_translated, m_transFormat, maxW);
+        float boardW = (m_style.bg_mode == 1)
+                           ? w
+                           : std::max(origW, transW) + 2.0f * pad;
+        if (boardW > w) boardW = w;
 
-    float pad = w / 40.0f;
-    float midY = h / 2.0f;
+        float bx = 0.0f;
+        if (m_style.bg_mode == 0) {
+            bx = m_style.align == 0 ? (w - boardW) / 2.0f
+                                    : (m_style.align == 1 ? 0.0f : w - boardW);
+        }
+        D2D1_ROUNDED_RECT rr = D2D1::RoundedRect(
+            D2D1::RectF(bx, 0, bx + boardW, boardH), m_style.corner, m_style.corner);
 
-    // 日文原文（上半，小字，半透明）
-    D2D1_RECT_F origRect = D2D1::RectF(pad, h * 0.1f, w - pad, midY - 4);
-    m_origFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-    m_renderTarget->DrawText(
-        m_original.c_str(), static_cast<UINT32>(m_original.size()),
-        m_origFormat, origRect, m_origBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+        if (m_style.gradient && boardH > 1.0f) {
+            ID2D1GradientStopCollection* stops = nullptr;
+            D2D1_GRADIENT_STOP gs[2] = {
+                {0.0f, D2D1::ColorF(m_style.bg_r, m_style.bg_g, m_style.bg_b, m_style.bg_a)},
+                {1.0f, D2D1::ColorF(m_style.grad_r, m_style.grad_g, m_style.grad_b, m_style.grad_a)}};
+            if (SUCCEEDED(rt->CreateGradientStopCollection(gs, 2, &stops))) {
+                ID2D1LinearGradientBrush* grad = nullptr;
+                D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES lgb = D2D1::LinearGradientBrushProperties(
+                    D2D1::Point2F(bx, 0), D2D1::Point2F(bx, boardH));
+                if (SUCCEEDED(rt->CreateLinearGradientBrush(lgb, stops, &grad))) {
+                    rt->FillRoundedRectangle(rr, grad);
+                    grad->Release();
+                }
+                stops->Release();
+            }
+        } else {
+            ID2D1SolidColorBrush* bg = nullptr;
+            if (SUCCEEDED(rt->CreateSolidColorBrush(D2D1::ColorF(
+                    m_style.bg_r, m_style.bg_g, m_style.bg_b, m_style.bg_a), &bg))) {
+                rt->FillRoundedRectangle(rr, bg);
+                bg->Release();
+            }
+        }
+        // 边框
+        if (m_style.border) {
+            ID2D1SolidColorBrush* border = nullptr;
+            if (SUCCEEDED(rt->CreateSolidColorBrush(D2D1::ColorF(
+                    m_style.border_r, m_style.border_g, m_style.border_b, m_style.border_a),
+                    &border))) {
+                rt->DrawRoundedRectangle(rr, border, m_style.border_w);
+                border->Release();
+            }
+        }
+    }
 
-    // 中文译文（下半，大字，白色）
-    D2D1_RECT_F transRect = D2D1::RectF(pad, midY + 4, w - pad, h - h * 0.1f);
-    m_transFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-    m_renderTarget->DrawText(
-        m_translated.c_str(), static_cast<UINT32>(m_translated.size()),
-        m_transFormat, transRect, m_transBrush, D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    // 文本绘制辅助：阴影 → 描边（8 向）→ 主文本
+    auto drawLine = [&](const std::wstring& text, IDWriteTextFormat* fmt,
+                        const D2D1_RECT_F& rect, ID2D1Brush* brush,
+                        float dx, float dy) {
+        D2D1_RECT_F r = rect;
+        r.left += dx; r.right += dx; r.top += dy; r.bottom += dy;
+        rt->DrawText(text.c_str(), static_cast<UINT32>(text.size()), fmt, r, brush,
+                     D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    };
 
-    HRESULT hr = m_renderTarget->EndDraw();
+    // 文本区域（窗口内）
+    float textL = pad;
+    float textR = w - pad;
+    if (m_style.bg_mode == 0) {
+        float maxW = w * m_style.max_width;
+        float origW = m_style.show_source ? measureTextWidth(m_original, m_origFormat, maxW) : 0.0f;
+        float transW = measureTextWidth(m_translated, m_transFormat, maxW);
+        float boardW = std::max(origW, transW) + 2.0f * pad;
+        if (boardW > w) boardW = w;
+        float bx = m_style.align == 0 ? (w - boardW) / 2.0f
+                                      : (m_style.align == 1 ? 0.0f : w - boardW);
+        textL = bx + pad;
+        textR = bx + boardW - pad;
+    }
+    // 仅译文时译文行从 pad 顶开始；含原文时译文行位于原文行下方
+    D2D1_RECT_F origRect = D2D1::RectF(textL, pad, textR, pad + origH);
+    float transTop = m_style.show_source ? (pad + origH + m_style.line_gap) : pad;
+    D2D1_RECT_F transRect = D2D1::RectF(textL, transTop, textR, transTop + transH);
+
+    // 对齐
+    DWRITE_TEXT_ALIGNMENT align = m_style.align == 0
+        ? DWRITE_TEXT_ALIGNMENT_CENTER
+        : (m_style.align == 1 ? DWRITE_TEXT_ALIGNMENT_LEADING
+                              : DWRITE_TEXT_ALIGNMENT_TRAILING);
+    m_origFormat->SetTextAlignment(align);
+    m_transFormat->SetTextAlignment(align);
+
+    // 文字色 brush（原文字号小、透明度打折）
+    ID2D1SolidColorBrush* origBrush = nullptr;
+    ID2D1SolidColorBrush* transBrush = nullptr;
+    rt->CreateSolidColorBrush(D2D1::ColorF(m_style.text_r, m_style.text_g, m_style.text_b,
+                                           m_style.text_a * 0.65f), &origBrush);
+    rt->CreateSolidColorBrush(D2D1::ColorF(m_style.text_r, m_style.text_g, m_style.text_b,
+                                           m_style.text_a), &transBrush);
+
+    // 阴影 / 描边 brush（需要时创建）
+    ID2D1SolidColorBrush* shadowBrush = nullptr;
+    ID2D1SolidColorBrush* outlineBrush = nullptr;
+    if (m_style.shadow) {
+        rt->CreateSolidColorBrush(D2D1::ColorF(m_style.shadow_r, m_style.shadow_g,
+                                               m_style.shadow_b, m_style.shadow_a),
+                                  &shadowBrush);
+    }
+    if (m_style.outline) {
+        rt->CreateSolidColorBrush(D2D1::ColorF(m_style.outline_r, m_style.outline_g,
+                                               m_style.outline_b, m_style.outline_a),
+                                  &outlineBrush);
+    }
+
+    auto drawWithEffects = [&](const std::wstring& text, IDWriteTextFormat* fmt,
+                               const D2D1_RECT_F& rect, ID2D1Brush* main) {
+        if (text.empty()) {
+            return;
+        }
+        if (shadowBrush) {
+            drawLine(text, fmt, rect, shadowBrush, m_style.shadow_off, m_style.shadow_off);
+        }
+        if (outlineBrush) {
+            float ow = m_style.outline_w;
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    if (dx == 0 && dy == 0) continue;
+                    drawLine(text, fmt, rect, outlineBrush, dx * ow, dy * ow);
+                }
+            }
+        }
+        drawLine(text, fmt, rect, main, 0, 0);
+    };
+
+    if (m_style.show_source) {
+        drawWithEffects(m_original, m_origFormat, origRect, origBrush);
+    }
+    drawWithEffects(m_translated, m_transFormat, transRect, transBrush);
+
+    if (outlineBrush) outlineBrush->Release();
+    if (shadowBrush) shadowBrush->Release();
+    if (transBrush) transBrush->Release();
+    if (origBrush) origBrush->Release();
+
+    HRESULT hr = rt->EndDraw();
     if (FAILED(hr)) {
         LogSub("render: EndDraw FAILED hr=0x" + std::to_string(static_cast<unsigned long>(hr)));
     }
@@ -372,9 +631,6 @@ void SubtitleWindow::paintLayered(int x, int y) {
 void SubtitleWindow::releaseGraphics() {
     if (m_transFormat) m_transFormat->Release();
     if (m_origFormat) m_origFormat->Release();
-    if (m_transBrush) m_transBrush->Release();
-    if (m_origBrush) m_origBrush->Release();
-    if (m_bgBrush) m_bgBrush->Release();
     if (m_renderTarget) m_renderTarget->Release();
     if (m_wicBitmap) m_wicBitmap->Release();
     if (m_dwriteFactory) m_dwriteFactory->Release();
@@ -383,9 +639,6 @@ void SubtitleWindow::releaseGraphics() {
     CoUninitialize();
     m_transFormat = nullptr;
     m_origFormat = nullptr;
-    m_transBrush = nullptr;
-    m_origBrush = nullptr;
-    m_bgBrush = nullptr;
     m_renderTarget = nullptr;
     m_wicBitmap = nullptr;
     m_dwriteFactory = nullptr;
@@ -416,12 +669,76 @@ LRESULT SubtitleWindow::handleMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
                 updatePosition();
             }
             return 0;
+        // 拖拽定位模式：按下 → 移动 → 松开回传新位置
+        case WM_LBUTTONDOWN:
+            if (m_dragMode) {
+                m_dragging = true;
+                RECT wr = {};
+                GetWindowRect(m_hwnd, &wr);
+                m_dragWinX = wr.left;
+                m_dragWinY = wr.top;
+                // 记录按下时鼠标的屏幕坐标（客户区坐标随窗口移动而变，会导致拖拽振荡）
+                GetCursorPos(&m_dragStart);
+                SetCapture(m_hwnd);
+                return 0;
+            }
+            break;
+        case WM_MOUSEMOVE:
+            if (m_dragMode && m_dragging) {
+                POINT pt = {};
+                GetCursorPos(&pt);   // 用屏幕坐标计算位移，与窗口当前位置解耦
+                SetWindowPos(m_hwnd, HWND_TOPMOST,
+                             m_dragWinX + (pt.x - m_dragStart.x),
+                             m_dragWinY + (pt.y - m_dragStart.y),
+                             0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+                return 0;
+            }
+            break;
+        case WM_LBUTTONUP:
+            if (m_dragMode && m_dragging) {
+                m_dragging = false;
+                ReleaseCapture();
+                // 换算新位置百分比并回传（相对游戏窗口；无窗口用字幕窗口所在显示器）
+                RECT wr = {}, gr = {};
+                GetWindowRect(m_hwnd, &wr);
+                HWND g = m_gameHwnd ? m_gameHwnd : findGameWindow();
+                bool gotGr = g && GetWindowRect(g, &gr) && gr.right > gr.left;
+                if (!gotGr) {
+                    HMONITOR mon = MonitorFromWindow(m_hwnd, MONITOR_DEFAULTTONEAREST);
+                    MONITORINFO mi = {};
+                    mi.cbSize = sizeof(mi);
+                    if (GetMonitorInfoW(mon, &mi)) gr = mi.rcMonitor;
+                    else {
+                        gr.left = 0; gr.top = 0;
+                        gr.right = GetSystemMetrics(SM_CXSCREEN);
+                        gr.bottom = GetSystemMetrics(SM_CYSCREEN);
+                    }
+                }
+                int gw = gr.right - gr.left;
+                int gh = gr.bottom - gr.top;
+                if (gw > 0 && gh > 0) {
+                    int sw = m_lastW;
+                    float pctX = static_cast<float>(wr.left - gr.left + sw / 2) / gw;
+                    float pctY = static_cast<float>(wr.top - gr.top) / gh;
+                    m_style.pos_x = std::max(0.0f, std::min(1.0f, pctX));
+                    m_style.pos_y = std::max(0.0f, std::min(1.0f, pctY));
+                    m_lastX = wr.left;
+                    m_lastY = wr.top;
+                    if (m_posCb) {
+                        m_posCb(m_style.pos_x, m_style.pos_y);
+                    }
+                }
+                setDragMode(false);   // 自动退出拖拽，恢复穿透与跟随
+                return 0;
+            }
+            break;
         case WM_DESTROY:
             stopFollow();
             return 0;
         default:
-            return DefWindowProcW(m_hwnd, msg, wParam, lParam);
+            break;
     }
+    return DefWindowProcW(m_hwnd, msg, wParam, lParam);
 }
 
 }  // namespace overlay

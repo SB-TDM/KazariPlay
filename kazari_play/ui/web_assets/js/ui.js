@@ -126,7 +126,7 @@ function showContextMenu(entries, x, y, width) {
   m.innerHTML = entries.map(e =>
     e === 'sep'
       ? '<div class="menu-sep"></div>'
-      : `<div class="item ${e.danger ? 'danger' : ''}"><span class="mi">${e.icon || ''}</span>${esc(e.text || '')}</div>`
+      : `<button type="button" class="item ${e.danger ? 'danger' : ''}"><span class="mi">${e.icon || ''}</span>${esc(e.text || '')}</button>`
   ).join('');
   [...m.children].forEach((d, i) => {
     if (d.classList.contains('menu-sep')) return;

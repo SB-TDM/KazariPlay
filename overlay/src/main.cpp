@@ -451,6 +451,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
                 LogToFile("set_subtitle_enabled: " +
                           std::string(cmd.set_subtitle_enabled.enabled ? "on" : "off"));
                 break;
+            case protocol::MsgType::SetSubtitleStyle:
+                subtitle.applyStyle(cmd.set_subtitle_style.style_json);
+                break;
+            case protocol::MsgType::SetSubtitleDrag:
+                subtitle.setDragMode(cmd.set_subtitle_drag.drag);
+                break;
+            case protocol::MsgType::PreviewSubtitle:
+                subtitle.showPreview();
+                break;
             case protocol::MsgType::Ping:
             case protocol::MsgType::Unknown:
             default:
@@ -458,6 +467,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int) {
         }
     });
     serverPtr = &server;
+
+    // 字幕拖拽结束 → 回传位置百分比给控制面板（UI 线程触发）
+    subtitle.setPositionCallback([&serverPtr](float xPct, float yPct) {
+        if (serverPtr) {
+            serverPtr->sendToClient(protocol::serializeSubtitlePos(xPct, yPct));
+        }
+    });
 
     // 稳定回调（UI 线程）：文本稳定后 → 过滤器链清洗 → 显示原文 → 异步 AI 翻译 → 更新译文
     // 若启用 AI 兜底清洗且文本脏：先显示原文 → 异步清洗 → 更新字幕 + 翻译
