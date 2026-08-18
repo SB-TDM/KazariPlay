@@ -9,7 +9,7 @@
                 background-size:cover;background-position:center;background-color:var(--bg-hover);
                 border-radius:var(--radius-lg);margin:2px 0 0 18px;}
   .detail-body{flex:1;min-width:0;display:flex;flex-direction:column;padding:14px 22px 20px;
-               overflow-y:auto;overflow-x:hidden;}
+               overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
   .detail-head{display:flex;align-items:flex-start;gap:10px;}
   .detail-head h2{flex:1;min-width:0;overflow-wrap:break-word;font-size:20px;font-weight:700;color:var(--text);line-height:1.3;}
   .close-btn{flex:none;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-hover);
@@ -38,7 +38,7 @@
                cursor:pointer;transition:transform .2s var(--bounce),background .2s;}
   .chip.manage:hover{background:var(--bg-hover);transform:translateY(-1px);}
   .detail-desc{margin-top:12px;overflow-y:auto;max-height:96px;font-size:13px;line-height:1.7;
-               color:var(--text-sub);padding-right:6px;}
+               color:var(--text-sub);padding-right:6px;scrollbar-gutter:stable;}
 
   @media (max-width:640px){.dialog.detail{flex-direction:column;width:100%;}
                            .detail-cover{width:100%;height:200px;}}
