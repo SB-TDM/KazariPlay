@@ -87,6 +87,7 @@ document.querySelectorAll('#sidebar .side-item').forEach(it => {
     App.ui.state.collectionId = null;
     document.querySelectorAll('#sidebar .side-item').forEach(x => x.classList.remove('active'));
     document.querySelectorAll('#collectionTree .collection-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('#collectionTree .collection-group-header').forEach(x => x.classList.remove('active'));
     it.classList.add('active');
     renderAll();
   };
