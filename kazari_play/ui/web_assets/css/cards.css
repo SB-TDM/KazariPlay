@@ -22,15 +22,6 @@
   .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}
   /* 选中态封面联动：与框的描边/光晕同频，封面轻微放大 + 提亮 */
   .card.active .cover{transform:scale(1.03);filter:brightness(1.05) saturate(1.1);}
-  /* 拖拽中：卡片浮起跟手（transform 由 JS 实时驱动，禁用 transition 避免拖拽滞后；
-     更高 z-index 盖住相邻卡片，加阴影/轻微放大增强"拿起来"的实体感） */
-  .card.dragging{z-index:20;opacity:.92;transform:scale(1.05);
-    box-shadow:0 18px 36px var(--glow-strong),0 6px 16px rgba(120,70,110,.35);
-    transition:box-shadow .15s var(--soft),opacity .15s var(--soft);}
-  .card.drag-over{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med);}
-  /* 拖拽落点前移的插入提示：在落点卡片上方画一条粉色插入线 */
-  .card.drag-over::after{content:'';position:absolute;top:-3px;left:6px;right:6px;height:3px;
-    border-radius:2px;background:var(--grad-pink);box-shadow:0 0 8px var(--glow-strong);}
   .card .meta{height:31px;display:flex;align-items:center;justify-content:space-between;
               padding:0 10px;font-size:12px;color:var(--text-sub);background:var(--bg-panel);
               white-space:nowrap;overflow:hidden;}

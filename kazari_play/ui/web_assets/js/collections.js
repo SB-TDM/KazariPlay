@@ -97,13 +97,7 @@ function selectCollection(id, node) {
     const pg = findParentGroupId(id);
     if (pg) App.ui.state.openGroupId = pg;
   }
-  // 拉取收藏夹内 sort_order 顺序（拖拽排序用）；统一在此渲染一次，
-  // 避免立即渲染 + 回调渲染两次全量重建（order 是排序必需的，回调即到）
-  App.ui.state.collectionOrder = [];
-  bridge.getGamesInCollection(id, function (idsStr) {
-    try { App.ui.state.collectionOrder = JSON.parse(idsStr || '[]'); } catch (e) { }
-    renderAll();
-  });
+  renderAll();
   renderCollectionTree();
 }
 
@@ -117,7 +111,7 @@ function findParentGroupId(id) {
 // 清除收藏夹筛选，回到「全部作品」
 function clearCollectionFilter() {
   App.ui.state.collectionId = null; App.ui.state.collectionGroupId = null; App.ui.state.openGroupId = null;
-  App.ui.state.collectionOrder = []; App.ui.state.nav = '全部作品'; App.ui.state.kw = '';
+  App.ui.state.nav = '全部作品'; App.ui.state.kw = '';
   renderCollectionTree();
   document.querySelectorAll('#sidebar .side-item').forEach(x => {
     x.classList.toggle('active', x.dataset.nav === '全部作品');

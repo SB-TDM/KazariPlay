@@ -35,7 +35,6 @@ window.App = {
       collectionGroupId: null,  // 当前筛选所属分组 id（分组筛选时等于 collectionId）
       openGroupId: null,        // 侧边栏展开的分组 id（手风琴，互斥单开）
       collectionTree: [],       // 收藏夹树形结构
-      collectionOrder: [],      // 当前收藏夹内游戏 id 顺序（拖拽排序用）
     },
   },
 };
