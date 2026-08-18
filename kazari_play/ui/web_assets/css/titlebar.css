@@ -1,0 +1,23 @@
+/* ============================================================
+   titlebar.css — 无边框窗口标题栏 / 品牌 / 窗口按钮
+   ============================================================ */
+
+  /* 标题栏 */
+  .titlebar{height:var(--titlebar-h);background:var(--bg-titlebar);
+            border-bottom:1px solid var(--glow-soft);display:flex;align-items:center;flex:none;}
+  .brand{display:flex;align-items:center;gap:8px;padding:0 14px;height:100%;}
+  .brand .logo{width:22px;height:22px;border-radius:8px;background:var(--grad-pink);
+               display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;
+               box-shadow:0 2px 6px var(--glow-strong);}
+  .brand .name{font-family:var(--font-cute);font-size:14px;color:var(--pink-deep);font-weight:700;letter-spacing:.5px;}
+  .titlebar .spacer{flex:1;}
+  .winbtns{display:flex;height:100%;}
+  .winbtn{width:46px;height:100%;display:flex;align-items:center;justify-content:center;
+          background:none;border:none;padding:0;
+          color:var(--text-sub);font-size:14px;cursor:pointer;border-radius:10px;margin:2px 0;
+          transition:background .2s var(--soft),color .2s;}
+  .winbtn:hover{background:var(--glow-soft);color:var(--pink-deep);}
+  .winbtn.close:hover{background:#ffb3bd;color:#fff;}
+
+  /* 图标图片（标题栏 logo / 关于页），保留父元素圆角 */
+  .logo img, .a-logo img{width:100%;height:100%;object-fit:cover;border-radius:inherit;}

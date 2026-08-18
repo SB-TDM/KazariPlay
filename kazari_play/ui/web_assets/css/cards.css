@@ -1,0 +1,54 @@
+/* ============================================================
+   cards.css — 主区游戏卡片网格：卡片 / 封面 / 元信息 /
+   批量勾选 / 运行中标记
+   ============================================================ */
+
+  /* 卡片 */
+  .card{width:var(--card-w);height:var(--card-h);border-radius:var(--radius-lg);background:var(--bg-panel);
+        overflow:hidden;position:relative;cursor:pointer;border:1.5px solid var(--border-soft);
+        box-shadow:0 4px 12px var(--glow-soft);
+        will-change:transform;
+        /* 懒加载布局稳定：离屏卡片不参与渲染/布局，占位尺寸=真实尺寸，
+           滚动条高度恒定，大库滚动不再跳动（与 .grid contain:layout、.scroll scrollbar-gutter 配合） */
+        content-visibility:auto;contain-intrinsic-size:var(--card-w) var(--card-h);
+        transition:transform var(--anim-card),box-shadow .28s var(--soft),border-color .28s var(--soft);}
+  .card:hover{transform:translateY(-5px);border-color:var(--pink);box-shadow:0 10px 22px var(--glow-med);}
+  .card .cover{height:calc(100% - 31px);position:relative;background-size:cover;background-position:center;
+    transition:transform var(--anim-card),filter .28s var(--soft);}
+  /* 封面懒加载淡入：占位渐变 → 实图平滑过渡，消除"弹入"感 */
+  .card .cover.loaded{animation:coverFade .35s ease;}
+  @keyframes coverFade{from{opacity:.25}to{opacity:1}}
+  .card:hover .cover{transform:scale(1.04);}
+  .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}
+  /* 选中态封面联动：与框的描边/光晕同频，封面轻微放大 + 提亮 */
+  .card.active .cover{transform:scale(1.03);filter:brightness(1.05) saturate(1.1);}
+  /* 拖拽中：卡片浮起跟手（transform 由 JS 实时驱动，禁用 transition 避免拖拽滞后；
+     更高 z-index 盖住相邻卡片，加阴影/轻微放大增强"拿起来"的实体感） */
+  .card.dragging{z-index:20;opacity:.92;transform:scale(1.05);
+    box-shadow:0 18px 36px var(--glow-strong),0 6px 16px rgba(120,70,110,.35);
+    transition:box-shadow .15s var(--soft),opacity .15s var(--soft);}
+  .card.drag-over{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med);}
+  /* 拖拽落点前移的插入提示：在落点卡片上方画一条粉色插入线 */
+  .card.drag-over::after{content:'';position:absolute;top:-3px;left:6px;right:6px;height:3px;
+    border-radius:2px;background:var(--grad-pink);box-shadow:0 0 8px var(--glow-strong);}
+  .card .meta{height:31px;display:flex;align-items:center;justify-content:space-between;
+              padding:0 10px;font-size:12px;color:var(--text-sub);background:var(--bg-panel);
+              white-space:nowrap;overflow:hidden;}
+  .card .meta .dev{overflow:hidden;text-overflow:ellipsis;}
+  .card .stars{color:var(--star);font-size:12px;letter-spacing:1px;flex:none;
+               text-shadow:0 1px 2px rgba(255,176,32,.2);}
+  .card .fav{position:absolute;top:6px;right:9px;z-index:3;font-size:14px;color:var(--star);
+             filter:drop-shadow(0 1px 3px rgba(255,176,32,.5));}
+  .card .check{position:absolute;right:8px;bottom:8px;z-index:3;width:22px;height:22px;border-radius:50%;
+               border:2px solid #c9aeb9;background:var(--bg-panel);display:none;
+               align-items:center;justify-content:center;transition:transform .2s var(--bounce),background .2s,border-color .2s;}
+  body.batch .card .check{display:flex;}
+  body.batch .card:hover{transform:translateY(-3px);}
+  .card.selected{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 8px 18px var(--glow-med);}
+  .card.selected .check{background:var(--grad-pink);border-color:transparent;transform:scale(1.1);}
+
+  /* 运行中标记 */
+  .card .running{position:absolute;top:6px;left:8px;z-index:3;height:20px;padding:0 10px;
+    border-radius:50px;background:var(--grad-mint);color:#fff;font-size:11px;
+    display:flex;align-items:center;font-weight:600;
+    box-shadow:0 2px 6px rgba(74,140,120,.4);}

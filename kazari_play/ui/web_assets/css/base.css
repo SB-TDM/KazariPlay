@@ -1,0 +1,52 @@
+/* ============================================================
+   base.css — 全局基础：reset / body / 滚动条 / 焦点 / 按钮重置 /
+   复制区 / 减少动态效果
+   ============================================================ */
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:var(--font);background:linear-gradient(160deg,var(--bg),var(--bg-soft));
+       color:var(--text);height:100vh;overflow:hidden;-webkit-user-select:none;user-select:none;}
+  .app{display:flex;flex-direction:column;height:100vh;
+       background:linear-gradient(160deg,var(--bg),var(--bg-soft));}
+
+  /* 全局统一滚动带（参考主页卡片滚动带风格） */
+  *::-webkit-scrollbar{width:8px;height:8px;}
+  *::-webkit-scrollbar-track{background:transparent;}
+  *::-webkit-scrollbar-thumb{background:var(--scroll-thumb,#f0cfd9);border-radius:4px;}
+  *::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover,#ffb3c1);}
+  *::-webkit-scrollbar-corner{background:transparent;}
+
+  /* 焦点样式：鼠标点击不残留描边；键盘导航（:focus-visible）显示显式焦点环 */
+  button:focus:not(:focus-visible), input:focus:not(:focus-visible), select:focus:not(:focus-visible),
+  textarea:focus:not(:focus-visible),
+  .navbtn:focus:not(:focus-visible), .side-item:focus:not(:focus-visible),
+  .pill-btn:focus:not(:focus-visible), .chip:focus:not(:focus-visible),
+  .winbtn:focus:not(:focus-visible), .fab:focus:not(:focus-visible) { outline:none; }
+  :focus-visible { outline:2px solid var(--pink); outline-offset:2px; border-radius:8px; }
+  .search input:focus { outline:none; }
+
+  /* 菜单项 / 侧边栏项改为 <button> 后的浏览器默认样式重置 */
+  .side-item, .dropdown .item, .fabmenu .item, .more-menu .item, .shot-menu .item{
+    background:none;border:none;font-family:var(--font);
+  }
+  .side-item, .dropdown .item, .fabmenu .item, .more-menu .item, .shot-menu .item{width:100%;text-align:left;}
+  .dropdown .item, .fabmenu .item{display:block;}
+  .side-item{text-align:center;}
+
+  /* 内容区允许选中复制（全局 user-select:none 仅针对 UI 框架元素） */
+  .detail-desc, .dlg-content, .confirm-msg, .about .a-meta,
+  .dlg-content input[type=text], .dlg-content select, .tagform input,
+  .form-row input, .form-row select, .form-row textarea,
+  .search input, #manageGamesKw, .hotkey{
+    -webkit-user-select:text; user-select:text;
+  }
+
+  /* 系统开启「减少动态效果」：关闭弹性过渡与入场/循环动画 */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:.01ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;
+      scroll-behavior:auto !important;
+    }
+  }

@@ -16,6 +16,30 @@
 - 两份清单（顺序即依赖顺序）是 `main.py` 中的 `_PARTIAL_MANIFEST` / `_JS_MANIFEST`，
   **新增模块时两处都要登记**
 
+## CSS 模块（css/）
+
+样式按功能职责拆分，`style.css` 作为连接端仅含 `@import` 清单；
+`main.py` 的 `_expand_imports()` 递归展开后整体内联。
+**拆分 / 新增 CSS 模块时保持 `style.css` 中 `@import` 的相对顺序**（
+同特异性且属性重叠的规则靠后加载覆盖前者，层叠语义与顺序绑定）。
+
+| 文件 | 职责 |
+|---|---|
+| `variables.css` | 亮 / 暗主题变量（design tokens） |
+| `base.css` | reset / body / 全局滚动条 / 焦点 / 按钮重置 / 复制区 / 减少动态效果 |
+| `titlebar.css` | 无边框窗口标题栏 / 窗口按钮 / 品牌 logo |
+| `layout.css` | 导航栏 / 侧边栏 / 主区域 / 排序下拉 / 空状态 / 窗口缩放手柄 |
+| `collections.css` | 收藏夹树 / 分组 / 管理游戏 / 标签管理抽屉 |
+| `cards.css` | 游戏卡片网格 / 封面 / 批量勾选 / 运行中标记 |
+| `widgets.css` | FAB / FAB 菜单 / 批量工具栏 / Toast / 批量进度条 |
+| `sheets.css` | 底部抽屉基础设施（overlay / dialog）/ 确认对话框 / 主题切换过渡禁用 |
+| `detail.css` | 详情抽屉 / pill 按钮 / chip |
+| `screenshots.css` | 截图区 / 大图预览 / 更多菜单 / 截图右键菜单 |
+| `form.css` | 编辑 / 添加表单 / 选择面板 / 元数据候选 / 校验 |
+| `settings.css` | 设置窗口（居中模态） |
+| `sources.css` | 多源元数据 / 自定义复选框（Kawaii 方块） |
+| `hook.css` | Hook 选择 / 翻译卡片 |
+
 ## JS 模块（js/）
 
 | 文件 | 职责 | 定义的关键全局 |

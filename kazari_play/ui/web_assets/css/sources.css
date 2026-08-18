@@ -1,0 +1,70 @@
+/* ============================================================
+   sources.css — 多源元数据：来源工具栏 / 设置页源列表 /
+   候选 favicon / 自定义复选框（Kawaii 方块）
+   ============================================================ */
+
+  /* 多源元数据：来源工具栏 / 设置页源列表 / 候选 favicon */
+  .src-bar{display:flex;flex-wrap:wrap;gap:6px;}
+  .src-chip{display:flex;align-items:center;gap:5px;padding:3px 11px;border:1.5px solid var(--border-soft);
+    border-radius:50px;font-size:12px;color:var(--text-sub);cursor:pointer;background:var(--bg-panel);
+    transition:border-color .2s var(--soft),color .2s;user-select:none;}
+  .src-chip img{width:14px;height:14px;border-radius:3px;}
+  .src-chip:hover{border-color:var(--pink);color:var(--pink-deep);}
+  .src-chip.on{background:var(--grad-pink);color:#fff;border-color:transparent;}
+  .src-chip.on:hover{color:#fff;}
+  .src-chip.off{opacity:.5;cursor:default;}
+  .src-chip.off:hover{border-color:var(--border-soft);color:var(--text-sub);}
+  .cand-src-icon{width:15px;height:15px;border-radius:3px;vertical-align:-2px;margin-right:5px;}
+  .cand-src-name{font-size:11px;color:var(--text-disabled);margin-right:6px;}
+  .src-opt{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1.5px solid var(--border-soft);
+    border-radius:var(--radius-md);margin-bottom:7px;cursor:pointer;background:var(--bg-panel);
+    transition:background .2s var(--soft);}
+  .src-opt:hover{background:var(--bg-hover);}
+  .src-opt.disabled{opacity:.55;cursor:default;}
+  .src-opt.disabled:hover{background:var(--bg-panel);}
+  .src-opt .src-fav{width:18px;height:18px;border-radius:4px;}
+  .src-opt .src-name{font-size:13px;color:var(--text);flex:1;}
+  .src-opt .src-status{font-size:11px;color:var(--text-disabled);}
+  /* 自定义复选框（Kawaii 方块）：悬停随光标变色 + 勾选对勾弹出动画 */
+  .src-opt input[type=checkbox]{position:absolute;opacity:0;pointer-events:none;}
+  .src-box{flex:none;width:18px;height:18px;border-radius:7px;border:2px solid var(--border-strong);
+    background:var(--bg-panel);position:relative;
+    transition:border-color .2s var(--soft),background .2s var(--soft),transform .25s var(--bounce);}
+  /* 光标悬停：方块随行高亮变色并轻微放大 */
+  .src-opt:hover .src-box{border-color:var(--pink);background:var(--bg-hover);transform:scale(1.1);}
+  /* 勾选：SVG 一体背景（圆角渐变 + 圆头对勾），src-box 与 clean-box 共用 */
+  .src-opt input:checked + .src-box, .clean-fil input:checked + .clean-box{
+    border-color:transparent;
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:100% 100%;
+    border-radius:7px;
+  }
+  .src-opt input:checked + .src-box, .clean-fil input:checked + .clean-box{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23ffb3c1'/><stop offset='1' stop-color='%23ff8fab'/></linearGradient></defs><rect x='0' y='0' width='18' height='18' rx='7' fill='url(%23g)'/><path d='M4.8 9.2 L7.6 12 L13.2 6.4' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  }
+  :root[data-theme="dark"] .src-opt input:checked + .src-box,
+  :root[data-theme="dark"] .clean-fil input:checked + .clean-box{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%238a4f72'/><stop offset='1' stop-color='%23ef86ad'/></linearGradient></defs><rect x='0' y='0' width='18' height='18' rx='7' fill='url(%23g)'/><path d='M4.8 9.2 L7.6 12 L13.2 6.4' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  }
+  .src-opt input:checked + .src-box::after, .clean-fil input:checked + .clean-box::after{content:none;}
+  /* 文本清洗过滤器列表项：与 .src-opt 同款视觉（渐变方块 + 对勾动画）。
+     独立实现（不复用 .src-opt），label 设 position:relative，避免其 absolute
+     checkbox 在详情页等复杂层叠环境跑位导致布局错乱。 */
+  .clean-fil{display:flex;align-items:center;gap:9px;padding:8px 12px;border:1.5px solid var(--border-soft);
+    border-radius:var(--radius-md);margin-bottom:7px;background:var(--bg-panel);cursor:pointer;
+    transition:background .2s var(--soft);position:relative;}
+  .clean-fil:hover{background:var(--bg-hover);}
+  .clean-fil .clean-name{font-size:13px;color:var(--text);flex:none;min-width:130px;}
+  .clean-fil .clean-agg{font-style:normal;font-size:10px;color:#fff;background:var(--pink-deep);
+    border-radius:6px;padding:1px 5px;margin-left:4px;vertical-align:1px;}
+  .clean-fil .clean-desc{font-size:11px;color:var(--text-disabled);flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .clean-fil input[type=checkbox]{position:absolute;opacity:0;pointer-events:none;}
+  .clean-box{flex:none;width:18px;height:18px;border-radius:7px;border:2px solid var(--border-strong);
+    background:var(--bg-panel);position:relative;overflow:hidden;
+    transition:border-color .2s var(--soft),background .2s var(--soft),transform .25s var(--bounce);}
+  .clean-fil:hover .clean-box{border-color:var(--pink);background:var(--bg-hover);transform:scale(1.1);}
+  /* 未接入（disabled）：方块静默，不响应悬停 */
+  .src-opt.disabled .src-box{border-color:var(--border-soft);}
+  .src-opt.disabled:hover .src-box{border-color:var(--border-soft);background:var(--bg-panel);transform:none;}
