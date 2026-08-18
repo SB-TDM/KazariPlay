@@ -1,0 +1,34 @@
+/* ============================================================
+   sheets.css — 底部抽屉基础设施：overlay / dialog 通用 /
+   入场退场动画 / 确认对话框 / 主题切换过渡禁用
+   ============================================================ */
+
+  /* Bottom Sheet */
+  .overlay{position:fixed;inset:0;z-index:100;background:rgba(74,57,84,.45);
+           display:none;align-items:flex-end;justify-content:center;overflow:hidden;
+           overscroll-behavior:contain;
+           opacity:0;visibility:hidden;transition:opacity .28s var(--soft),visibility 0s linear .28s;}
+  .overlay.show{display:flex;opacity:1;visibility:visible;transition:opacity .28s var(--soft);}
+  .overlay.hiding{display:flex;opacity:0;visibility:hidden;
+    transition:opacity .28s var(--soft), visibility 0s linear .28s;}
+  .overlay.show .dialog{animation:sheetUp .34s var(--soft);}
+  .overlay.hiding .dialog{animation:sheetDown .28s var(--soft) forwards;}
+  @keyframes sheetUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+  @keyframes sheetDown{from{transform:translateY(0);}to{transform:translateY(100%);}}
+  .dialog{position:relative;width:100%;margin:0 auto;background:var(--bg-panel);
+          border-radius:20px 20px 0 0;border:1.5px solid var(--border-soft);border-bottom:none;
+          box-shadow:0 -14px 44px rgba(120,70,110,.32);display:flex;flex-direction:column;
+          overflow:hidden;max-height:90vh;}
+  .dialog::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);
+                  width:40px;height:4px;border-radius:2px;background:#e6d5dd;z-index:3;}
+
+  /* 确认对话框 */
+  .dialog.confirm{max-width:380px;width:100%;padding:20px 22px 14px;}
+  .dialog.confirm .dlg-title{font-size:16px;font-weight:700;color:var(--text);}
+  .confirm-msg{padding:22px 6px 18px;font-size:13px;color:var(--text);
+    text-align:center;line-height:1.8;min-height:70px;
+    display:flex;align-items:center;justify-content:center;white-space:pre-line;}
+  /* 主题切换瞬间禁用 transition（不动 animation，避免模态进入动画被强制重播） */
+  .theme-switch *, .theme-switch *::before, .theme-switch *::after{
+    transition:none !important;
+  }

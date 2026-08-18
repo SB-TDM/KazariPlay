@@ -1,0 +1,42 @@
+/* ============================================================
+   form.css — 编辑 / 添加表单：表单对话框 / 通用行 /
+   选择面板 / 封面预览 / 元数据候选 / 校验
+   ============================================================ */
+
+  /* 编辑表单 / 选择面板 */
+  .dialog.form{max-width:520px;padding:26px 22px 20px;overflow-y:auto;}
+  .dialog.form > *{flex:none;}   /* 子项不被 flex 压缩，超长走滚动 */
+  /* 通用行（编辑表单 + 设置页共用）：gap/min-height 以设置页为准，margin-top 来自编辑表单 */
+  .form-row{display:flex;align-items:center;gap:12px;margin-top:10px;min-height:36px;}
+  .form-row label{width:64px;font-size:13px;color:var(--text-sub);flex:none;}
+  .form-row input,.form-row select,.form-row textarea{flex:1;height:32px;border:1.5px solid var(--border-soft);
+        border-radius:50px;padding:0 12px;font-size:13px;font-family:var(--font);color:var(--text);
+        outline:none;background:var(--bg-panel);transition:border-color .2s;}
+  .form-row textarea{height:60px;border-radius:12px;padding:8px 12px;resize:none;}
+  .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--pink);}
+  .picker{max-width:360px;padding:22px;display:flex;flex-direction:column;gap:8px;}
+  .picker .p-item{padding:10px 14px;border-radius:12px;font-size:13px;cursor:pointer;
+                  border:1.5px solid var(--border-soft);background:var(--bg-panel);color:var(--text);
+                  transition:border-color .2s var(--soft),color .2s,background .2s;}
+  .picker .p-item:hover{border-color:var(--pink);color:var(--pink-deep);background:var(--bg-hover);}
+
+  /* 编辑表单：封面预览 + 元数据候选 */
+  .cover-prev{width:64px;height:88px;border-radius:10px;object-fit:cover;
+    background:var(--bg-hover);border:1.5px solid var(--border-soft,var(--border-soft));}
+  #fCands{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .cand{border:1.5px solid var(--border-soft);border-radius:12px;padding:8px 12px;cursor:pointer;
+    background:var(--bg-panel);transition:border-color .2s var(--soft),color .2s,background .2s;}
+  .cand:hover{border-color:var(--pink);color:var(--pink-deep);background:var(--bg-hover);}
+  .cand-title{font-size:13px;color:var(--text);font-weight:600;}
+  .cand-sub{font-size:11.5px;color:var(--text-sub);margin-top:2px;}
+  .cand-empty{padding:10px;font-size:13px;color:var(--text-disabled);text-align:center;}
+
+  /* 编辑表单：内容区独立滚动（滚动带限制在圆角内） */
+  .dialog.edit-form{max-width:520px;padding:0;overflow:hidden;}
+  .dialog.edit-form .form-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+    padding:18px 26px 10px;}
+  .dialog.edit-form .dlg-foot{flex:none;padding:12px 26px 16px;}
+
+  /* 表单内联校验错误：红边 + 行下提示（与 label 列对齐） */
+  .form-row.has-error input, .form-row.has-error select, .form-row.has-error textarea{border-color:#ff6f81;}
+  .form-error{flex-basis:100%;font-size:11.5px;color:#ff6f81;line-height:1.5;margin-top:2px;padding-left:74px;}

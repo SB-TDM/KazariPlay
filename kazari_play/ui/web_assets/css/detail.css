@@ -1,0 +1,44 @@
+/* ============================================================
+   detail.css — 详情底部抽屉：详情区 / pill 按钮 / chip /
+   描述 / 窄屏响应式
+   ============================================================ */
+
+  .dialog.detail{width:920px;max-width:94vw;height:min(68vh,640px);max-height:min(68vh,640px);
+                 flex-direction:row;padding-top:20px;}
+  .detail-cover{flex:none;width:240px;position:relative;aspect-ratio:154/179;align-self:flex-start;
+                background-size:cover;background-position:center;background-color:var(--bg-hover);
+                border-radius:var(--radius-lg);margin:2px 0 0 18px;}
+  .detail-body{flex:1;min-width:0;display:flex;flex-direction:column;padding:14px 22px 20px;
+               overflow-y:auto;overflow-x:hidden;}
+  .detail-head{display:flex;align-items:flex-start;gap:10px;}
+  .detail-head h2{flex:1;min-width:0;overflow-wrap:break-word;font-size:20px;font-weight:700;color:var(--text);line-height:1.3;}
+  .close-btn{flex:none;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-hover);
+             color:var(--text-sub);font-size:15px;cursor:pointer;font-family:var(--font);
+             transition:transform .2s var(--bounce),background .2s,color .2s;}
+  .close-btn:hover{background:#ffb3bd;color:#fff;transform:rotate(90deg);}
+  .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 16px;margin-top:12px;}
+  .info-item{font-size:12.5px;color:var(--text-sub);}
+  .info-item b{color:var(--text);font-weight:600;margin-right:4px;}
+  .detail-actions{display:flex;gap:8px;margin-top:14px;align-items:center;}
+  .pill-btn{height:34px;padding:0 18px;border-radius:50px;border:1.5px solid var(--border-soft);background:var(--bg-panel);
+            color:var(--text-sub);font-size:13px;font-family:var(--font);cursor:pointer;
+            transition:transform .22s var(--bounce),color .22s,border-color .22s,box-shadow .22s;}
+  .pill-btn:hover{transform:translateY(-2px);color:var(--pink-deep);border-color:var(--pink);
+                  box-shadow:0 4px 10px var(--glow-soft);}
+  .pill-btn.primary{border:none;color:#fff;background:var(--grad-pink);box-shadow:0 4px 12px var(--glow-strong);}
+  .pill-btn.primary:hover{color:#fff;}
+  .pill-btn.fav.on{color:var(--star);border-color:var(--star);}
+  .pill-btn:disabled{opacity:.6;cursor:default;}
+  .pill-btn.danger{color:#ff6f81;border-color:#ffb3bd;}
+  .pill-btn.danger:hover{background:#fff0f2;border-color:#ff6f81;}
+  .pill-btn.mini{padding:3px 10px;font-size:12px;border-radius:20px;}
+  .chip{height:24px;padding:0 12px;border-radius:50px;font-size:12px;display:inline-flex;
+        align-items:center;gap:5px;}
+  .chip.manage{background:var(--bg-panel);border:1.5px dashed var(--pink);color:var(--pink-deep);
+               cursor:pointer;transition:transform .2s var(--bounce),background .2s;}
+  .chip.manage:hover{background:var(--bg-hover);transform:translateY(-1px);}
+  .detail-desc{margin-top:12px;overflow-y:auto;max-height:96px;font-size:13px;line-height:1.7;
+               color:var(--text-sub);padding-right:6px;}
+
+  @media (max-width:640px){.dialog.detail{flex-direction:column;width:100%;}
+                           .detail-cover{width:100%;height:200px;}}

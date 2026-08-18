@@ -1,0 +1,45 @@
+/* ============================================================
+   variables.css — 主题变量（亮 / 暗两套 design tokens）
+   由 style.css @import 引入，必须最先加载。
+   ============================================================ */
+
+  :root {
+    color-scheme:light;
+    --bg:#fff8f5; --bg-soft:#ffedf2; --bg-titlebar:#fff3ee; --bg-sidebar:#ffeef2;
+    --bg-panel:#ffffff; --bg-hover:#fff0f4; --text:#4a4358; --text-sub:#9c92a8;
+    --text-disabled:#c7bdc9; --pink:#ff8fab; --pink-deep:#ff6f91; --purple:#b388ff;
+    --mint:#7fd8be; --yellow:#ffd97d; --star:#ffb020;
+    --grad-pink:linear-gradient(135deg,#ffb3c1,#ff8fab);
+    --grad-mint:linear-gradient(135deg,#b5ead7,#7fd8be);
+    --radius-lg:18px; --radius-md:12px; --card-w:154px; --card-h:210px;
+    --titlebar-h:40px; --sidebar-w:140px; --nav-h:44px;
+    --navbar-bg:rgba(255,255,255,.6);
+    --border-soft:#ffd7e0; --border-strong:#ff8fab;
+    --shadow-dlg:0 14px 40px rgba(120,70,110,.30);
+    --glow-soft:rgba(255,143,171,.14);
+    --glow-med:rgba(255,111,145,.28);
+    --glow-strong:rgba(255,111,145,.42);
+    --scroll-thumb:#f0cfd9; --scroll-thumb-hover:#ffb3c1;
+    --bounce:cubic-bezier(.34,1.56,.64,1); --soft:cubic-bezier(.22,.9,.36,1);
+    /* 卡片动画 token：框与封面共用同一时长+缓动，hover/选中时同频联动 */
+    --anim-card:.28s var(--bounce);
+    --font:"Microsoft YaHei UI","Segoe UI","Microsoft YaHei",sans-serif;
+    --font-cute:"Comic Sans MS","Segoe Print","Chalkboard SE","Microsoft YaHei UI",sans-serif;
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#181320; --bg-soft:#221a2e; --bg-titlebar:#16111f; --bg-sidebar:#1d1628;
+    --bg-panel:#2a2136; --bg-hover:#322844; --bg-field:#241b30;
+    --text:#f2eef8; --text-sub:#b9aecb; --text-disabled:#7c7089;
+    --pink:#ef86ad; --pink-deep:#ff9cc2; --purple:#9a7fd6;
+    --mint:#6cc5ab; --yellow:#d9b87a; --star:#e0a94e;
+    --border-soft:#3a3049; --border-strong:#ef86ad;
+    --grad-pink:linear-gradient(135deg,#8a4f72,#ef86ad);
+    --grad-mint:linear-gradient(135deg,#3d6b5e,#6cc5ab);
+    --navbar-bg:rgba(28,22,40,.72);
+    --shadow-dlg:0 14px 40px rgba(0,0,0,.6);
+    --glow-soft:rgba(239,134,173,.08);
+    --glow-med:rgba(239,134,173,.14);
+    --glow-strong:rgba(239,134,173,.20);
+    --scroll-thumb:#3a3049; --scroll-thumb-hover:#4a3d5c;
+  }

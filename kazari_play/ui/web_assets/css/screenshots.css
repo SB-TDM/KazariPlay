@@ -1,0 +1,54 @@
+/* ============================================================
+   screenshots.css — 游戏截图：截图区 / 大图预览 /
+   更多菜单 / 截图右键菜单
+   ============================================================ */
+
+  /* 游戏截图（Steam 式） */
+  .screenshots-section{margin-top:14px;}
+  .shots-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .shots-ttl{font-size:12px;color:var(--text-disabled);font-weight:600;}
+  .shots-hint{font-size:11px;color:var(--text-disabled);opacity:.75;}
+  .shots-grid{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;}
+  .shots-empty{font-size:12px;color:var(--text-disabled);padding:8px 2px;}
+  .shot-item{flex:none;width:120px;border-radius:var(--radius-md);overflow:hidden;
+    border:1.5px solid var(--border-soft);background:var(--bg-panel);cursor:pointer;
+    transition:transform .22s var(--bounce),border-color .22s,box-shadow .22s;}
+  .shot-item:hover{transform:translateY(-2px);border-color:var(--pink);box-shadow:0 4px 12px var(--glow-med);}
+  .shot-thumb{width:120px;height:68px;background:var(--bg-hover);background-size:cover;background-position:center;}
+  .shot-meta{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;}
+  .shot-time{font-size:11px;color:var(--text-sub);}
+  /* 截图大图预览：固定高度 + flex 居中，图片加载前后对话框尺寸恒定（不再跳变） */
+  .dialog.shot-preview{max-width:900px;width:92%;padding:18px 20px 12px;}
+  .shot-preview-body{position:relative;height:min(60vh,560px);background:var(--bg-hover);border-radius:var(--radius-md);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .shot-preview-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    gap:10px;color:var(--text-sub);font-size:13px;}
+  .shot-preview-loading::before{content:'';width:20px;height:20px;border:2px solid var(--border-soft);
+    border-top-color:var(--pink);border-radius:50%;animation:shotspin .8s linear infinite;}
+  @keyframes shotspin{to{transform:rotate(360deg);}}
+  .dialog.shot-preview img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
+    border-radius:var(--radius-md);border:1.5px solid var(--border-soft);
+    opacity:0;transition:opacity .45s var(--soft);}
+  .dialog.shot-preview img.loaded{opacity:1;}
+  .more-wrap{position:relative;}
+  .more-menu{position:absolute;right:0;top:40px;z-index:5;background:var(--bg-panel);
+             border:1.5px solid var(--border-soft);border-radius:var(--radius-md);padding:5px;min-width:150px;
+             display:none;box-shadow:0 10px 24px var(--glow-med);}
+  .more-menu.show{display:block;}
+  .more-menu .item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;
+                   color:var(--text);cursor:pointer;
+                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .more-menu .item .mi{flex:none;width:16px;text-align:center;font-size:12px;opacity:.85;}
+  .more-menu .item:hover{background:var(--bg-hover);color:var(--pink-deep);}
+  .more-menu .item.danger{color:#ff6f81;}
+  .more-menu .item.danger .mi{color:#ff6f81;}
+  .more-menu .item.danger:hover{color:#ff6f81;background:#fff0f2;}
+  .menu-sep{height:1px;background:var(--glow-soft);margin:4px 8px;border-radius:1px;}
+  .shot-menu{position:fixed;z-index:200;background:var(--bg-panel);border:1.5px solid var(--border-soft);
+             border-radius:var(--radius-md);padding:5px;min-width:160px;display:none;box-shadow:0 10px 24px var(--glow-med);}
+  .shot-menu.show{display:block;}
+  .shot-menu .item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;
+                   color:var(--text);cursor:pointer;white-space:nowrap;}
+  .shot-menu .item:hover{background:var(--bg-hover);color:var(--pink-deep);}
+  .shot-menu .item.danger{color:#ff6f81;}
+  .shot-menu .item.danger:hover{color:#ff6f81;background:#fff0f2;}
