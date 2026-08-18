@@ -48,13 +48,19 @@
 | `core.js` | bridge 代理 + 通用工具 | `bridge` `esc` `toast` `stars` `chipColor` `loadCoverTo` |
 | `ui.js` | Sheet / 对话框 / 右键菜单基础设施 | `showSheet` `closeSheet` `showConfirmDialog` `showInputDialog` `openPicker` `showContextMenu` |
 | `window.js` | 无边框窗口控制 | `toggleMax` `bindDrag` `bindResize` |
-| `games.js` | 游戏数据 + 卡片网格 | `refreshAll` `renderAll` `filterGames` `renderCards` `buildCard` `markRunning` `setActiveCard` `openCardMenu` |
-| `detail.js` | 详情底部抽屉 | `openDetail` `refreshDetail` `initRateEdit` |
+| `games.js` | 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态 | `refreshAll` `renderAll` `filterGames` `markRunning` `toggleSelect` `setActiveCard` `renderEmpty` |
+| `cards.js` | 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单 | `buildCard` `renderCards` `openCardMenu` |
+| `card_drag.js` | 卡片拖拽排序（仅收藏夹视图） | `bindCardDrag` `reorderCards` `markDragOver` |
+| `detail.js` | 详情底部抽屉（展示 / 评分 / 收藏） | `openDetail` `refreshDetail` `initRateEdit` |
+| `detail_translate.js` | 详情内 Hook 实时翻译行 + 每游戏清洗配置 | `renderTransRow` `loadCleanCfg` `saveCleanCfg` |
 | `screenshots.js` | 截图卡片 / 预览 / 右键管理 / 截图后定向刷新 | `renderScreenshots` `refreshScreenshots` `openShotPreview` `showShotMenu` |
-| `collections.js` | 收藏夹树 / 管理 / 管理游戏 | `renderCollectionTree` `selectCollection` `openCollectionManager` `openManageGames` |
+| `collections.js` | 收藏夹树 / 收藏夹管理抽屉 | `renderCollectionTree` `selectCollection` `openCollectionManager` |
+| `manage_games.js` | 管理游戏对话框（批量勾选收藏夹内游戏） | `openManageGames` `renderManageGames` `saveManageGames` |
 | `batch.js` | 批量选择模式 | `updateBatchBar` `batchPickCollection` |
 | `form.js` | 编辑 / 添加表单 + 元数据候选 | `openEdit` `openAdd` `saveForm` `renderCandidates` |
-| `settings.js` | 设置窗口（自包含 IIFE） | `window.Settings` |
+| `hook_select.js` | Hook 点选择弹窗（自包含 IIFE） | `window.HookSelect` |
+| `subtitle_style.js` | 字幕样式控制面板（设置页「字幕」tab，自包含 IIFE） | `window.SubtitleStyle` |
+| `settings.js` | 设置窗口（自包含 IIFE） | `window.Settings` `window.CLEAN_FILTER_DEFS` |
 | `app.js` | 启动引导（最后加载，只做粘合） | `init` `bindFilterMenu` |
 
 模块间通过全局函数/变量互相调用（经典脚本共享作用域）。每个文件头部注释标注了

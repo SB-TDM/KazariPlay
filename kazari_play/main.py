@@ -25,6 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 彻底规避中文路径下 file:// 加载 404 / "未找到文件" 的问题。
 """
 import os
+import re
 import sys
 import ctypes
 import threading
@@ -61,13 +62,18 @@ _JS_MANIFEST = [
     "core.js",         # bridge 代理 + 通用工具（esc/toast/stars/loadCoverTo）
     "ui.js",           # Sheet / 通用对话框 / 右键菜单基础设施
     "window.js",       # 标题栏拖拽 / 缩放 / 最大化
-    "games.js",        # 游戏数据 + 卡片网格（渲染/过滤/懒加载/拖拽排序）
+    "games.js",        # 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态
+    "cards.js",        # 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单
+    "card_drag.js",    # 卡片拖拽排序（仅收藏夹视图）
     "detail.js",       # 详情底部抽屉
+    "detail_translate.js",  # 详情内 Hook 实时翻译行 + 每游戏清洗配置
     "screenshots.js",  # 截图卡片 / 预览 / 右键管理
-    "collections.js",  # 收藏夹树 / 收藏夹管理 / 管理游戏
+    "collections.js",  # 收藏夹树 / 收藏夹管理抽屉
+    "manage_games.js", # 管理游戏对话框（批量勾选收藏夹内游戏）
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
     "hook_select.js",  # Hook 点选择弹窗（V1.1，依赖 core/ui）
+    "subtitle_style.js",  # 字幕样式控制面板（设置页「字幕」tab）
     "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
 ]
@@ -106,8 +112,19 @@ def _load_html() -> str:
         for name in _JS_MANIFEST)
     html = html.replace("<!-- SCRIPTS -->", scripts)
 
-    # 3) css 内联
-    css = read(os.path.join("css", "style.css"))
+    # 3) css 内联（递归展开 @import：style.css 作为 @import 入口时，
+    #    pywebview html= 模式无 base URL，浏览器无法解析 @import 相对路径，
+    #    故在此把所有 @import 替换为对应文件内容，最终单 <style> 内联）
+    def _expand_imports(css_text: str) -> str:
+        pat = re.compile(r'@import\s+url\(\s*["\']?([^"\')]+)["\']?\s*\)\s*;')
+        def repl(m):
+            rel = m.group(1)
+            try:
+                return _expand_imports(read(os.path.join("css", rel)))
+            except FileNotFoundError:
+                return m.group(0)  # 找不到则保留原 @import，让浏览器报错便于排查
+        return pat.sub(repl, css_text)
+    css = _expand_imports(read(os.path.join("css", "style.css")))
     html = html.replace('<link rel="stylesheet" href="css/style.css">',
                         "<style>" + css + "</style>")
 
