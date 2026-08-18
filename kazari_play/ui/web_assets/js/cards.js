@@ -1,7 +1,7 @@
 // ============================================================
 // cards.js — 卡片 DOM 构建 / 增量渲染（懒加载） / 右键菜单
 // 依赖：state.js / core.js（esc/stars/toast）/ ui.js（showContextMenu/showConfirmDialog）/
-//       games.js（toggleSelect / App.data.runningId）/ card_drag.js（bindCardDrag）/
+//       games.js（toggleSelect / App.data.runningId）/
 //       detail.js（openDetail）/ collections.js（openCollectionManager）/ form.js（openEdit）
 // 定义：buildCard / renderCards / openCardMenu + coverObserver / _renderedIds
 // 被依赖：games.js（renderAll 调用 renderCards）
@@ -30,7 +30,6 @@ function buildCard(g) {
   card.setAttribute('role', 'button');
   card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.onclick(); } };
   card.oncontextmenu = (e) => { e.preventDefault(); openCardMenu(g, e.clientX, e.clientY); };
-  bindCardDrag(card, g);
   return card;
 }
 

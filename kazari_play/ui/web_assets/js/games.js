@@ -5,8 +5,7 @@
 //       detail.js（refreshDetail/setActiveCard）
 // 定义：refreshAll / _gamesChanged / syncCurrentGame / reloadCovers / applyCoverSize /
 //       renderAll / filterGames / markRunning / toggleSelect / setActiveCard / renderEmpty
-// 被依赖：app.js（init/refreshAll）、card_drag.js（reorderCards 调用 renderAll）、
-//         state.js 的 window.__app（refresh/reloadCovers）
+// 被依赖：app.js（init/refreshAll）、state.js 的 window.__app（refresh/reloadCovers）
 // ============================================================
 
 // ---------- 封面 ----------
@@ -117,11 +116,6 @@ function filterGames(games) {
       if (grp && grp.children) ids = ids.concat(grp.children.map(c => c.id));
     }
     list = list.filter(g => (g.collections || []).some(c => ids.includes(c.id)));
-    // 收藏夹视图：默认按 sort_order 排序（拖拽持久化顺序）；显式名称/评分排序时覆盖
-    if (App.ui.state.sort === '时间' && App.ui.state.collectionOrder && App.ui.state.collectionOrder.length) {
-      const orderMap = {}; App.ui.state.collectionOrder.forEach((gid, i) => orderMap[gid] = i);
-      list.sort((a, b) => (orderMap[a.id] ?? 9999) - (orderMap[b.id] ?? 9999));
-    }
   }
   if (App.ui.state.kw) {
     const k = App.ui.state.kw.toLowerCase();

@@ -50,7 +50,6 @@
 | `window.js` | 无边框窗口控制 | `toggleMax` `bindDrag` `bindResize` |
 | `games.js` | 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态 | `refreshAll` `renderAll` `filterGames` `markRunning` `toggleSelect` `setActiveCard` `renderEmpty` |
 | `cards.js` | 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单 | `buildCard` `renderCards` `openCardMenu` |
-| `card_drag.js` | 卡片拖拽排序（仅收藏夹视图） | `bindCardDrag` `reorderCards` `markDragOver` |
 | `detail.js` | 详情底部抽屉（展示 / 评分 / 收藏） | `openDetail` `refreshDetail` `initRateEdit` |
 | `detail_translate.js` | 详情内 Hook 实时翻译行 + 每游戏清洗配置 | `renderTransRow` `loadCleanCfg` `saveCleanCfg` |
 | `screenshots.js` | 截图卡片 / 预览 / 右键管理 / 截图后定向刷新 | `renderScreenshots` `refreshScreenshots` `openShotPreview` `showShotMenu` |

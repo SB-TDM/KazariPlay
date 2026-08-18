@@ -64,7 +64,6 @@ _JS_MANIFEST = [
     "window.js",       # 标题栏拖拽 / 缩放 / 最大化
     "games.js",        # 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态
     "cards.js",        # 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单
-    "card_drag.js",    # 卡片拖拽排序（仅收藏夹视图）
     "detail.js",       # 详情底部抽屉
     "detail_translate.js",  # 详情内 Hook 实时翻译行 + 每游戏清洗配置
     "screenshots.js",  # 截图卡片 / 预览 / 右键管理
