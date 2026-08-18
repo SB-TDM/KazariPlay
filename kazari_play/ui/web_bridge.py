@@ -413,7 +413,9 @@ class WebBridge:
             if overlay.send_query_filter_config():
                 evt.wait(timeout=3)
             overlay.on_filter_config = None
-            if result:
+            # 仅当 C++ 确实回传了有效过滤器（注入成功）才采用 runtime；
+            # 否则（注入失败/无配置）回退到数据库 override，避免用户已保存配置"丢失"
+            if result and result.get("filters"):
                 return json.dumps({"filters": result["filters"], "source": "runtime"},
                                   ensure_ascii=False)
         game = self.manager.get_game(game_id) if game_id else None
