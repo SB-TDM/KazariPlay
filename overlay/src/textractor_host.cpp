@@ -392,14 +392,21 @@ bool TextractorHost::onTextOutput(TextThread& thread, std::wstring& sentence) {
     } else {
         // 跨运行（二次启动恢复 hook_code，handle 已失效）：按 address/function 过滤
         std::uintptr_t selAddr = self->m_selectedAddress.load();
+        std::string selFunc;
+        EnterCriticalSection(&self->m_cs);
+        selFunc = self->m_selectedFunction;
+        LeaveCriticalSection(&self->m_cs);
         if (selAddr != 0 && thread.hp.address != selAddr) {
-            return true;   // 地址 hook：按地址过滤
+            // 地址不匹配：UserHook 可能插入失败（MH_ERROR_NOT_EXECUTABLE），
+            // 而同一 function 的引擎自动 hook（如 KiriKiriZ）仍能抓文本，放行避免字幕丢失
+            if (thread.hp.function[0] != '\0' && !selFunc.empty() &&
+                strncmp(thread.hp.function, selFunc.c_str(), MAX_MODULE_SIZE) == 0) {
+                // 引擎自动 hook 文本（function 相同），放行
+            } else {
+                return true;   // 地址 hook：按地址过滤
+            }
         }
-        if (selAddr == 0 && !self->m_selectedFunction.empty()) {
-            std::string selFunc;
-            EnterCriticalSection(&self->m_cs);
-            selFunc = self->m_selectedFunction;
-            LeaveCriticalSection(&self->m_cs);
+        if (selAddr == 0 && !selFunc.empty()) {
             // thread.hp.function 为空（自动 GDI hook 常如此）时跳过 function 匹配，避免误杀
             if (thread.hp.function[0] != '\0' &&
                 strncmp(thread.hp.function, selFunc.c_str(), MAX_MODULE_SIZE) != 0) {
