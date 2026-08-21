@@ -12,6 +12,8 @@
            滚动条高度恒定，大库滚动不再跳动（与 .grid contain:layout、.scroll scrollbar-gutter 配合） */
         content-visibility:auto;contain-intrinsic-size:var(--card-w) var(--card-h);
         transition:transform var(--anim-card),box-shadow .28s var(--soft),border-color .28s var(--soft);}
+  /* DOM 窗口化占位：撑起网格总高度（可视区上方/下方省略的卡片高度） */
+  .grid-spacer{grid-column:1 / -1;visibility:hidden;pointer-events:none;}
   .card:hover{transform:translateY(-5px);border-color:var(--pink);box-shadow:0 10px 22px var(--glow-med);}
   .card .cover{height:calc(100% - 31px);position:relative;background-size:cover;background-position:center;
     transition:transform var(--anim-card),filter .28s var(--soft);}

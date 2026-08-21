@@ -10,6 +10,90 @@
 // ---------- 卡片 ----------
 let coverObserver = null;
 let _renderedIds = []; // 当前网格已渲染的卡片 id 顺序
+// ============ DOM 窗口化（只渲染可视区 ± 缓冲） ============
+// WindowCalculator：由滚动位置 / 容器尺寸计算当前应渲染的数据项索引范围。
+// 网格总高度 = 全量行数 × 行高，由顶部/底部 spacer 占位撑起（滚动条正确），
+// 实际 DOM 只有窗口内卡片；滚动时增量替换（复用下方 renderCards 逻辑）。
+const _WIN_BUFFER_ROWS = 2; // 可视区上下各多渲染的缓冲行数
+let _winStart = 0; // 当前窗口起始索引
+let _winEnd = 0; // 当前窗口结束索引
+let _topSpacer = null;
+let _bottomSpacer = null;
+let _winScrollBound = false;
+let _winRaf = false;
+// 列数 / 行高（与 CSS .grid auto-fill + gap 对齐）
+function _winMetrics() {
+    const grid = document.getElementById('grid');
+    const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
+    const cardH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-h')) || 210;
+    const gap = 14;
+    const width = grid ? grid.clientWidth : cardW;
+    const cols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
+    return { cols, rowH: cardH + gap };
+}
+// WindowCalculator：根据滚动位置 + 容器高度计算 [start, end) 索引范围
+function _windowRange(listLen) {
+    const scroller = document.querySelector('.scroll');
+    const { cols, rowH } = _winMetrics();
+    const totalRows = Math.ceil(listLen / cols);
+    const scrollTop = scroller ? scroller.scrollTop : 0;
+    const viewH = scroller ? scroller.clientHeight : 0;
+    const startRow = Math.max(0, Math.floor(scrollTop / rowH) - _WIN_BUFFER_ROWS);
+    const endRow = Math.min(totalRows, Math.ceil((scrollTop + viewH) / rowH) + _WIN_BUFFER_ROWS);
+    return { start: startRow * cols, end: Math.min(listLen, endRow * cols) };
+}
+// 更新 spacer 高度（网格总高 = 全量行数 × 行高，窗口上下各一段占位）
+function _updateSpacers(listLen, win) {
+    const { cols, rowH } = _winMetrics();
+    const totalRows = Math.ceil(listLen / cols);
+    const topRows = Math.floor(win.start / cols);
+    const bottomRows = Math.max(0, totalRows - Math.ceil(win.end / cols));
+    if (_topSpacer)
+        _topSpacer.style.height = (topRows * rowH) + 'px';
+    if (_bottomSpacer)
+        _bottomSpacer.style.height = (bottomRows * rowH) + 'px';
+}
+// 确保 spacer 存在（网格首尾各一个，占满整行）
+function _ensureSpacers(grid) {
+    if (!_topSpacer) {
+        _topSpacer = document.createElement('div');
+        _topSpacer.className = 'grid-spacer';
+        _topSpacer.setAttribute('aria-hidden', 'true');
+        grid.insertBefore(_topSpacer, grid.firstChild);
+    }
+    if (!_bottomSpacer) {
+        _bottomSpacer = document.createElement('div');
+        _bottomSpacer.className = 'grid-spacer';
+        _bottomSpacer.setAttribute('aria-hidden', 'true');
+        grid.appendChild(_bottomSpacer);
+    }
+}
+// 绑定滚动重算窗口（只渲染窗口内卡片，滚动时增量替换）
+function _bindWindowScroll() {
+    if (_winScrollBound)
+        return;
+    _winScrollBound = true;
+    const scroller = document.querySelector('.scroll');
+    if (!scroller)
+        return;
+    scroller.addEventListener('scroll', () => {
+        if (_winRaf)
+            return;
+        _winRaf = true;
+        requestAnimationFrame(() => {
+            _winRaf = false;
+            // 数据可能已变化，用当前全量 games 重算窗口
+            const list = filterGames(App.data.games);
+            const win = _windowRange(list.length);
+            if (win.start === _winStart && win.end === _winEnd)
+                return;
+            _winStart = win.start;
+            _winEnd = win.end;
+            renderCards(list); // 增量替换窗口内卡片
+            _updateSpacers(list.length, win);
+        });
+    });
+}
 // 创建单张卡片 DOM（不含封面加载，封面由 observer 懒加载）
 function buildCard(g) {
     const card = document.createElement('div');
@@ -45,16 +129,24 @@ function buildCard(g) {
 // 增量渲染：对比新旧 id 列表，只增删改变化部分，未变化卡片原样保留（含已加载封面）
 function renderCards(list) {
     const grid = document.getElementById('grid');
-    const newIds = list.map(g => g.id);
+    _ensureSpacers(grid);
+    _bindWindowScroll();
+    // 窗口化：只渲染 WindowCalculator 算出的可视区 ± 缓冲范围
+    const win = _windowRange(list.length);
+    _winStart = win.start;
+    _winEnd = win.end;
+    const winList = list.slice(win.start, win.end);
+    _updateSpacers(list.length, win);
+    const newIds = winList.map(g => g.id);
     const byId = {};
-    list.forEach(g => byId[g.id] = g);
+    winList.forEach(g => byId[g.id] = g);
     const oldMap = {};
     _renderedIds.forEach(id => {
         const c = grid.querySelector(`.card[data-id="${id}"]`);
         if (c)
             oldMap[id] = c;
     });
-    // 1) 移除已不在列表中的卡片
+    // 1) 移除已不在窗口中的卡片
     //    同时解除 IntersectionObserver 对它们的观察——被移除的卡片若未滚入视口，
     //    不 unobserve 会被 observer 永久持有（连带 DOM 节点与封面加载闭包），
     //    频繁筛选/搜索下死节点会缓慢累积成内存泄漏。
@@ -68,7 +160,8 @@ function renderCards(list) {
         }
     });
     // 2) 按新顺序排列：复用的节点移动位置，新增节点创建
-    let anchor = null; // 从后往前插，保持顺序
+    //    注意 anchor 从 bottomSpacer 前开始插，保证卡片排在 spacer 之间
+    let anchor = _bottomSpacer; // 从后往前插，保持顺序
     for (let i = newIds.length - 1; i >= 0; i--) {
         const id = newIds[i];
         let card = oldMap[id];
