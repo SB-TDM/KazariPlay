@@ -60,8 +60,8 @@ interface AppDataShape {
   currentGame: Game | null;
   /** 当前编辑/添加表单对应的游戏 id（'' 表示手动添加） */
   editingId: number | null;
-  /** 正在运行的游戏 id（由后端 getRunning 轮询） */
-  runningId: string;
+  /** 正在运行的游戏 id（由后端 getRunning 轮询；原 JS 运行时可为 number 或 string，故保持联合类型） */
+  runningId: number | string;
 }
 
 /** 全局 UI 状态命名空间（App.ui.state） */

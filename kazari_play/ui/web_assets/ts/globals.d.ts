@@ -26,8 +26,21 @@ declare global {
   }
   var HookSelect: HookSelectApi;
 
-  // ---- js/games.js（阶段 4 迁移）----
-  function setActiveCard(id: number | null): void;
+  // ---- js/games.js（阶段 4 迁移，games.ts 已定义 setActiveCard，此处不再声明）----
+
+  // ---- js/collections.js（阶段 6 迁移）----
+  function renderCollectionTree(): void;
+  function openCollectionManager(): void;
+
+  // ---- js/batch.js（阶段 6 迁移）----
+  function updateBatchBar(): void;
+
+  // ---- js/detail.js（阶段 5 迁移）----
+  function refreshDetail(): void;
+  function openDetail(g: Game): void;
+
+  // ---- js/form.js（阶段 7 迁移）----
+  function openEdit(g: Game): void;
 }
 
 export {};
