@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "preserve",
+    "moduleDetection": "auto",
+    "strict": true,
+    "outDir": "js",
+    "rootDir": "ts",
+    "removeComments": false,
+    "sourceMap": false,
+    "noEmitOnError": false,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": ["ts/**/*.ts"]
+}

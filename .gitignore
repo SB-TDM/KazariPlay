@@ -22,3 +22,6 @@ overlay/bin32/
 # UI 审查临时图片与面板测试截图（未使用，不上传）
 kazari_play/ui/web_assets/images/
 tests/shot_*.png
+
+# 前端 TS 工具链依赖
+kazari_play/ui/web_assets/node_modules/
