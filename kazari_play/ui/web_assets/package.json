@@ -1,0 +1,14 @@
+{
+  "name": "kazariplay-webassets",
+  "private": true,
+  "version": "1.0.0",
+  "description": "KazariPlay 前端资源（TS 渐进迁移工具链）",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.0"
+  }
+}

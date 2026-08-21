@@ -1,5 +1,9 @@
 # 前端模块说明（web_assets）
 
+> **TS 渐进迁移进行中**：迁移方案见 `docs/TS_MIGRATION_PLAN.md`。已迁移模块的源在
+> `ts/`（TypeScript），编译产物覆盖 `js/` 同名文件（头部带 `// GENERATED` 注释）；
+> 未迁移模块仍为手写 `js/`。`_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
+
 前端由 **pywebview（Edge WebView2）** 渲染。`main.py` 的 `_load_html()` 在启动时把
 `index.html` 中的两个占位符替换为实际内容，**全部内联**进单个 HTML 字符串
 （`html=` 模式），以彻底规避中文路径下 `file://` 加载 404 的问题。
@@ -12,9 +16,24 @@
 ## 加载机制
 
 - `index.html` 中的 `<!-- PARTIALS -->` → 依次注入 `partials/` 下的分块 HTML
-- `index.html` 中的 `<!-- SCRIPTS -->` → 依次注入 `js/` 下的 JS 模块
+- `index.html` 中的 `<!-- SCRIPTS -->` → 依次注入 `js/` 下的 JS 模块（TS 产物 / 手写 JS 混用）
 - 两份清单（顺序即依赖顺序）是 `main.py` 中的 `_PARTIAL_MANIFEST` / `_JS_MANIFEST`，
   **新增模块时两处都要登记**
+
+## TS 构建（渐进迁移）
+
+```bash
+npm install     # 首次：安装 typescript（仅 devDependency）
+npm run build   # tsc 编译 ts/ → js/ 同名产物
+npm run watch   # 开发时增量编译
+npm run typecheck  # 只做类型检查，不产出文件
+```
+
+- `tsconfig.json` 使用 `module: preserve` + `moduleDetection: auto`：无 `import/export` 的
+  `.ts` 编译为纯全局脚本（与手写 JS 形态一致，兼容 `html=` 内联注入）。
+- **ts 源禁止 `import/export`**（唯一例外是 `ts/globals.d.ts` 的 `export {}`）。
+- 未迁移 JS 模块的全局在 `ts/globals.d.ts` 用 `declare` 声明，迁移后移入对应 `.ts`。
+- 构建前先 `npm run typecheck`，通过后再 `npm run build` 产出。
 
 ## CSS 模块（css/）
 
