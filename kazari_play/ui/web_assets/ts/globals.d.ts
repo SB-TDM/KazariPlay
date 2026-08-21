@@ -14,15 +14,37 @@
 
 // ---- 未迁移 JS 模块的全局声明（随迁移逐步清空）----
 declare global {
-  // ---- js/hook_select.js（IIFE，阶段 8 迁移）----
+  /** Hook 候选（后端 getHookCandidates 返回 list 元素） */
+  interface HookCandidate {
+    handle: number;
+    hook_code?: string;
+    hook_name?: string;
+    text?: string;
+  }
+
+  /** js/settings.js 提供（IIFE，阶段 8 迁移） */
+  var CLEAN_FILTER_DEFS: CleanFilterDef[];
+
+  /** js/hook_select.js 提供（core.ts launchGame 引用） */
   interface HookSelectApi {
     open(gameId: number): void;
     close(): void;
   }
   var HookSelect: HookSelectApi;
 
-  // ---- js/settings.js（IIFE，阶段 8 迁移）----
-  var CLEAN_FILTER_DEFS: CleanFilterDef[];
+  // ---- 以下 window 属性由 ts/ 中的 IIFE 模块自含定义 ----
+  var updateSubtitlePos: ((x: number, y: number) => void) | undefined;
+  interface SubtitleStyleApi {
+    load(): void;
+  }
+  var SubtitleStyle: SubtitleStyleApi;
+  interface SettingsApi {
+    open(): void;
+    close(): void;
+    pickTheme(t: string): void;
+    applyTheme(t: string): void;
+  }
+  var Settings: SettingsApi;
 }
 
 export {};
