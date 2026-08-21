@@ -36,36 +36,59 @@ _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
 # 封面以 data URI 形式常驻内存（原图 base64 再膨胀 ~33%），无上限缓存
 # 会在千库规模下累积数百 MB。这里按「条目数 + 总字节」双上限，超限时
 # 淘汰最久未使用的条目（OrderedDict.popitem(last=False)）。
+# 线程安全：缓存被桥线程 / UISync / monitor 线程并发读写，_cover_cache_lock 保护。
 _MAX_COVER_CACHE_ENTRIES = 128
 _MAX_COVER_CACHE_BYTES = 48 * 1024 * 1024   # 总字节上限（base64 字符串长度）
 _cover_cache: "OrderedDict[str, str]" = OrderedDict()
 _cover_cache_bytes = 0
+_cover_cache_lock = threading.Lock()
+# 封面读取去重：path -> threading.Event，同一路径同时只算一次（并发读取时合并等待）
+_cover_inflight: Dict[str, threading.Event] = {}
+_cover_inflight_lock = threading.Lock()
+_COVER_INFLIGHT_TIMEOUT = 5.0   # 等待超时（秒），超时后自身重算，防死等
+# 封面缩略图生成去重：path -> threading.Lock，同一路径同时只生成一次
+_thumb_locks: Dict[str, threading.Lock] = {}
+_thumb_locks_guard = threading.Lock()
 
 
 def _cover_cache_get(path: str) -> Optional[str]:
     """读取封面缓存；命中时标记为最近使用，未命中返回 None"""
-    uri = _cover_cache.get(path)
-    if uri is not None:
-        _cover_cache.move_to_end(path)
-    return uri
+    with _cover_cache_lock:
+        uri = _cover_cache.get(path)
+        if uri is not None:
+            _cover_cache.move_to_end(path)
+        return uri
 
 
 def _cover_cache_put(path: str, uri: str) -> None:
     """写入封面缓存并做 LRU 淘汰（超上限时移除最久未用条目）"""
     global _cover_cache_bytes
-    _cover_cache[path] = uri          # 已存在时 OrderedDict 自动移到末尾
-    _cover_cache_bytes += len(uri)
-    while (_cover_cache_bytes > _MAX_COVER_CACHE_BYTES
-           or len(_cover_cache) > _MAX_COVER_CACHE_ENTRIES) and _cover_cache:
-        _, old = _cover_cache.popitem(last=False)
-        _cover_cache_bytes -= len(old)
+    with _cover_cache_lock:
+        _cover_cache[path] = uri          # 已存在时 OrderedDict 自动移到末尾
+        _cover_cache_bytes += len(uri)
+        while (_cover_cache_bytes > _MAX_COVER_CACHE_BYTES
+               or len(_cover_cache) > _MAX_COVER_CACHE_ENTRIES) and _cover_cache:
+            _, old = _cover_cache.popitem(last=False)
+            _cover_cache_bytes -= len(old)
+
+
+def _cover_cache_invalidate(path: str) -> None:
+    """定向失效单条封面缓存（封面变化后只清对应条目，保留其余缓存）"""
+    global _cover_cache_bytes
+    if not path:
+        return
+    with _cover_cache_lock:
+        old = _cover_cache.pop(path, None)
+        if old is not None:
+            _cover_cache_bytes -= len(old)
 
 
 def _cover_cache_clear() -> None:
     """清空缓存（封面更新后调用）"""
     global _cover_cache_bytes
-    _cover_cache.clear()
-    _cover_cache_bytes = 0
+    with _cover_cache_lock:
+        _cover_cache.clear()
+        _cover_cache_bytes = 0
 
 
 def _default_cover_path() -> str:
@@ -109,34 +132,48 @@ def _ensure_cover_thumb(path: str) -> str:
     手动封面上限 6MB）：既保证高分屏下的清晰度，又大幅降低 base64 体积与
     桥线程 I/O，消除滚动时封面逐个加载的卡顿与弹入感。
     按 原图路径+mtime 命名落盘，封面更换后自动重建（幂等）。
+    并发去重：同一路径首次生成时加锁 + 二次检查，确保只缩放/落盘一次。
     """
     thumb = _cover_thumb_path(path)
     if os.path.exists(thumb):
         return thumb
-    try:
-        from PIL import Image
-    except Exception:
-        return path
-    try:
-        os.makedirs(os.path.dirname(thumb), exist_ok=True)
-        with Image.open(path) as im:
-            im = im.convert("RGB")
-            # 按宽度等比缩放（LANCZOS 高质量）；原图已 ≤512 宽则不放大
-            w, h = im.size
-            if w > _THUMB_WIDTH:
-                im = im.resize(
-                    (_THUMB_WIDTH, max(1, int(h * _THUMB_WIDTH / w))),
-                    Image.LANCZOS)
-            im.save(thumb, "JPEG", quality=_THUMB_QUALITY)
-        if os.path.exists(thumb) and os.path.getsize(thumb) > 0:
+    # double-checked locking：先取该路径的专用锁，锁内二次检查避免并发重复生成
+    with _thumb_locks_guard:
+        lock = _thumb_locks.get(path)
+        if lock is None:
+            lock = threading.Lock()
+            _thumb_locks[path] = lock
+    with lock:
+        if os.path.exists(thumb):
             return thumb
-    except Exception:
-        pass
-    return path
+        try:
+            from PIL import Image
+        except Exception:
+            return path
+        try:
+            os.makedirs(os.path.dirname(thumb), exist_ok=True)
+            with Image.open(path) as im:
+                im = im.convert("RGB")
+                # 按宽度等比缩放（LANCZOS 高质量）；原图已 ≤512 宽则不放大
+                w, h = im.size
+                if w > _THUMB_WIDTH:
+                    im = im.resize(
+                        (_THUMB_WIDTH, max(1, int(h * _THUMB_WIDTH / w))),
+                        Image.LANCZOS)
+                im.save(thumb, "JPEG", quality=_THUMB_QUALITY)
+            if os.path.exists(thumb) and os.path.getsize(thumb) > 0:
+                return thumb
+        except Exception:
+            pass
+        return path
 
 
 def _cover_data_uri(path: str) -> str:
-    """封面图 → base64 data URI（优先缩略图；html= 模式下 file:// 会被 WebView2 拦截）"""
+    """封面图 → base64 data URI（优先缩略图；html= 模式下 file:// 会被 WebView2 拦截）
+
+    并发去重：同一路径同时只执行一次「读文件 + base64 编码」，其余等待其结果。
+    等到的线程直接读缓存（结果已写入）；超时后自身重算兜底。
+    """
     if not path or not os.path.exists(path):
         path = _default_cover_path()
     if not path:
@@ -145,18 +182,54 @@ def _cover_data_uri(path: str) -> str:
     cached = _cover_cache_get(src)
     if cached is not None:
         return cached
+
+    # ---- 去重：登记 in-flight 或等待已有计算 ----
+    # 返回 (is_owner, event)：is_owner=True 表示本线程负责计算
+    def _claim():
+        with _cover_inflight_lock:
+            ev = _cover_inflight.get(src)
+            if ev is not None:
+                return False, ev
+            ev = threading.Event()
+            _cover_inflight[src] = ev
+            return True, ev
+    is_owner, inflight_ev = _claim()
+    if not is_owner:
+        # 已有并发计算：等待其完成，然后读缓存（或超时后自身重算）
+        inflight_ev.wait(_COVER_INFLIGHT_TIMEOUT)
+        cached = _cover_cache_get(src)
+        if cached is not None:
+            return cached
+        # 等待超时且缓存仍空：尝试接管为计算者（原计算者可能异常/超时）
+        is_owner, inflight_ev = _claim()
+        if not is_owner:
+            # 仍被占用（新一轮计算中），再等一次后放弃
+            inflight_ev.wait(_COVER_INFLIGHT_TIMEOUT)
+            cached = _cover_cache_get(src)
+            return cached or ""
+
+    # ---- 计算（owner）----
+    uri = ""
     try:
         with open(src, "rb") as f:
             raw = f.read()
         if len(raw) > 6 * 1024 * 1024:
-            return ""
-        ext = os.path.splitext(src)[1].lower().lstrip(".")
-        mime = _MIME.get(ext, "image/jpeg")
-        uri = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
-        _cover_cache_put(src, uri)
-        return uri
+            uri = ""
+        else:
+            ext = os.path.splitext(src)[1].lower().lstrip(".")
+            mime = _MIME.get(ext, "image/jpeg")
+            uri = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+        if uri:
+            _cover_cache_put(src, uri)
     except Exception:
-        return ""
+        uri = ""
+    finally:
+        # owner 释放 in-flight 并通知等待者
+        if is_owner:
+            with _cover_inflight_lock:
+                _cover_inflight.pop(src, None)
+            inflight_ev.set()
+    return uri
 
 
 def _game_dict(g: Game) -> Dict[str, Any]:
@@ -305,12 +378,12 @@ class WebBridge:
     # ---------- 写操作 ----------
     def toggleFav(self, game_id: str):
         self.manager.toggle_favorite(game_id)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def launch(self, game_id: str) -> str:
         ok = self.manager.launch(game_id)
         logger.info("启动游戏 %s: %s", game_id, ok)
-        self.refresh()
+        self.refresh_delta([game_id])
         # 返回 JSON：need_hook_select=True 时前端弹 Hook 点选择窗
         need = False
         launcher = getattr(self.manager, "launcher", None)
@@ -340,14 +413,14 @@ class WebBridge:
             coord.select_hook(int(handle), hook_code or "")
         if game_id:
             self.manager.repository.update_hook_code(game_id, hook_code or "")
-        self.refresh()
+        self.refresh_delta([game_id])
         return True
 
     def clearHookCode(self, game_id: str) -> bool:
         """清除已保存的 Hook 点（重新选择入口）"""
         if game_id:
             self.manager.repository.update_hook_code(game_id, "")
-        self.refresh()
+        self.refresh_delta([game_id])
         return True
 
     def toggleGameTranslation(self, game_id: str, enabled: bool) -> bool:
@@ -474,7 +547,7 @@ class WebBridge:
 
     def deleteGame(self, game_id: str):
         self.manager.delete_game(game_id)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def saveGame(self, game_id: str, data_json: str):
         """前端编辑/添加保存。game_id 为空视为手动添加。
@@ -506,6 +579,7 @@ class WebBridge:
                     g.exe_path = os.path.normpath(new_exe)
                     g.folder = os.path.dirname(g.exe_path)
                 self.manager.update_game(g)
+                self.refresh_delta([game_id])   # 编辑单卡：增量更新
         else:
             # 手动添加单个 exe：exe 必填；标题自动推导（exe 所在文件夹名，兜底文件名），
             # 添加前不强制取名；引擎/开发商/简介留空，可进详情后编辑
@@ -527,7 +601,7 @@ class WebBridge:
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
             threading.Thread(target=self._run_vndb_match, args=([g],),
                              daemon=True).start()
-        self.refresh()
+            self.refresh()   # 新增卡片：全量刷新让新卡出现
 
     # ---------- 标签 / 分类 ----------
     def addTag(self, name: str, color: str) -> str:
@@ -541,7 +615,7 @@ class WebBridge:
 
     def setGameTags(self, game_id: str, tags_json: str):
         self.manager.set_game_tags(game_id, json.loads(tags_json))
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def addCategory(self, name: str) -> str:
         cat_id = self.manager.add_category(name)
@@ -554,7 +628,7 @@ class WebBridge:
 
     def setGameCategory(self, game_id: str, cat_id: int):
         self.manager.set_game_category(game_id, cat_id)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     # ---------- 批量操作 ----------
     def batchAddTag(self, ids_json: str, tag_id: int):
@@ -613,7 +687,7 @@ class WebBridge:
     def setGameCollections(self, game_id: str, collection_ids_json: str):
         """设置游戏所属的收藏夹列表（整体替换）"""
         self.manager.set_game_collections(game_id, json.loads(collection_ids_json))
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def setCollectionGames(self, collection_id: int, ids_json: str) -> bool:
         """整体替换某收藏夹的游戏列表 + 排序（管理游戏对话框用）"""
@@ -629,7 +703,7 @@ class WebBridge:
     def moveGameInCollection(self, collection_id: int, game_id: str, new_sort_order: int):
         """调整游戏在收藏夹内的排序"""
         self.manager.move_game_in_collection(collection_id, game_id, new_sort_order)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def batchMoveToCollection(self, ids_json: str, collection_id: int):
         """批量移动游戏到收藏夹（替代原 batchMoveCategory）"""
@@ -731,11 +805,11 @@ class WebBridge:
         try:
             status, msg = self.manager.match_vndb_metadata(game_id, force=True)
             logger.info("VNDB 匹配 %s: %s %s", game_id, status, msg)
-            self.reloadCovers()   # 封面可能已更新
+            self.reloadCover(game_id)   # 单张封面可能已更新，只定向重载该卡
             self.notify(f"VNDB 匹配完成：{msg}")
         except Exception as e:
             logger.error("VNDB 匹配异常: %s", e)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def matchVndbBatch(self, ids_json: str) -> str:
         ids = set(json.loads(ids_json))
@@ -751,7 +825,7 @@ class WebBridge:
     # ---------- 评分 / 运行状态 ----------
     def setRating(self, game_id: str, rating: int):
         self.manager.set_rating(game_id, int(rating))
-        self.refresh()
+        self.refresh_delta([game_id])
 
     def getRunning(self) -> str:
         g = self.manager.get_running_game()
@@ -860,7 +934,11 @@ class WebBridge:
                           ensure_ascii=False)
 
     def getScreenshotThumb(self, game_id: str, filename: str) -> str:
-        """返回单张截图的 base64 data URI（缩略图懒加载用）"""
+        """返回单张截图的 base64 data URI（缩略图，优先 512px 宽 JPEG 缓存）
+
+        与封面同思路：缩略图大幅降低 base64 体积与桥 I/O。缓存按路径+mtime
+        命名落盘（幂等），缩略图生成带锁去重；预览原图请走 openScreenshotFolder。
+        """
         from core import screenshot_service
         shots = screenshot_service.get_screenshots(game_id)
         p = ""
@@ -870,26 +948,84 @@ class WebBridge:
                 break
         if not p or not os.path.exists(p):
             return ""
+        thumb = self._screenshot_thumb_path(p)
+        if not os.path.exists(thumb):
+            thumb = self._ensure_screenshot_thumb(p, thumb)
+        if not thumb or not os.path.exists(thumb):
+            return ""
+        cached = _cover_cache_get(thumb)
+        if cached is not None:
+            return cached
         try:
-            with open(p, "rb") as f:
+            with open(thumb, "rb") as f:
                 raw = f.read()
-            if len(raw) > 8 * 1024 * 1024:
+            if len(raw) > 6 * 1024 * 1024:
                 return ""
-            uri = "data:image/png;base64," + base64.b64encode(raw).decode("ascii")
+            uri = "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii")
+            _cover_cache_put(thumb, uri)
             return uri
         except Exception:
             return ""
 
+    @staticmethod
+    def _screenshot_thumb_path(path: str) -> str:
+        """截图缩略图路径（含原图 mtime，截图更换后自动失效重建）"""
+        try:
+            mtime = int(os.path.getmtime(path))
+        except OSError:
+            mtime = 0
+        digest = hashlib.md5(f"{path}|{mtime}".encode("utf-8")).hexdigest()[:16]
+        return os.path.join(get_app_data_dir(), "screenshots", "thumbs",
+                            f"{digest}_w{_THUMB_WIDTH}.jpg")
+
+    def _ensure_screenshot_thumb(self, path: str, thumb: str) -> str:
+        """确保截图缩略图存在（带锁去重）；失败回退原图路径"""
+        if os.path.exists(thumb):
+            return thumb
+        with _thumb_locks_guard:
+            lock = _thumb_locks.get(path)
+            if lock is None:
+                lock = threading.Lock()
+                _thumb_locks[path] = lock
+        with lock:
+            if os.path.exists(thumb):
+                return thumb
+            try:
+                from PIL import Image
+            except Exception:
+                return path
+            try:
+                os.makedirs(os.path.dirname(thumb), exist_ok=True)
+                with Image.open(path) as im:
+                    im = im.convert("RGB")
+                    w, h = im.size
+                    if w > _THUMB_WIDTH:
+                        im = im.resize(
+                            (_THUMB_WIDTH, max(1, int(h * _THUMB_WIDTH / w))),
+                            Image.LANCZOS)
+                    im.save(thumb, "JPEG", quality=_THUMB_QUALITY)
+                if os.path.exists(thumb) and os.path.getsize(thumb) > 0:
+                    return thumb
+            except Exception:
+                pass
+            return path
+
     def deleteScreenshot(self, game_id: str, filename: str) -> bool:
         from core import screenshot_service
         ok = screenshot_service.delete_screenshot(game_id, filename)
-        self.refresh()
+        if game_id:
+            self.refresh_delta([game_id])
+        else:
+            self.refresh()
         return ok
 
     def renameScreenshot(self, game_id: str, filename: str, new_name: str) -> bool:
         from core import screenshot_service
         ok = screenshot_service.rename_screenshot(game_id, filename, new_name)
-        self.refresh()
+        if game_id:
+            self.refresh_delta([game_id])
+        else:
+            self.refresh()
         return ok
 
     def openScreenshotFolder(self, game_id: str, filename: str) -> bool:
@@ -967,10 +1103,10 @@ class WebBridge:
             shutil.copy2(path, dest)
             g.cover_path = dest
             self.manager.update_game(g)
-            self.reloadCovers()
+            self.reloadCover(game_id)   # 只失效该游戏封面缓存并重载该卡
         except Exception as e:
             logger.error("更换封面失败: %s", e)
-        self.refresh()
+        self.refresh_delta([game_id])
 
     # ---------- 多源搜索手动匹配（源可自行配置，见 core/multi_source.py）----------
     def searchMetadata(self, keyword: str, sources_json: str = "") -> str:
@@ -1041,8 +1177,8 @@ class WebBridge:
                 logger.error("下载封面失败: %s", e)
         if changed:
             self.manager.update_game(g)
-            self.reloadCovers()
-        self.refresh()
+            self.reloadCover(game_id)   # 单游戏元数据应用，只定向重载该卡封面
+        self.refresh_delta([game_id])
 
     # ---------- 启动时自动扫描 ----------
     def startAutoScan(self):
@@ -1057,6 +1193,10 @@ class WebBridge:
     def refresh(self):
         """数据变化后通知前端刷新（可在任意线程调用，微延迟合并）"""
         self._ui.invalidate("games")
+
+    def refresh_delta(self, game_ids):
+        """增量刷新：只通知前端更新指定的游戏（单对象写操作用，减少全量重建）"""
+        self._ui.invalidate("games_delta", list(game_ids))
 
     def notify(self, msg: str):
         """向前端弹 toast 提示（可在任意线程调用，微延迟合并）"""
@@ -1204,12 +1344,23 @@ class WebBridge:
             return json.dumps({"ok": False, "msg": str(e)}, ensure_ascii=False)
 
     def reloadCovers(self):
-        """封面更新后强制前端重新加载所有卡片封面（清缓存后定向推送）"""
+        """封面更新后强制前端重新加载所有卡片封面（清缓存后定向推送）
+
+        仅用于「批量」封面变化场景（批量 VNDB 匹配结束、扫描导入多游戏等）；
+        单张封面变化请用 reloadCover(game_id) 定向失效，避免全量重载。
+        """
         _cover_cache_clear()
         self._ui.invalidate("covers")
 
+    def reloadCover(self, game_id):
+        """单张封面变化：只失效该游戏的封面缓存并定向重载对应卡片"""
+        g = self.manager.get_game(game_id)
+        if g:
+            _cover_cache_invalidate(g.cover_path)
+        self._ui.invalidate("cover", str(game_id))
+
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
-        self.refresh()
+        self.refresh_delta([game_id])
 
     # ---------- 窗口控制 ----------
     def windowMinimize(self):

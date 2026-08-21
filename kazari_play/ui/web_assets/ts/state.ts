@@ -133,5 +133,7 @@ var __app = {
   refresh: function (): void { refreshAll(true); },
   toast: function (m: string): void { toast(m); },
   reloadCovers: function (): void { reloadCovers(); },
+  reloadCover: function (gameId: string): void { reloadCover(gameId); },
+  applyGamesDelta: function (ids: string[]): void { applyGamesDelta(ids); },
   refreshScreenshots: function (gameId: number): void { refreshScreenshots(gameId); },
 };
