@@ -47,8 +47,10 @@ interface Game {
 interface CollectionTreeNode {
   id: number;
   name: string;
+  parent_id?: number | null;
   color?: string;
   icon?: string;
+  game_count?: number;
   children?: CollectionTreeNode[];
 }
 

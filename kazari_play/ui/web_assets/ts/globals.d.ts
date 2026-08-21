@@ -12,28 +12,14 @@
 //   3. 运行时名称只加类型不改名。
 // ============================================================
 
-// ---- state.ts 引用（定义在未迁移的 js/ 模块中）----
+// ---- 未迁移 JS 模块的全局声明（随迁移逐步清空）----
 declare global {
-  function refreshAll(force: boolean): void;              // js/games.js
-  function toast(msg: string): void;                      // js/core.js
-  function reloadCovers(): void;                          // js/games.js
-  function refreshScreenshots(gameId: number): void;      // js/screenshots.js
-
   // ---- js/hook_select.js（IIFE，阶段 8 迁移）----
   interface HookSelectApi {
     open(gameId: number): void;
     close(): void;
   }
   var HookSelect: HookSelectApi;
-
-  // ---- js/games.js（阶段 4 迁移，games.ts 已定义 setActiveCard，此处不再声明）----
-
-  // ---- js/collections.js（阶段 6 迁移）----
-  function renderCollectionTree(): void;
-  function openCollectionManager(): void;
-
-  // ---- js/batch.js（阶段 6 迁移）----
-  function updateBatchBar(): void;
 
   // ---- js/form.js（阶段 7 迁移）----
   function openEdit(g: Game): void;
