@@ -31,12 +31,16 @@ _FLUSH_DELAY = 0.05
 # 事件域 → 前端 JS 入口（window.__app.*）。
 # 新增数据域时在这里加一行即可，无需改动调用方。
 #   games        -> refresh()               全量刷新
-#   covers       -> reloadCovers()          封面定向重载
+#   games_delta  -> applyGamesDelta(ids)    增量刷新（payload: 变化的 game_id 数组）
+#   covers       -> reloadCovers()          封面全量重载（批量封面变化）
+#   cover        -> reloadCover(gid)        单卡封面定向重载（payload: game_id）
 #   screenshots  -> refreshScreenshots(gid) 截图区定向刷新（payload: game_id）
 #   toast        -> toast(msg)              轻提示（payload: 消息文本）
 _DOMAIN_JS = {
     "games": "refresh",
+    "games_delta": "applyGamesDelta",
     "covers": "reloadCovers",
+    "cover": "reloadCover",
     "screenshots": "refreshScreenshots",
     "toast": "toast",
 }
@@ -110,6 +114,14 @@ class UISync:
                 gid = json.dumps(payload or "", ensure_ascii=False)
                 statements.append(
                     f"window.__app && window.__app.refreshScreenshots({gid});")
+            elif domain == "cover":
+                gid = json.dumps(payload or "", ensure_ascii=False)
+                statements.append(
+                    f"window.__app && window.__app.reloadCover({gid});")
+            elif domain == "games_delta":
+                ids = json.dumps(list(payload or []), ensure_ascii=False)
+                statements.append(
+                    f"window.__app && window.__app.applyGamesDelta({ids});")
             else:
                 statements.append(f"window.__app && window.__app.{_DOMAIN_JS[domain]}();")
         if not statements:

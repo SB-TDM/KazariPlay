@@ -45,5 +45,7 @@ var __app = {
     refresh: function () { refreshAll(true); },
     toast: function (m) { toast(m); },
     reloadCovers: function () { reloadCovers(); },
+    reloadCover: function (gameId) { reloadCover(gameId); },
+    applyGamesDelta: function (ids) { applyGamesDelta(ids); },
     refreshScreenshots: function (gameId) { refreshScreenshots(gameId); },
 };

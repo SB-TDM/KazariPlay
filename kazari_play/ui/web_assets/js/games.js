@@ -26,6 +26,23 @@ function reloadCovers() {
         });
     });
 }
+// 单卡封面定向重载（后端 reloadCover 触发：换封面 / 单游戏 VNDB 匹配等）
+// 只重载对应卡片，不影响其余卡片已加载封面。
+function reloadCover(gameId) {
+    const card = document.querySelector(`.card[data-id="${gameId}"]`);
+    const c = card && card.querySelector('.cover');
+    if (!card || !c)
+        return;
+    card.dataset.coverLoaded = '';
+    c.classList.remove('loaded');
+    bridge.getCover(gameId, function (uri) {
+        if (!uri)
+            return;
+        card.dataset.coverLoaded = '1';
+        c.classList.add('loaded');
+        c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+    });
+}
 // 封面尺寸档位（对应设置 cover_size）
 const COVER_SIZES = {
     small: { w: 132, h: 180 }, medium: { w: 154, h: 210 }, large: { w: 180, h: 245 },
@@ -59,6 +76,40 @@ function refreshAll(force) {
         renderCollectionTree();
     });
     bridge.getRunning(function (r) { App.data.runningId = r || ''; markRunning(); });
+}
+// 增量刷新：后端写操作（收藏/评分/编辑/删除等）只通知变化项。
+// 对每个变化 id 拉取最新数据更新本地 games 数组，再走增量渲染
+// （renderCards 只增删改变化卡片，未变卡片连同已加载封面原样保留）。
+function applyGamesDelta(ids) {
+    if (!bridge || !ids || !ids.length)
+        return;
+    let pending = ids.length;
+    const deleted = new Set();
+    ids.forEach(idStr => {
+        bridge.getGame(idStr, function (s) {
+            try {
+                const fresh = JSON.parse(String(s || '{}'));
+                if (fresh && fresh.id) {
+                    const gi = App.data.games.findIndex(x => x.id === fresh.id);
+                    if (gi >= 0)
+                        App.data.games[gi] = fresh;
+                    else
+                        App.data.games.push(fresh); // 新增卡（saveGame 全量场景已覆盖，此处兜底）
+                }
+                else {
+                    deleted.add(+idStr); // 删除场景：id 不存在
+                }
+            }
+            catch (e) { }
+            if (--pending === 0) {
+                if (deleted.size) {
+                    App.data.games = App.data.games.filter(g => !deleted.has(g.id));
+                }
+                renderAll();
+                syncCurrentGame();
+            }
+        });
+    });
 }
 // 判断游戏列表是否有实质变化（比较影响卡片显示的字段）。
 // 注意：last_text / play_time_text 是派生展示文本，已分别由 last_played / play_time

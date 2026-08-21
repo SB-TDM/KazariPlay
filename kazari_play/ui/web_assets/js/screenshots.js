@@ -6,6 +6,7 @@
 //       renameShot / openShotFolder / copyShot / deleteShot + 截图事件绑定
 // ============================================================
 let shotTarget = null; // 当前预览/右键菜单的截图对象
+let shotObserver = null; // 截图缩略图懒加载
 // ---------- 截图卡片 ----------
 function renderScreenshots() {
     const grid = document.getElementById('shotsGrid');
@@ -25,17 +26,36 @@ function renderScreenshots() {
         shots.forEach(shot => {
             const el = document.createElement('div');
             el.className = 'shot-item';
+            el.dataset.shotFile = shot.file;
             el.innerHTML = `<div class="shot-thumb"></div><div class="shot-meta">
           <span class="shot-time">${esc(shot.created || '')}</span></div>`;
-            bridge.getScreenshotThumb(String(App.data.currentGame.id), shot.file, function (uri) {
-                const th = el.querySelector('.shot-thumb');
-                if (uri && th)
-                    th.style.backgroundImage = `url('${uri}')`;
-            });
+            // 缩略图懒加载：进入视口才请求（复用截图区根节点），避免全量并发取图
+            if (shotObserver)
+                shotObserver.observe(el);
             el.onclick = () => openShotPreview(shot);
             el.oncontextmenu = (e) => { e.preventDefault(); showShotMenu(e.clientX, e.clientY, shot); };
             grid.appendChild(el);
         });
+        if (!shotObserver) {
+            shotObserver = new IntersectionObserver((entries) => {
+                entries.forEach(en => {
+                    if (!en.isIntersecting)
+                        return;
+                    const item = en.target;
+                    shotObserver.unobserve(item);
+                    const gid = App.data.currentGame ? String(App.data.currentGame.id) : '';
+                    const f = item.dataset.shotFile;
+                    if (!gid || !f)
+                        return;
+                    bridge.getScreenshotThumb(gid, f, function (uri) {
+                        const th = item.querySelector('.shot-thumb');
+                        if (uri && th)
+                            th.style.backgroundImage = `url('${uri}')`;
+                    });
+                });
+            }, { root: grid.parentElement, rootMargin: '160px' });
+            grid.querySelectorAll('.shot-item').forEach(c => shotObserver.observe(c));
+        }
     });
 }
 // 截图保存后由后端 evaluate_js 定向调用（与 reloadCovers 同风格的轻量更新）：
