@@ -11,4 +11,13 @@
 //   2. 声明必须与实际实现保持同步（verify 脚本会检查）。
 //   3. 运行时名称只加类型不改名。
 // ============================================================
+
+// ---- state.ts 引用（定义在未迁移的 js/ 模块中）----
+declare global {
+  function refreshAll(force: boolean): void;              // js/games.js
+  function toast(msg: string): void;                      // js/core.js
+  function reloadCovers(): void;                          // js/games.js
+  function refreshScreenshots(gameId: number): void;      // js/screenshots.js
+}
+
 export {};
