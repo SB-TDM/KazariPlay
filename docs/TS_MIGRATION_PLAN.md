@@ -1,6 +1,7 @@
 # KazariPlay 前端 TypeScript 渐进迁移计划书
 
 > 版本：V1.0（计划稿）
+> 状态：**已实施完成（2026-08-21）**，全部 17 个模块迁移至 `ts/`，`js/` 为编译产物
 > 日期：2026-08-21
 > 范围：`kazari_play/ui/web_assets/` 前端 JS → TS 渐进迁移；main.py / verify_frontend.py / 打包流程零改动
 > 原则：小步可验证、每模块独立可回退、JS 与 TS 全程共存、架构（经典 script 内联注入）保持不变

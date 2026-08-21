@@ -1,8 +1,8 @@
 # 前端模块说明（web_assets）
 
-> **TS 渐进迁移进行中**：迁移方案见 `docs/TS_MIGRATION_PLAN.md`。已迁移模块的源在
-> `ts/`（TypeScript），编译产物覆盖 `js/` 同名文件（头部带 `// GENERATED` 注释）；
-> 未迁移模块仍为手写 `js/`。`_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
+> **TS 迁移已完成**：全部 17 个模块源码在 `ts/`（TypeScript），`js/` 下同名文件为
+> `npm run build` 编译产物。迁移方案见 `docs/TS_MIGRATION_PLAN.md`；
+> `_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
 
 前端由 **pywebview（Edge WebView2）** 渲染。`main.py` 的 `_load_html()` 在启动时把
 `index.html` 中的两个占位符替换为实际内容，**全部内联**进单个 HTML 字符串
@@ -59,30 +59,33 @@ npm run typecheck  # 只做类型检查，不产出文件
 | `sources.css` | 多源元数据 / 自定义复选框（Kawaii 方块） |
 | `hook.css` | Hook 选择 / 翻译卡片 |
 
-## JS 模块（js/）
+## JS 模块（ts/ 源 → js/ 产物）
 
-| 文件 | 职责 | 定义的关键全局 |
+> 全部模块已迁移至 TypeScript：**源文件在 `ts/`，`js/` 下同名文件为 `npm run build` 的编译产物**。
+> `_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
+
+| 源文件 | 职责 | 定义的关键全局 |
 |---|---|---|
-| `state.js` | 全局共享状态（最先加载） | `GAMES` `currentGame` `editingId` `runningId` `state` `window.__app`（refresh/toast/reloadCovers/refreshScreenshots） |
-| `core.js` | bridge 代理 + 通用工具 | `bridge` `esc` `toast` `stars` `chipColor` `loadCoverTo` |
-| `ui.js` | Sheet / 对话框 / 右键菜单基础设施 | `showSheet` `closeSheet` `showConfirmDialog` `showInputDialog` `openPicker` `showContextMenu` |
-| `window.js` | 无边框窗口控制 | `toggleMax` `bindDrag` `bindResize` |
-| `games.js` | 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态 | `refreshAll` `renderAll` `filterGames` `markRunning` `toggleSelect` `setActiveCard` `renderEmpty` |
-| `cards.js` | 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单 | `buildCard` `renderCards` `openCardMenu` |
-| `detail.js` | 详情底部抽屉（展示 / 评分 / 收藏） | `openDetail` `refreshDetail` `initRateEdit` |
-| `detail_translate.js` | 详情内 Hook 实时翻译行 + 每游戏清洗配置 | `renderTransRow` `loadCleanCfg` `saveCleanCfg` |
-| `screenshots.js` | 截图卡片 / 预览 / 右键管理 / 截图后定向刷新 | `renderScreenshots` `refreshScreenshots` `openShotPreview` `showShotMenu` |
-| `collections.js` | 收藏夹树 / 收藏夹管理抽屉 | `renderCollectionTree` `selectCollection` `openCollectionManager` |
-| `manage_games.js` | 管理游戏对话框（批量勾选收藏夹内游戏） | `openManageGames` `renderManageGames` `saveManageGames` |
-| `batch.js` | 批量选择模式 | `updateBatchBar` `batchPickCollection` |
-| `form.js` | 编辑 / 添加表单 + 元数据候选 | `openEdit` `openAdd` `saveForm` `renderCandidates` |
-| `hook_select.js` | Hook 点选择弹窗（自包含 IIFE） | `window.HookSelect` |
-| `subtitle_style.js` | 字幕样式控制面板（设置页「字幕」tab，自包含 IIFE） | `window.SubtitleStyle` |
-| `settings.js` | 设置窗口（自包含 IIFE） | `window.Settings` `window.CLEAN_FILTER_DEFS` |
-| `app.js` | 启动引导（最后加载，只做粘合） | `init` `bindFilterMenu` |
+| `ts/state.ts` | 全局共享状态（最先加载） | `App` `__app`（refresh/toast/reloadCovers/refreshScreenshots） |
+| `ts/core.ts` | bridge 代理 + 通用工具 | `bridge` `esc` `toast` `stars` `chipColor` `loadCoverTo` |
+| `ts/ui.ts` | Sheet / 对话框 / 右键菜单基础设施 | `showSheet` `closeSheet` `showConfirmDialog` `showInputDialog` `openPicker` `showContextMenu` |
+| `ts/window.ts` | 无边框窗口控制 | `toggleMax` `bindDrag` `bindResize` |
+| `ts/games.ts` | 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态 | `refreshAll` `renderAll` `filterGames` `markRunning` `toggleSelect` `setActiveCard` `renderEmpty` |
+| `ts/cards.ts` | 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单 | `buildCard` `renderCards` `openCardMenu` |
+| `ts/detail.ts` | 详情底部抽屉（展示 / 评分 / 收藏） | `openDetail` `refreshDetail` `initRateEdit` |
+| `ts/detail_translate.ts` | 详情内 Hook 实时翻译行 + 每游戏清洗配置 | `renderTransRow` `loadCleanCfg` `saveCleanCfg` |
+| `ts/screenshots.ts` | 截图卡片 / 预览 / 右键管理 / 截图后定向刷新 | `renderScreenshots` `refreshScreenshots` `openShotPreview` `showShotMenu` |
+| `ts/collections.ts` | 收藏夹树 / 收藏夹管理抽屉 | `renderCollectionTree` `selectCollection` `openCollectionManager` |
+| `ts/manage_games.ts` | 管理游戏对话框（批量勾选收藏夹内游戏） | `openManageGames` `renderManageGames` `saveManageGames` |
+| `ts/batch.ts` | 批量选择模式 | `updateBatchBar` `batchPickCollection` |
+| `ts/form.ts` | 编辑 / 添加表单 + 元数据候选 | `openEdit` `openAdd` `saveForm` `renderCandidates` |
+| `ts/hook_select.ts` | Hook 点选择弹窗（自包含 IIFE） | `window.HookSelect` |
+| `ts/subtitle_style.ts` | 字幕样式控制面板（设置页「字幕」tab，自包含 IIFE） | `window.SubtitleStyle` |
+| `ts/settings.ts` | 设置窗口（自包含 IIFE） | `window.Settings` `window.CLEAN_FILTER_DEFS` |
+| `ts/app.ts` | 启动引导（最后加载，只做粘合） | `init` `bindFilterMenu` |
 
-模块间通过全局函数/变量互相调用（经典脚本共享作用域）。每个文件头部注释标注了
-「依赖 / 定义 / 被依赖」，修改跨模块接口时请同步更新。
+> 类型契约：`ts/pywebview.d.ts`（bridge 全 API）、`ts/globals.d.ts`（跨文件全局类型）。
+> 模块间通过全局函数/变量互相调用（经典脚本共享作用域，运行时与迁移前一致）。
 
 ## HTML 分块（partials/）
 
