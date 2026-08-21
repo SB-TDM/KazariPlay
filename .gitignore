@@ -25,3 +25,6 @@ tests/shot_*.png
 
 # 前端 TS 工具链依赖
 kazari_play/ui/web_assets/node_modules/
+
+# 前端 JS 编译产物（由 ts/ 源经 npm run build 生成，不入库）
+kazari_play/ui/web_assets/js/
