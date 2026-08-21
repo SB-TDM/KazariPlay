@@ -21,9 +21,6 @@ declare global {
   }
   var HookSelect: HookSelectApi;
 
-  // ---- js/form.js（阶段 7 迁移）----
-  function openEdit(g: Game): void;
-
   // ---- js/settings.js（IIFE，阶段 8 迁移）----
   var CLEAN_FILTER_DEFS: CleanFilterDef[];
 }
