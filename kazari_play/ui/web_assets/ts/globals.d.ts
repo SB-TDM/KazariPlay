@@ -25,6 +25,9 @@ declare global {
     close(): void;
   }
   var HookSelect: HookSelectApi;
+
+  // ---- js/games.js（阶段 4 迁移）----
+  function setActiveCard(id: number | null): void;
 }
 
 export {};
