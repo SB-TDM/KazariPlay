@@ -18,6 +18,13 @@ declare global {
   function toast(msg: string): void;                      // js/core.js
   function reloadCovers(): void;                          // js/games.js
   function refreshScreenshots(gameId: number): void;      // js/screenshots.js
+
+  // ---- js/hook_select.js（IIFE，阶段 8 迁移）----
+  interface HookSelectApi {
+    open(gameId: number): void;
+    close(): void;
+  }
+  var HookSelect: HookSelectApi;
 }
 
 export {};
