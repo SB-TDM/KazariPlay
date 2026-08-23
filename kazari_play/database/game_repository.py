@@ -1,12 +1,22 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 from core.game_model import Game
 from database.db_manager import DatabaseManager
 
 class GameRepository:
     """游戏数据仓库 - 负责数据库 CRUD"""
     
-    def __init__(self):
+    def __init__(
+        self,
+        process_checker: Optional[Callable[[], bool]] = None,
+    ):
         self.db = DatabaseManager()
+        # 进程存活检测回调（一般由 GameManager 注入 launcher.is_running），
+        # 用于 record_play 判断游戏是否仍在运行。
+        self._process_checker = process_checker
+
+    def set_process_checker(self, process_checker: Callable[[], bool]) -> None:
+        """注入进程存活检测回调"""
+        self._process_checker = process_checker
     
     def add(self, game: Game) -> bool:
         """添加或更新游戏
@@ -156,7 +166,13 @@ class GameRepository:
         )
 
     def record_play(self, game_id: str):
-        """记录游玩时间（更新 last_played，不再递增 play_count）"""
+        """记录游玩时间（更新 last_played，不再递增 play_count）
+
+        若已注入进程检测回调，且检测到游戏进程仍在运行，则跳过更新，
+        避免在游玩尚未结束时就误刷新"最后游玩时间"；进程不存在时正常执行。
+        """
+        if self._process_checker and self._process_checker():
+            return
         from datetime import datetime
         self.db.execute(
             "UPDATE games SET last_played = ? WHERE id = ?",

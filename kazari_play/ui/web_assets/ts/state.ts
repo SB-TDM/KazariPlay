@@ -136,4 +136,5 @@ var __app = {
   reloadCover: function (gameId: string): void { reloadCover(gameId); },
   applyGamesDelta: function (ids: string[]): void { applyGamesDelta(ids); },
   refreshScreenshots: function (gameId: number): void { refreshScreenshots(gameId); },
+  setRunning: function (id: number | string): void { setRunning(id); },
 };

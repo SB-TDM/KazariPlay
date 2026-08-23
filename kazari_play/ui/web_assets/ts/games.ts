@@ -201,6 +201,12 @@ function markRunning(): void {
   }
 }
 
+// 后端事件推送：启动/退出游戏时即时更新"运行中"状态（无需等 30s 兜底轮询）
+function setRunning(id: number | string): void {
+  App.data.runningId = id || '';
+  markRunning();
+}
+
 // 批量模式下勾选 / 取消勾选
 function toggleSelect(id: number, card: HTMLElement): void {
   if (App.ui.state.selected.has(id)) { App.ui.state.selected.delete(id); card.classList.remove('selected'); }

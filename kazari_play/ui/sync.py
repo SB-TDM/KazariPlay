@@ -43,6 +43,7 @@ _DOMAIN_JS = {
     "cover": "reloadCover",
     "screenshots": "refreshScreenshots",
     "toast": "toast",
+    "running": "setRunning",
 }
 
 
@@ -122,6 +123,10 @@ class UISync:
                 ids = json.dumps(list(payload or []), ensure_ascii=False)
                 statements.append(
                     f"window.__app && window.__app.applyGamesDelta({ids});")
+            elif domain == "running":
+                gid = json.dumps(payload or "", ensure_ascii=False)
+                statements.append(
+                    f"window.__app && window.__app.setRunning({gid});")
             else:
                 statements.append(f"window.__app && window.__app.{_DOMAIN_JS[domain]}();")
         if not statements:

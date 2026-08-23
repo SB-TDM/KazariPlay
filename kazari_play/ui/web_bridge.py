@@ -321,6 +321,7 @@ class WebBridge:
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
+            self.manager.monitor.register_callback("on_start", self._on_game_start)
         except Exception as e:
             logger.warning("注册 monitor 回调失败: %s", e)
 
@@ -1360,6 +1361,13 @@ class WebBridge:
         self._ui.invalidate("cover", str(game_id))
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
+        # 游戏退出：即时清除"运行中"状态 + 增量刷新该游戏数据（时长/最后游玩）
+        self._ui.invalidate("running", "")
+        self.refresh_delta([game_id])
+
+    def _on_game_start(self, game_id: str, *extra):
+        # 游戏启动：即时标记"运行中" + 刷新该游戏数据
+        self._ui.invalidate("running", game_id)
         self.refresh_delta([game_id])
 
     # ---------- 窗口控制 ----------
