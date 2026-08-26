@@ -873,10 +873,15 @@ class WebBridge:
                           ensure_ascii=False)
 
     def _running_pid(self) -> Optional[int]:
-        """当前运行游戏进程 PID（无则 None）"""
+        """当前运行游戏进程 PID（无则 None）。
+
+        优先用追踪到的真游戏 pid（launcher.get_game_pid），
+        兼容经启动器（SmartSteamEmu 等）拉起的真游戏进程。
+        """
         launcher = getattr(self.manager, "launcher", None)
-        proc = getattr(launcher, "current_process", None) if launcher else None
-        return proc.pid if proc and proc.poll() is None else None
+        if launcher:
+            return launcher.get_game_pid()
+        return None
 
     def _running_game_hwnd(self) -> int:
         """当前运行游戏主窗口句柄（无则 0）"""
