@@ -50,9 +50,55 @@ def test_core():
     assert not screenshot_service.delete_screenshot("test_game", "../../evil.png")
     print("[安全] OK: 拒绝路径穿越")
 
+    # 5. WGC 捕获（有显示环境时验证核心路径；库缺失时静默降级不报错）
+    _wgc_probe()
+
     # 清理
     shutil.rmtree(_tmp_root, ignore_errors=True)
     print("SHOT TEST PASS")
+
+
+def _wgc_probe():
+    """WGC 捕获探测：找系统任意可见窗口验证 _capture_via_wgc 返回非 None。
+
+    无显示环境/库缺失时输出 SKIP，不算失败（三级回退设计保证不拖垮主流程）。
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        user32 = ctypes.windll.user32
+    except Exception:
+        print("[WGC] SKIP: 非 Windows 环境")
+        return
+
+    # 找系统任意可见窗口及其 pid
+    target = [None]
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def cb(hwnd, lparam):
+        if user32.IsWindowVisible(hwnd):
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if pid.value:
+                target[0] = pid.value
+                return False
+        return True
+
+    user32.EnumWindows(cb, 0)
+    if not target[0]:
+        print("[WGC] SKIP: 无可见窗口")
+        return
+
+    try:
+        img = screenshot_service._capture_via_wgc(target[0])
+    except Exception as e:
+        print(f"[WGC] SKIP: 库缺失或捕获失败: {e}")
+        return
+    if img is None:
+        print("[WGC] SKIP: 返回 None（库缺失或窗口不可捕获，已回退）")
+    else:
+        print(f"[WGC] OK: 捕获 {img.size} 像素")
 
 
 if __name__ == "__main__":

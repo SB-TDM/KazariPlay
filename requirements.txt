@@ -7,3 +7,7 @@ pywebview==6.2.1
 Pillow==10.1.0
 pywin32==306
 keyboard==0.13.5
+
+# WGC 截图内核（可选）：捕获 D3D/Vulkan 独占渲染游戏画面（黑屏问题主修）。
+# 缺失时自动降级 PrintWindow + 全屏兜底。注意会连带安装 opencv-python。
+windows-capture==2.0.1

@@ -1,6 +1,8 @@
 """截图服务 - Steam 式游戏截图（仅截游戏画面 + 按游戏分文件夹管理）
 
-- 截图目标：游戏窗口（通过进程 PID → 主窗口 → PrintWindow 截取），非全屏
+- 截图目标：游戏窗口（通过进程 PID → 主窗口 → WGC/PrintWindow 截取），非全屏
+- 捕获内核：优先 Windows Graphics Capture（WGC，兼容 D3D/Vulkan 独占渲染），
+  失败/不可用时回退 PrintWindow（GDI），再失败回退全屏 ImageGrab
 - 存储：项目目录 screenshots/{game_id}/shot_{时间戳}.png
 - 归属：截屏时若检测到运行中的游戏，归入该游戏子文件夹；否则存 _unsorted/
 - 触发：由 main.py 全局热键监听调用（webview 不提供全局热键）
@@ -16,10 +18,74 @@ from utils.logger import get_logger
 
 logger = get_logger()
 
+# WGC 抓帧等待超时（秒）：创建 GraphicsCaptureItem/会话可能较慢，超时即回退
+_WGC_TIMEOUT = 8.0
+
+
+# ---------- Windows Graphics Capture（WGC）窗口截图 ----------
+def _capture_via_wgc(pid: int) -> Optional["Image.Image"]:
+    """用 WGC 按窗口捕获单帧（兼容 D3D/Vulkan 独占渲染的全屏游戏）
+
+    依赖 windows-capture 库（可选）：缺失/失败返回 None，由调用方回退 PrintWindow。
+    每次截图新建 capture 实例（抓一帧即 stop，实例不可复用）；
+    在独立线程跑消息循环，主线程等帧到达或超时。
+    """
+    try:
+        import threading
+        from PIL import Image
+        from windows_capture import WindowsCapture
+    except ImportError:
+        logger.warning("windows-capture 未安装，WGC 捕获不可用，回退 PrintWindow")
+        return None
+
+    hwnd = find_main_window_by_pid(pid)
+    if not hwnd:
+        return None
+
+    result: Dict[str, object] = {"img": None, "err": ""}
+    got = threading.Event()
+
+    try:
+        capture = WindowsCapture(window_hwnd=hwnd, cursor_capture=False)
+
+        @capture.event
+        def on_frame_arrived(frame, control):
+            try:
+                bgra = frame.frame_buffer   # BGRA numpy (h, w, 4)，物理像素
+                result["img"] = Image.fromarray(bgra[:, :, ::-1])   # BGRA -> RGB
+            except Exception as e:
+                result["err"] = str(e)
+            control.stop()
+            got.set()
+
+        @capture.event
+        def on_closed():
+            pass
+
+        def _run():
+            try:
+                capture.start()   # 阻塞消息循环，单独线程
+            except Exception as e:
+                result["err"] = str(e)
+                got.set()
+
+        threading.Thread(target=_run, daemon=True).start()
+        if not got.wait(_WGC_TIMEOUT):
+            logger.warning("WGC 抓帧超时 (pid=%s)，回退 PrintWindow", pid)
+            return None
+    except Exception as e:
+        logger.warning("WGC 捕获失败 (pid=%s): %s，回退 PrintWindow", pid, e)
+        return None
+
+    if result["err"]:
+        logger.warning("WGC 抓帧异常 (pid=%s): %s，回退 PrintWindow", pid, result["err"])
+        return None
+    return result["img"] if result["img"] is not None else None
+
 
 # ---------- Win32 窗口截图（只截游戏画面）----------
-def capture_game_window(pid: int) -> Optional[str]:
-    """通过进程 PID 找到主窗口并用 PrintWindow 截取画面，返回临时文件路径"""
+def capture_game_window(pid: int) -> Optional["Image.Image"]:
+    """通过进程 PID 找到主窗口并用 PrintWindow 截取画面，返回 PIL Image"""
     try:
         from PIL import Image
     except ImportError:
@@ -118,7 +184,12 @@ def find_main_window_by_pid(pid: int) -> int:
 
 
 def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) -> Optional[str]:
-    """截取游戏画面（优先窗口截图，失败回退全屏），保存到游戏子文件夹。
+    """截取游戏画面（三级回退：WGC → PrintWindow → 全屏），保存到游戏子文件夹。
+
+    捕获内核：
+      ① WGC（windows-capture，按窗口捕获，兼容 D3D/Vulkan 独占渲染）
+      ② PrintWindow（GDI，窗口被遮挡/最小化时仍能取到 GDI 内容）
+      ③ ImageGrab.grab()（全屏兜底）
 
     Args:
         game_id: 归属游戏 id（None 时存 _unsorted）
@@ -129,9 +200,11 @@ def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) ->
     """
     img = None
     if pid:
-        img = capture_game_window(pid)
+        img = _capture_via_wgc(pid)   # ① WGC（兼容独占渲染，黑屏问题主修）
+    if img is None and pid:
+        img = capture_game_window(pid)   # ② PrintWindow（GDI 兜底，被遮挡窗口可用）
     if img is None:
-        # 回退全屏截图
+        # ③ 全屏兜底
         try:
             from PIL import ImageGrab
             img = ImageGrab.grab()
