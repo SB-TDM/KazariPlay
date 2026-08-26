@@ -107,8 +107,9 @@ take_screenshot(pid)
   └─ ③ ImageGrab.grab()：前两者都失败 → 全屏兜底
 ```
 
-- **尺寸判定不变**：① 天然是窗口物理像素；② 保持客户区尺寸；③ 全屏分辨率。
+- **尺寸判定**：① WGC 裁剪偏移后保留**物理像素**（去掉标题栏/边框，内容对齐客户区；高 DPI 下比 PrintWindow 更清晰）；② PrintWindow 保持客户区逻辑尺寸；③ 全屏分辨率。
 - **pid 链路不变**：仍由调用方 `web_bridge._running_pid()` 传入。
+- **客户区对齐**（`_client_physical_offset`）：`ClientToScreen(0,0)×DPIscale − DwmGetWindowAttribute(EXTENDED_FRAME_BOUNDS)` 得物理偏移，裁剪掉系统标题栏/边框；无标题栏窗口偏移≈0。
 
 ---
 
@@ -116,7 +117,7 @@ take_screenshot(pid)
 
 | 文件 | 改动 |
 |---|---|
-| `kazari_play/core/screenshot_service.py` | 新增 `_capture_via_wgc(pid) -> Optional[Image]`（函数内懒 import `windows_capture`，`start_free_threaded()` + 抓一帧即停）；改 `capture_game_window` 为先 WGC 后 PrintWindow 的编排 |
+| `kazari_play/core/screenshot_service.py` | 新增 `_capture_via_wgc(pid)`（懒 import `windows_capture`，抓一帧即停）+ `_client_physical_offset(hwnd)`（客户区物理偏移，裁剪标题栏/边框）；`take_screenshot` 编排三级回退 |
 | `requirements.txt` | 新增 `windows-capture`（标注可选，缺失静默降级） |
 | `tests/smoke_screenshots.py` | 追加 WGC 分支冒烟（有显示环境时验证返回非 None） |
 | （不改）`web_bridge.py`、尺寸/pid 判定、存储 | 保持不变 |

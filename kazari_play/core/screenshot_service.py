@@ -23,12 +23,39 @@ _WGC_TIMEOUT = 8.0
 
 
 # ---------- Windows Graphics Capture（WGC）窗口截图 ----------
+def _client_physical_offset(hwnd: int) -> tuple:
+    """计算客户区相对窗口左上角的物理像素偏移（标题栏+边框高度/宽度）。
+
+    用于把 WGC 整窗帧裁剪到客户区，使输出尺寸与 PrintWindow 客户区路径对齐。
+    WGC 帧是物理像素；ClientToScreen 返回逻辑像素，需按 GetDpiForWindow 换算。
+
+    返回 (top_off, left_off)，物理像素；查询失败返回 (0, 0)（不裁剪）。
+    """
+    try:
+        user32 = ctypes.windll.user32
+        dwmapi = ctypes.windll.dwmapi
+        # 客户区左上角屏幕坐标（逻辑像素）
+        pt = wintypes.POINT(0, 0)
+        user32.ClientToScreen(hwnd, ctypes.byref(pt))
+        # 真实窗口边框（DWM 扩展边框，物理像素，不含阴影）
+        er = wintypes.RECT()
+        dwmapi.DwmGetWindowAttribute(
+            hwnd, 9, ctypes.byref(er), ctypes.sizeof(er))  # DWMWA_EXTENDED_FRAME_BOUNDS=9
+        scale = user32.GetDpiForWindow(hwnd) / 96.0
+        top_off = pt.y * scale - er.top
+        left_off = pt.x * scale - er.left
+        return (max(0, int(round(top_off))), max(0, int(round(left_off))))
+    except Exception:
+        return (0, 0)
+
+
 def _capture_via_wgc(pid: int) -> Optional["Image.Image"]:
     """用 WGC 按窗口捕获单帧（兼容 D3D/Vulkan 独占渲染的全屏游戏）
 
     依赖 windows-capture 库（可选）：缺失/失败返回 None，由调用方回退 PrintWindow。
     每次截图新建 capture 实例（抓一帧即 stop，实例不可复用）；
     在独立线程跑消息循环，主线程等帧到达或超时。
+    捕获后按客户区偏移裁剪（去掉标题栏/边框），输出与 PrintWindow 客户区尺寸对齐。
     """
     try:
         import threading
@@ -54,7 +81,12 @@ def _capture_via_wgc(pid: int) -> Optional["Image.Image"]:
                 bgra = frame.frame_buffer   # BGRA numpy (h, w, 4)，物理像素
                 # BGRA -> RGB：取 BGR 三通道反转，丢弃 alpha。
                 # 注意不能整体 [:, :, ::-1]（会得到 ARGB 通道错位 → 反相色调）
-                result["img"] = Image.fromarray(bgra[:, :, [2, 1, 0]])
+                img = Image.fromarray(bgra[:, :, [2, 1, 0]])
+                # 裁剪到客户区（去掉标题栏/边框），与 PrintWindow 客户区路径对齐
+                top_off, left_off = _client_physical_offset(hwnd)
+                if (top_off or left_off) and top_off < img.height and left_off < img.width:
+                    img = img.crop((left_off, top_off, img.width, img.height))
+                result["img"] = img
             except Exception as e:
                 result["err"] = str(e)
             control.stop()
