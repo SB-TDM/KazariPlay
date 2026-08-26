@@ -23,27 +23,46 @@ _WGC_TIMEOUT = 8.0
 
 
 # ---------- Windows Graphics Capture（WGC）窗口截图 ----------
+def _process_dpi_aware() -> bool:
+    """进程是否 DPI-aware（决定 ClientToScreen 返回逻辑还是物理像素）"""
+    try:
+        awareness = ctypes.c_int()
+        ctypes.windll.shcore.GetProcessDpiAwareness(None, ctypes.byref(awareness))
+        return awareness.value != 0   # 0=unaware, 1=system, 2=per-monitor
+    except Exception:
+        return False
+
+
 def _client_physical_offset(hwnd: int) -> tuple:
     """计算客户区相对窗口左上角的物理像素偏移（标题栏+边框高度/宽度）。
 
     用于把 WGC 整窗帧裁剪到客户区，使输出尺寸与 PrintWindow 客户区路径对齐。
-    WGC 帧是物理像素；ClientToScreen 返回逻辑像素，需按 GetDpiForWindow 换算。
+    WGC 帧是物理像素；偏移计算需与进程 DPI 感知状态一致：
+      - DPI-aware：ClientToScreen 返回物理像素，直接与 DWM 扩展边框相减
+      - DPI-unaware：ClientToScreen 返回逻辑像素，按 GetDpiForWindow 换算物理
+    错误地双重缩放会导致低分辨率下裁剪过多（已实测踩坑）。
 
     返回 (top_off, left_off)，物理像素；查询失败返回 (0, 0)（不裁剪）。
     """
     try:
         user32 = ctypes.windll.user32
         dwmapi = ctypes.windll.dwmapi
-        # 客户区左上角屏幕坐标（逻辑像素）
+        # 客户区左上角屏幕坐标
         pt = wintypes.POINT(0, 0)
         user32.ClientToScreen(hwnd, ctypes.byref(pt))
         # 真实窗口边框（DWM 扩展边框，物理像素，不含阴影）
         er = wintypes.RECT()
-        dwmapi.DwmGetWindowAttribute(
+        hr = dwmapi.DwmGetWindowAttribute(
             hwnd, 9, ctypes.byref(er), ctypes.sizeof(er))  # DWMWA_EXTENDED_FRAME_BOUNDS=9
+        if hr != 0:
+            return (0, 0)   # 查询失败不裁剪
         scale = user32.GetDpiForWindow(hwnd) / 96.0
-        top_off = pt.y * scale - er.top
-        left_off = pt.x * scale - er.left
+        if _process_dpi_aware():
+            top_off = pt.y - er.top
+            left_off = pt.x - er.left
+        else:
+            top_off = pt.y * scale - er.top
+            left_off = pt.x * scale - er.left
         return (max(0, int(round(top_off))), max(0, int(round(left_off))))
     except Exception:
         return (0, 0)
