@@ -52,7 +52,9 @@ def _capture_via_wgc(pid: int) -> Optional["Image.Image"]:
         def on_frame_arrived(frame, control):
             try:
                 bgra = frame.frame_buffer   # BGRA numpy (h, w, 4)，物理像素
-                result["img"] = Image.fromarray(bgra[:, :, ::-1])   # BGRA -> RGB
+                # BGRA -> RGB：取 BGR 三通道反转，丢弃 alpha。
+                # 注意不能整体 [:, :, ::-1]（会得到 ARGB 通道错位 → 反相色调）
+                result["img"] = Image.fromarray(bgra[:, :, [2, 1, 0]])
             except Exception as e:
                 result["err"] = str(e)
             control.stop()

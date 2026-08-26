@@ -3,7 +3,7 @@
 > 生成时间：2026-08-25
 > 修订时间：2026-08-25（修正依赖选型：原 `wgc` 库不存在 → 改用已实测验证的 `windows-capture`）
 > 会话范围：截图黑屏问题定位（PrintWindow 抓不全独占渲染游戏）→ 方案选型（DXGI vs WGC）→ 选定 WGC → 本文档细化落地
-> 状态：**依赖已核实 + 真机预研通过（windows-capture 2.0.1 按 HWND 捕获成功），尚未改代码**
+> 状态：**已实施（三级回退接入 screenshot_service.py），含通道顺序修正（BGRA→RGB 用 [2,1,0]）；真机冒烟通过**
 
 ---
 
@@ -78,7 +78,7 @@ capture = WindowsCapture(
 def on_frame_arrived(frame: Frame, control: InternalCaptureControl):
     # frame.frame_buffer 是 BGRA numpy (h, w, 4)，物理像素
     bgra = frame.frame_buffer
-    img = Image.fromarray(bgra[:, :, ::-1])   # BGRA -> RGB
+    img = Image.fromarray(bgra[:, :, [2, 1, 0]])   # BGRA -> RGB（取 BGR 反转为 RGB，丢弃 alpha）
     control.stop()                             # 抓一帧即停
     got.set()                                  # 线程同步通知
 
@@ -91,7 +91,8 @@ got.wait(10)             # 等待帧到达 / 超时
 ```
 
 > 实测 API 更正（避免踩坑）：
-> - **取像素用 `frame.frame_buffer`**（BGRA numpy）——`frame.to_numpy()` / `frame.convert_to_bgr()` 均非直接数组返回。
+> - **取像素用 `frame.frame_buffer`**（BGRA numpy，`(h,w,4)`）——`frame.to_numpy()` / `convert_to_bgr()` 均非直接数组返回。
+> - **通道转换用 `frame_buffer[:, :, [2,1,0]]`**（BGRA→RGB，丢弃 alpha）。⚠️ 不能整体 `[::-1]`（会得到 ARGB 通道错位 → 反相色调，已实测踩坑）。
 > - 依赖 opencv 用于 `frame.save_as_image()`；**转 PIL 可完全避开 opencv**（用 `frame_buffer` + Pillow），减小运行时依赖风险。
 > - `start_free_threaded()` 返回 `CaptureControl` 可外部 stop；`start()` 阻塞需自起线程。
 
