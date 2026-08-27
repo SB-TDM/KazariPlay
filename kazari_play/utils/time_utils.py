@@ -4,23 +4,21 @@ from typing import Optional
 
 
 def format_play_time(minutes: int) -> str:
-    """将分钟数格式化为可读的游玩时长
+    """将分钟数格式化为可读的游玩时长（最大单位到小时，不显示天数）
 
     Examples:
         0  -> "未游玩"
         30 -> "30 分钟"
         90 -> "1 小时 30 分钟"
-        1500 (25h) -> "1 天 1 小时"
+        1500 (25h) -> "25 小时"
     """
     if not minutes or minutes <= 0:
         return "未游玩"
     if minutes < 60:
         return f"{minutes} 分钟"
     hours, mins = divmod(minutes, 60)
-    if hours < 24:
-        return f"{hours} 小时 {mins} 分钟" if mins else f"{hours} 小时"
-    days, hours = divmod(hours, 24)
-    return f"{days} 天 {hours} 小时" if hours else f"{days} 天"
+    # 总游玩时长最大单位到小时，不显示天数（长时游玩直接累计小时）
+    return f"{hours} 小时 {mins} 分钟" if mins else f"{hours} 小时"
 
 
 def format_relative_time(iso_str: str, now: Optional[datetime] = None) -> str:
