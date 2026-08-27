@@ -16,14 +16,18 @@
   .grid-spacer{grid-column:1 / -1;visibility:hidden;pointer-events:none;}
   .card:hover{transform:translateY(-5px);border-color:var(--pink);box-shadow:0 10px 22px var(--glow-med);}
   .card .cover{height:calc(100% - 31px);position:relative;background-size:cover;background-position:center;
+    transform-origin:center bottom;   /* 封面从底部中心放大，向上"顶"着框浮起，避免割裂感 */
     transition:transform var(--anim-card),filter .28s var(--soft);}
   /* 封面懒加载淡入：占位渐变 → 实图平滑过渡，消除"弹入"感 */
   .card .cover.loaded{animation:coverFade .35s ease;}
   @keyframes coverFade{from{opacity:.25}to{opacity:1}}
-  .card:hover .cover{transform:scale(1.04);}
+  /* 悬停：封面跟随框同向上浮 + 轻微放大（与 .card:hover 的 translateY 同向，视觉连贯） */
+  .card:hover .cover{transform:translateY(-1px) scale(1.03);}
   .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}
-  /* 选中态封面联动：与框的描边/光晕同频，封面轻微放大 + 提亮 */
+  /* 选中态封面：轻微放大 + 提亮（与悬停同向，互不覆盖） */
   .card.active .cover{transform:scale(1.03);filter:brightness(1.05) saturate(1.1);}
+  /* 选中 + 悬停同时：显式合并（上浮 + 放大 + 提亮），避免同特异性规则互相覆盖 */
+  .card.active:hover .cover{transform:translateY(-1px) scale(1.03);filter:brightness(1.05) saturate(1.1);}
   .card .meta{height:31px;display:flex;align-items:center;justify-content:space-between;
               padding:0 10px;font-size:12px;color:var(--text-sub);background:var(--bg-panel);
               white-space:nowrap;overflow:hidden;}
@@ -37,6 +41,8 @@
                align-items:center;justify-content:center;transition:transform .2s var(--bounce),background .2s,border-color .2s;}
   body.batch .card .check{display:flex;}
   body.batch .card:hover{transform:translateY(-3px);}
+  /* 批量模式：封面不放大，避免放大干扰勾选视觉 */
+  body.batch .card:hover .cover{transform:none;}
   .card.selected{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 8px 18px var(--glow-med);}
   .card.selected .check{background:var(--grad-pink);border-color:transparent;transform:scale(1.1);}
 
