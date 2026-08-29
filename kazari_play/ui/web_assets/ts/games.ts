@@ -94,7 +94,13 @@ function applyGamesDelta(ids: string[]): void {
         if (deleted.size) {
           App.data.games = App.data.games.filter(g => !deleted.has(g.id));
         }
-        renderAll();
+        // 增量渲染：只更新窗口内变化卡片，不重算滚动位置/不整网格重建。
+        // 直接调 renderCards（内部做窗口化 + DOM diff，复用未变卡片含封面），
+        // 避免 renderAll 的滚动保持 + renderEmpty/updateBatchBar 全跑导致边缘重建。
+        const list = filterGames(App.data.games);
+        renderCards(list);
+        renderEmpty(list);
+        updateBatchBar();
         syncCurrentGame();
       }
     });
