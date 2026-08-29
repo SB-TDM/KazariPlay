@@ -191,7 +191,9 @@ function markRunning(): void {
       if (!has) {
         const s = document.createElement('span');
         s.className = 'running'; s.textContent = '运行中';
-        const cover = c.querySelector('.cover'); if (cover) cover.appendChild(s);
+        // 运行标记挂在 .card 顶层而非 .cover 内：
+        // 插入 .cover 会触发其 content-visibility 重渲染 → coverFade 动画重播 → 全部封面变淡
+        c.appendChild(s);
       }
     }
     else if (has) { has.remove(); }

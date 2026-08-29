@@ -18,7 +18,9 @@
   .card .cover{height:calc(100% - 31px);position:relative;background-size:cover;background-position:center;
     transform-origin:center bottom;   /* 封面从底部中心放大，向上"顶"着框浮起，避免割裂感 */
     transition:transform var(--anim-card),filter .28s var(--soft);}
-  /* 封面懒加载淡入：占位渐变 → 实图平滑过渡，消除"弹入"感 */
+  /* 封面懒加载淡入：占位渐变 → 实图平滑过渡，消除"弹入"感。
+     动画仅在首次加载时播放一次：JS 在 animationend 后移除 animation 属性，
+     避免 DOM 变化触发的渲染重算导致动画重播（否则"启动/操作游戏后全部封面变淡"）。 */
   .card .cover.loaded{animation:coverFade .35s ease;}
   @keyframes coverFade{from{opacity:.25}to{opacity:1}}
   /* 悬停：封面跟随框同向上浮 + 轻微放大（与 .card:hover 的 translateY 同向，视觉连贯） */

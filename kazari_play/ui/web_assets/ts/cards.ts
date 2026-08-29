@@ -103,9 +103,9 @@ function buildCard(g: Game): HTMLElement {
   card.dataset.coverLoaded = '';
   card.innerHTML = `<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
       ${g.fav ? '<span class="fav">★</span>' : ''}
-      ${(g.id as number | string) === App.data.runningId ? '<span class="running">运行中</span>' : ''}
       <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
     </div>
+    ${(g.id as number | string) === App.data.runningId ? '<span class="running">运行中</span>' : ''}
     <div class="meta"><span class="dev">${esc(g.dev || '未知')}</span><span class="stars">${stars(g.rating)}</span></div>`;
   card.onclick = () => { if (App.ui.state.batch) toggleSelect(g.id, card); else openDetail(g); };
   // 键盘可达：卡片作为可聚焦交互元素（Enter/空格 触发与点击一致）
@@ -201,11 +201,16 @@ function renderCards(list: Game[]): void {
         coverObserver!.unobserve(card);
         bridge.getCover(gid!, function (uri: unknown) {
           if (!uri) return;
-          const c = card.querySelector('.cover');
+          const c = card.querySelector('.cover') as HTMLElement | null;
           if (c) {
             card.dataset.coverLoaded = '1';
             c.classList.add('loaded');
-            (c as HTMLElement).style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+            c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+            // 淡入动画仅首次加载播放一次：动画结束后移除 animation 属性，
+            // 避免后续 DOM 变化触发的渲染重算导致动画重播（否则"操作后全部封面变淡"）
+            c.addEventListener('animationend', () => {
+              c.style.animation = 'none';
+            }, { once: true });
           }
         });
       });
