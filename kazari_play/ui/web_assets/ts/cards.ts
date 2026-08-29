@@ -7,6 +7,25 @@
 // 被依赖：games.ts（renderAll 调用 renderCards）
 // ============================================================
 
+// 封面淡入动画播放一次后移除 animation 属性，避免 DOM 重算导致动画重播
+function _playCoverFade(c: HTMLElement): void {
+  c.classList.add('loaded');
+  c.addEventListener('animationend', () => {
+    c.style.animation = 'none';
+  }, { once: true });
+}
+
+// 手动刷新后对所有已加载封面重播淡入动画（"已刷新"的视觉反馈）
+// 复用已加载的 backgroundImage，仅重播 coverFade，不重新拉取封面
+function replayCoverFade(): void {
+  document.querySelectorAll<HTMLElement>('.card .cover.loaded').forEach(c => {
+    c.style.animation = '';          // 清除内联 animation:none，恢复 CSS 动画
+    c.classList.remove('loaded');
+    void c.offsetHeight;             // 强制同步重排，确保动画重新触发
+    _playCoverFade(c);
+  });
+}
+
 // ---------- 卡片 ----------
 let coverObserver: IntersectionObserver | null = null;
 let _renderedIds: number[] = [];   // 当前网格已渲染的卡片 id 顺序
@@ -204,13 +223,10 @@ function renderCards(list: Game[]): void {
           const c = card.querySelector('.cover') as HTMLElement | null;
           if (c) {
             card.dataset.coverLoaded = '1';
-            c.classList.add('loaded');
             c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
             // 淡入动画仅首次加载播放一次：动画结束后移除 animation 属性，
             // 避免后续 DOM 变化触发的渲染重算导致动画重播（否则"操作后全部封面变淡"）
-            c.addEventListener('animationend', () => {
-              c.style.animation = 'none';
-            }, { once: true });
+            _playCoverFade(c);
           }
         });
       });
