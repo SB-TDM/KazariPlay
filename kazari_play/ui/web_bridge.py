@@ -984,6 +984,29 @@ class WebBridge:
         except Exception:
             return ""
 
+    def getScreenshotOriginal(self, game_id: str, filename: str) -> str:
+        """返回单张截图的原图 base64 data URI（预览占满窗口时显示原图）"""
+        from core import screenshot_service
+        shots = screenshot_service.get_screenshots(game_id)
+        p = ""
+        for s in shots:
+            if s["file"] == filename:
+                p = s["path"]
+                break
+        if not p or not os.path.exists(p):
+            return ""
+        try:
+            with open(p, "rb") as f:
+                raw = f.read()
+            if len(raw) > 8 * 1024 * 1024:
+                return ""
+            ext = os.path.splitext(p)[1].lower().lstrip(".")
+            mime = _MIME.get(ext, "image/png")
+            uri = "data:" + mime + ";base64," + base64.b64encode(raw).decode("ascii")
+            return uri
+        except Exception:
+            return ""
+
     def deleteScreenshot(self, game_id: str, filename: str) -> bool:
         from core import screenshot_service
         ok = screenshot_service.delete_screenshot(game_id, filename)

@@ -92,6 +92,7 @@ interface PyWebViewApi {
   takeScreenshotRunning(): Promise<string>;
   getScreenshots(game_id: string): Promise<string>;
   getScreenshotThumb(game_id: string, filename: string): Promise<string>;
+  getScreenshotOriginal(game_id: string, filename: string): Promise<string>;
   deleteScreenshot(game_id: string, filename: string): Promise<boolean>;
   renameScreenshot(game_id: string, filename: string, new_name: string): Promise<boolean>;
   openScreenshotFolder(game_id: string, filename: string): Promise<boolean>;

@@ -17,19 +17,24 @@
   .shot-thumb{width:120px;height:68px;background:var(--bg-hover);background-size:cover;background-position:center;}
   .shot-meta{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;}
   .shot-time{font-size:11px;color:var(--text-sub);}
-  /* 截图大图预览：固定高度 + flex 居中，图片加载前后对话框尺寸恒定（不再跳变） */
-  .dialog.shot-preview{max-width:900px;width:92%;padding:18px 20px 12px;}
-  .shot-preview-body{position:relative;height:min(60vh,560px);background:var(--bg-hover);border-radius:var(--radius-md);
+  /* 截图大图预览：占满整个主窗口（遮罩全屏），图片 object-fit 自适应居中 */
+  #shotPreviewOverlay{padding:0;}
+  #shotPreviewOverlay .dialog.shot-preview{width:100%;height:100%;max-width:none;max-height:none;
+    margin:0;padding:0;border:none;border-radius:0;display:flex;flex-direction:column;
+    background:rgba(20,16,26,.92);}
+  #shotPreviewOverlay .dlg-title{padding:14px 20px;flex:none;color:var(--text);
+    display:flex;align-items:center;justify-content:space-between;}
+  #shotPreviewOverlay .shot-preview-body{position:relative;flex:1;background:transparent;border-radius:0;
     display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .shot-preview-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     gap:10px;color:var(--text-sub);font-size:13px;}
   .shot-preview-loading::before{content:'';width:20px;height:20px;border:2px solid var(--border-soft);
     border-top-color:var(--pink);border-radius:50%;animation:shotspin .8s linear infinite;}
   @keyframes shotspin{to{transform:rotate(360deg);}}
-  .dialog.shot-preview img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;
-    border-radius:var(--radius-md);border:1.5px solid var(--border-soft);
+  #shotPreviewOverlay .dialog.shot-preview img{max-width:100%;max-height:100%;width:auto;height:auto;
+    object-fit:contain;border:none;border-radius:0;
     opacity:0;transition:opacity .45s var(--soft);}
-  .dialog.shot-preview img.loaded{opacity:1;}
+  #shotPreviewOverlay .dialog.shot-preview img.loaded{opacity:1;}
   .more-wrap{position:relative;}
   .more-menu{position:absolute;right:0;top:40px;z-index:5;background:var(--bg-panel);
              border:1.5px solid var(--border-soft);border-radius:var(--radius-md);padding:5px;min-width:150px;

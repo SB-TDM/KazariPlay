@@ -69,7 +69,7 @@ function refreshScreenshots(gameId: number): void {
   }
 }
 
-// ---------- 预览（左键放大 + 加载动画）----------
+// ---------- 预览（左键放大 + 加载动画；显示原图，占满主窗口）----------
 function openShotPreview(shot: Shot): void {
   shotTarget = shot;
   document.getElementById('shotPreviewTitle')!.textContent = '截图';
@@ -80,7 +80,8 @@ function openShotPreview(shot: Shot): void {
   img.src = '';
   loading.textContent = '加载中…';
   loading.style.display = 'flex';
-  bridge.getScreenshotThumb(String(App.data.currentGame!.id), shot.file, function (uri: unknown) {
+  // 预览显示原图（非缩略图），适配全屏预览
+  bridge.getScreenshotOriginal(String(App.data.currentGame!.id), shot.file, function (uri: unknown) {
     if (!uri) { loading.textContent = '加载失败'; return; }
     img.onload = () => { loading.style.display = 'none'; img.classList.add('loaded'); };
     img.src = String(uri);
