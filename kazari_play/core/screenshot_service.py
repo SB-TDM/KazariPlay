@@ -236,20 +236,62 @@ def find_main_window_by_pid(pid: int) -> int:
     return result[0]
 
 
+def _screen_resolution() -> tuple:
+    """主屏分辨率（物理像素）：(width, height)"""
+    try:
+        user32 = ctypes.windll.user32
+        return (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))
+    except Exception:
+        return (0, 0)
+
+
+def _make_letterbox_thumb(img, screen_w: int, screen_h: int):
+    """生成统一尺寸的缩略图：原图等比缩放放入屏幕分辨率画布，不足部分留边（不拉伸）。
+
+    缩略图画布尺寸固定为屏幕分辨率，内容按比例缩放并居中，多出的边缘填充黑色。
+    返回 PIL Image（RGB，尺寸 = screen_w × screen_h）。
+    """
+    from PIL import Image
+    img = img.convert("RGB")
+    w, h = img.size
+    if w <= 0 or h <= 0:
+        return None
+    # 等比缩放：适配到画布内（宽或高先触边）
+    scale = min(screen_w / w, screen_h / h)
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
+    resized = img.resize((new_w, new_h), Image.LANCZOS)
+    # 放入画布居中，留边
+    canvas = Image.new("RGB", (screen_w, screen_h), (0, 0, 0))
+    canvas.paste(resized, ((screen_w - new_w) // 2, (screen_h - new_h) // 2))
+    return canvas
+
+
+def _screenshot_thumb_path(original_path: str) -> str:
+    """缩略图路径：与原图同目录 thumbs/ 子文件夹，文件名加 _thumb"""
+    d = os.path.dirname(original_path)
+    base = os.path.splitext(os.path.basename(original_path))[0]
+    return os.path.join(d, "thumbs", f"{base}_thumb.jpg")
+
+
 def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) -> Optional[str]:
-    """截取游戏画面（三级回退：WGC → PrintWindow → 全屏），保存到游戏子文件夹。
+    """截取游戏画面（三级回退：WGC → PrintWindow → 全屏），双保存（原图 + 缩略图）。
 
     捕获内核：
       ① WGC（windows-capture，按窗口捕获，兼容 D3D/Vulkan 独占渲染）
       ② PrintWindow（GDI，窗口被遮挡/最小化时仍能取到 GDI 内容）
       ③ ImageGrab.grab()（全屏兜底）
 
+    保存：
+      - 原图：shot_{时间戳}.png，保持捕获原始尺寸，存 screenshots/{game_id}/
+      - 缩略图：thumbs/{原图名}_thumb.jpg，统一缩放到屏幕分辨率（等比 + 留边，不拉伸）
+
     Args:
         game_id: 归属游戏 id（None 时存 _unsorted）
         pid: 游戏进程 PID，用于定位窗口（仅截该窗口画面）
 
     Returns:
-        保存的文件绝对路径（失败返回 None）
+        原图保存的文件绝对路径（失败返回 None）
     """
     img = None
     if pid:
@@ -271,8 +313,20 @@ def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) ->
     filename = f"shot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
     path = os.path.join(folder, filename)
     try:
+        # 1) 原图：保持原始尺寸
         img.save(path, "PNG")
-        logger.info("截图已保存: %s", path)
+        logger.info("截图已保存(原图): %s", path)
+        # 2) 缩略图：统一屏幕分辨率（等比 + 留边），截图时立即生成
+        sw, sh = _screen_resolution()
+        if sw > 0 and sh > 0:
+            thumb = _make_letterbox_thumb(img, sw, sh)
+            if thumb:
+                thumb_path = _screenshot_thumb_path(path)
+                os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
+                thumb.save(thumb_path, "JPEG", quality=85)
+                logger.info("截图已保存(缩略图): %s", thumb_path)
+            else:
+                logger.warning("缩略图生成失败（原图已保存）: %s", path)
         return path
     except Exception as e:
         logger.error("保存截图失败: %s", e)
@@ -280,7 +334,10 @@ def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) ->
 
 
 def get_screenshots(game_id: str) -> List[Dict]:
-    """列出某游戏的全部截图（按时间倒序）"""
+    """列出某游戏的全部截图（按时间倒序）。
+
+    只列原图（thumbs/ 子目录的缩略图不列出）。
+    """
     folder = get_game_screenshots_dir(game_id)
     shots = []
     try:
@@ -324,6 +381,18 @@ def rename_screenshot(game_id: str, filename: str, new_name: str) -> bool:
         return False
     try:
         os.rename(src, dst)
+        # 连带重命名缩略图（若存在）
+        try:
+            src_thumb = _screenshot_thumb_path(src)
+            dst_thumb = _screenshot_thumb_path(dst)
+            if os.path.isfile(src_thumb):
+                if src_thumb != dst_thumb:
+                    os.makedirs(os.path.dirname(dst_thumb), exist_ok=True)
+                    os.rename(src_thumb, dst_thumb)
+                else:
+                    os.remove(src_thumb)
+        except OSError as e:
+            logger.error("重命名缩略图失败: %s", e)
         return True
     except OSError as e:
         logger.error("重命名截图失败: %s", e)
@@ -331,7 +400,10 @@ def rename_screenshot(game_id: str, filename: str, new_name: str) -> bool:
 
 
 def delete_screenshot(game_id: str, filename: str) -> bool:
-    """删除指定截图（仅允许删除 screenshots 目录内的文件，防路径穿越）"""
+    """删除指定截图（仅允许删除 screenshots 目录内的文件，防路径穿越）
+
+    连带删除对应缩略图（thumbs/{原图名}_thumb.jpg）。
+    """
     folder = get_game_screenshots_dir(game_id)
     path = os.path.normpath(os.path.join(folder, filename))
     if not path.startswith(os.path.normpath(folder) + os.sep):
@@ -341,6 +413,14 @@ def delete_screenshot(game_id: str, filename: str) -> bool:
         if os.path.isfile(path):
             os.remove(path)
             logger.info("已删除截图: %s", path)
+            # 连带删除缩略图（不存在则忽略）
+            thumb = _screenshot_thumb_path(path)
+            if os.path.isfile(thumb):
+                try:
+                    os.remove(thumb)
+                    logger.info("已删除缩略图: %s", thumb)
+                except OSError as e:
+                    logger.error("删除缩略图失败: %s", e)
             return True
     except OSError as e:
         logger.error("删除截图失败: %s", e)

@@ -25,6 +25,15 @@ def test_core():
     assert "test_game" in p and "shot_" in os.path.basename(p)
     print("[截图] OK: 已保存 ->", os.path.basename(p))
 
+    # 1.5 双保存：原图 + 缩略图（缩略图统一屏幕分辨率，等比留边）
+    thumb = screenshot_service._screenshot_thumb_path(p)
+    assert os.path.exists(thumb), "缩略图应随原图保存"
+    from PIL import Image as _PILImage
+    sw, sh = screenshot_service._screen_resolution()
+    with _PILImage.open(thumb) as _t:
+        assert _t.size == (sw, sh), f"缩略图尺寸应=屏幕分辨率 {(sw, sh)}，实际 {_t.size}"
+    print(f"[双保存] OK: 原图 + 缩略图({sw}x{sh}) 均存在")
+
     # 2. 列表
     shots = screenshot_service.get_screenshots("test_game")
     assert len(shots) == 1
@@ -34,8 +43,9 @@ def test_core():
 
     # 3. 删除
     assert screenshot_service.delete_screenshot("test_game", os.path.basename(p))
+    assert not os.path.exists(thumb), "删除截图应连带删除缩略图"
     assert screenshot_service.get_screenshots("test_game") == []
-    print("[删除] OK")
+    print("[删除] OK: 原图+缩略图已删")
 
     # 3.5 重命名
     p2 = screenshot_service.take_screenshot("test_game")

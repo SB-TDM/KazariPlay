@@ -940,10 +940,10 @@ class WebBridge:
                           ensure_ascii=False)
 
     def getScreenshotThumb(self, game_id: str, filename: str) -> str:
-        """返回单张截图的 base64 data URI（缩略图，优先 512px 宽 JPEG 缓存）
+        """返回单张截图的缩略图 base64 data URI。
 
-        与封面同思路：缩略图大幅降低 base64 体积与桥 I/O。缓存按路径+mtime
-        命名落盘（幂等），缩略图生成带锁去重；预览原图请走 openScreenshotFolder。
+        截图时已随原图保存缩略图（thumbs/{原图名}_thumb.jpg，统一屏幕分辨率留边）。
+        旧截图（无预生成缩略图）按需生成兜底。
         """
         from core import screenshot_service
         shots = screenshot_service.get_screenshots(game_id)
@@ -954,11 +954,22 @@ class WebBridge:
                 break
         if not p or not os.path.exists(p):
             return ""
-        thumb = self._screenshot_thumb_path(p)
+        thumb = screenshot_service._screenshot_thumb_path(p)
         if not os.path.exists(thumb):
-            thumb = self._ensure_screenshot_thumb(p, thumb)
-        if not thumb or not os.path.exists(thumb):
-            return ""
+            # 旧截图兜底：按需生成（统一屏幕分辨率留边）
+            try:
+                from PIL import Image
+                sw, sh = screenshot_service._screen_resolution()
+                if sw > 0 and sh > 0:
+                    with Image.open(p) as im:
+                        t = screenshot_service._make_letterbox_thumb(im, sw, sh)
+                    if t:
+                        os.makedirs(os.path.dirname(thumb), exist_ok=True)
+                        t.save(thumb, "JPEG", quality=85)
+                if not os.path.exists(thumb):
+                    return ""
+            except Exception:
+                return ""
         cached = _cover_cache_get(thumb)
         if cached is not None:
             return cached
@@ -972,49 +983,6 @@ class WebBridge:
             return uri
         except Exception:
             return ""
-
-    @staticmethod
-    def _screenshot_thumb_path(path: str) -> str:
-        """截图缩略图路径（含原图 mtime，截图更换后自动失效重建）"""
-        try:
-            mtime = int(os.path.getmtime(path))
-        except OSError:
-            mtime = 0
-        digest = hashlib.md5(f"{path}|{mtime}".encode("utf-8")).hexdigest()[:16]
-        return os.path.join(get_app_data_dir(), "screenshots", "thumbs",
-                            f"{digest}_w{_THUMB_WIDTH}.jpg")
-
-    def _ensure_screenshot_thumb(self, path: str, thumb: str) -> str:
-        """确保截图缩略图存在（带锁去重）；失败回退原图路径"""
-        if os.path.exists(thumb):
-            return thumb
-        with _thumb_locks_guard:
-            lock = _thumb_locks.get(path)
-            if lock is None:
-                lock = threading.Lock()
-                _thumb_locks[path] = lock
-        with lock:
-            if os.path.exists(thumb):
-                return thumb
-            try:
-                from PIL import Image
-            except Exception:
-                return path
-            try:
-                os.makedirs(os.path.dirname(thumb), exist_ok=True)
-                with Image.open(path) as im:
-                    im = im.convert("RGB")
-                    w, h = im.size
-                    if w > _THUMB_WIDTH:
-                        im = im.resize(
-                            (_THUMB_WIDTH, max(1, int(h * _THUMB_WIDTH / w))),
-                            Image.LANCZOS)
-                    im.save(thumb, "JPEG", quality=_THUMB_QUALITY)
-                if os.path.exists(thumb) and os.path.getsize(thumb) > 0:
-                    return thumb
-            except Exception:
-                pass
-            return path
 
     def deleteScreenshot(self, game_id: str, filename: str) -> bool:
         from core import screenshot_service
