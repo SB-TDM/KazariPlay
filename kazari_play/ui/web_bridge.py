@@ -956,13 +956,13 @@ class WebBridge:
             return ""
         thumb = screenshot_service._screenshot_thumb_path(p)
         if not os.path.exists(thumb):
-            # 旧截图兜底：按需生成（统一屏幕分辨率留边）
+            # 旧截图兜底：按需生成（统一小画布 + 屏幕同比例留边）
             try:
                 from PIL import Image
-                sw, sh = screenshot_service._screen_resolution()
-                if sw > 0 and sh > 0:
+                tw, th = screenshot_service._thumb_canvas_size()
+                if tw > 0 and th > 0:
                     with Image.open(p) as im:
-                        t = screenshot_service._make_letterbox_thumb(im, sw, sh)
+                        t = screenshot_service._make_letterbox_thumb(im, tw, th)
                     if t:
                         os.makedirs(os.path.dirname(thumb), exist_ok=True)
                         t.save(thumb, "JPEG", quality=85)

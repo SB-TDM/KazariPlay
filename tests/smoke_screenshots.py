@@ -25,14 +25,14 @@ def test_core():
     assert "test_game" in p and "shot_" in os.path.basename(p)
     print("[截图] OK: 已保存 ->", os.path.basename(p))
 
-    # 1.5 双保存：原图 + 缩略图（缩略图统一屏幕分辨率，等比留边）
+    # 1.5 双保存：原图 + 缩略图（缩略图统一小画布，屏幕同比例，等比留边）
     thumb = screenshot_service._screenshot_thumb_path(p)
     assert os.path.exists(thumb), "缩略图应随原图保存"
     from PIL import Image as _PILImage
-    sw, sh = screenshot_service._screen_resolution()
+    tw, th = screenshot_service._thumb_canvas_size()
     with _PILImage.open(thumb) as _t:
-        assert _t.size == (sw, sh), f"缩略图尺寸应=屏幕分辨率 {(sw, sh)}，实际 {_t.size}"
-    print(f"[双保存] OK: 原图 + 缩略图({sw}x{sh}) 均存在")
+        assert _t.size == (tw, th), f"缩略图尺寸应=画布 {(tw, th)}，实际 {_t.size}"
+    print(f"[双保存] OK: 原图 + 缩略图({tw}x{th}) 均存在")
 
     # 2. 列表
     shots = screenshot_service.get_screenshots("test_game")

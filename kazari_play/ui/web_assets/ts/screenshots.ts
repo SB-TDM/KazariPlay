@@ -18,15 +18,39 @@ let shotObserver: IntersectionObserver | null = null;   // 截图缩略图懒加
 function renderScreenshots(): void {
   const grid = document.getElementById('shotsGrid');
   if (!grid || !App.data.currentGame) return;
-  grid.innerHTML = '';
   bridge.getScreenshots(String(App.data.currentGame.id), function (s: unknown) {
     let shots: Shot[] = [];
     try { shots = JSON.parse(String(s || '[]')) as Shot[]; } catch (e) { }
     if (!shots.length) {
-      grid.innerHTML = '<div class="shots-empty">暂无截图，按 F12 截取游戏画面</div>';
+      // 空态：清空并显示占位（若无占位则新增）
+      const hasEmpty = grid.querySelector('.shots-empty');
+      if (!hasEmpty) {
+        grid.querySelectorAll('.shot-item').forEach(c => c.remove());
+        grid.innerHTML = '<div class="shots-empty">暂无截图，按 F12 截取游戏画面</div>';
+      }
       return;
     }
+    // 移除空的占位（若有截图）
+    const empty = grid.querySelector('.shots-empty');
+    if (empty) empty.remove();
+
+    // 增量更新：按 file 复用已有卡片（保留已加载缩略图），只增删变化项
+    const existing = new Map<string, HTMLElement>();
+    grid.querySelectorAll<HTMLElement>('.shot-item').forEach(el => {
+      existing.set(el.dataset.shotFile!, el);
+    });
+    const wanted = new Set(shots.map(x => x.file));
+    // 1) 移除已不存在的卡片
+    existing.forEach((el, f) => {
+      if (!wanted.has(f)) {
+        if (shotObserver) shotObserver.unobserve(el);
+        el.remove();
+        existing.delete(f);
+      }
+    });
+    // 2) 新增缺失的卡片（复用已有的不动）
     shots.forEach(shot => {
+      if (existing.has(shot.file)) return;
       const el = document.createElement('div');
       el.className = 'shot-item';
       el.dataset.shotFile = shot.file;

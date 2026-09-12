@@ -245,11 +245,24 @@ def _screen_resolution() -> tuple:
         return (0, 0)
 
 
-def _make_letterbox_thumb(img, screen_w: int, screen_h: int):
-    """生成统一尺寸的缩略图：原图等比缩放放入屏幕分辨率画布，不足部分留边（不拉伸）。
+# 缩略图画布宽（统一尺寸）：512px 宽，高度按屏幕比例派生（保持统一比例，体积小）
+_THUMB_WIDTH = 512
 
-    缩略图画布尺寸固定为屏幕分辨率，内容按比例缩放并居中，多出的边缘填充黑色。
-    返回 PIL Image（RGB，尺寸 = screen_w × screen_h）。
+
+def _thumb_canvas_size() -> tuple:
+    """缩略图画布尺寸：(512, 512 × 屏幕高宽比)，保持屏幕同比例且体积小"""
+    sw, sh = _screen_resolution()
+    if sw <= 0 or sh <= 0:
+        return (_THUMB_WIDTH, _THUMB_WIDTH)
+    return (_THUMB_WIDTH, max(1, int(_THUMB_WIDTH * sh / sw)))
+
+
+def _make_letterbox_thumb(img, canvas_w: int, canvas_h: int):
+    """生成统一尺寸的缩略图：原图等比缩放放入画布，不足部分留边（不拉伸）。
+
+    画布尺寸由调用方指定（默认 _thumb_canvas_size()：512px 宽 + 屏幕同比例），
+    内容按比例缩放并居中，多出的边缘填充黑色。
+    返回 PIL Image（RGB，尺寸 = canvas_w × canvas_h）。
     """
     from PIL import Image
     img = img.convert("RGB")
@@ -257,13 +270,13 @@ def _make_letterbox_thumb(img, screen_w: int, screen_h: int):
     if w <= 0 or h <= 0:
         return None
     # 等比缩放：适配到画布内（宽或高先触边）
-    scale = min(screen_w / w, screen_h / h)
+    scale = min(canvas_w / w, canvas_h / h)
     new_w = max(1, int(w * scale))
     new_h = max(1, int(h * scale))
     resized = img.resize((new_w, new_h), Image.LANCZOS)
     # 放入画布居中，留边
-    canvas = Image.new("RGB", (screen_w, screen_h), (0, 0, 0))
-    canvas.paste(resized, ((screen_w - new_w) // 2, (screen_h - new_h) // 2))
+    canvas = Image.new("RGB", (canvas_w, canvas_h), (0, 0, 0))
+    canvas.paste(resized, ((canvas_w - new_w) // 2, (canvas_h - new_h) // 2))
     return canvas
 
 
@@ -316,10 +329,10 @@ def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) ->
         # 1) 原图：保持原始尺寸
         img.save(path, "PNG")
         logger.info("截图已保存(原图): %s", path)
-        # 2) 缩略图：统一屏幕分辨率（等比 + 留边），截图时立即生成
-        sw, sh = _screen_resolution()
-        if sw > 0 and sh > 0:
-            thumb = _make_letterbox_thumb(img, sw, sh)
+        # 2) 缩略图：统一小画布（512 宽 + 屏幕同比例，等比留边不拉伸），截图时立即生成
+        tw, th = _thumb_canvas_size()
+        if tw > 0 and th > 0:
+            thumb = _make_letterbox_thumb(img, tw, th)
             if thumb:
                 thumb_path = _screenshot_thumb_path(path)
                 os.makedirs(os.path.dirname(thumb_path), exist_ok=True)
