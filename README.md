@@ -8,9 +8,10 @@
 
 - **Hook 实时翻译（V1.1 新增，⚠️ 实验性）**：Hook 提取游戏对话文本（基于 Textractor，支持 KRKR/Ren'Py/Unity/RPGMaker 等）+ C++ 内部 AI 翻译（OpenAI 兼容 API，默认 DeepSeek），字幕先显示原文、AI 翻译完成后替换为译文；含过滤器链文本清洗（去重/注音/标签/乱码）、每游戏独立清洗配置、字幕窗口跟随游戏窗口、实时翻译开关联动
   > ⚠️ **实验性功能，使用隐患**：Hook 兼容性依游戏与 Hook 点而异，可能出现文本抓取不完整/错乱；AI 翻译质量不保证、可能误译人名与专有名词；实时翻译会调用第三方 AI API（如 DeepSeek）并产生实际费用；文本清洗过滤器可能误伤正常字幕（默认保守策略，激进过滤器需手动开启）。请在理解这些风险后使用。
-- **Kawaii Minimal 视觉**：UI 为 HTML/CSS（`kazari_play/ui/web_assets/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
+- **Kawaii Minimal 视觉**：UI 为 HTML/CSS/TypeScript（源 `kazari_play/ui/web_assets/ts/`，tsc 编译到 `js/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
 - **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
-- **Steam 式截图管理**：详情页截图卡片左键放大预览、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），预览窗口带加载动画
+- **截图内核（三级回退）**：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底；每次截图保存**原图 + 统一尺寸缩略图**（等比留边、随原图存放），删除/重命名联动
+- **Steam 式截图管理**：详情页截图卡片左键**全屏预览原图**、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），缩略图懒加载
 - **收藏夹系统（V1.01 新增）**：树形分组→分类、游戏多对多归类、手风琴侧边栏、拖拽排序、管理游戏对话框
 - **游戏库主界面**：自适应卡片网格、星级评分、收藏角标、真实封面（base64 内联）
 - **详情底部抽屉（Modal Bottom Sheet）**：点击卡片底部上拉，信息栏 3 列、收藏夹路径 chips、简介
@@ -61,7 +62,8 @@ KazariPlay_V1.0/
 │   │   └── web_assets/        # 前端源码（详见 web_assets/README.md）
 │   │       ├── index.html     # 应用壳（侧边栏/主区/窗口手柄 + PARTIALS/SCRIPTS 占位符）
 │   │       ├── css/style.css
-│   │       ├── js/            # 12 个 JS 模块，按依赖顺序由 main.py 内联（_JS_MANIFEST）
+│   │       ├── ts/            # TypeScript 源（17 个模块，渐进迁移完成）
+│   │       ├── js/            # tsc 编译产物（由 ts/ 生成，gitignore；main.py 按 _JS_MANIFEST 内联）
 │   │       └── partials/      # 各窗口/对话框分块 HTML（_PARTIAL_MANIFEST）
 │   └── resources/
 ├── overlay/                   # C++ 游戏内截图 overlay（Direct2D + 命名管道 IPC）

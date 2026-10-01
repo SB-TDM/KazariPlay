@@ -4,6 +4,37 @@
 
 ---
 
+## 2026-09 开发批次：TypeScript 迁移 / 截图内核 / 扫描优化
+
+日期：2026-09-12
+
+> 注：本批次为 V1.3 之后的持续开发，具体版本号待发布时确定。
+
+### 前端 TypeScript 渐进迁移（全量完成）
+- 17 个前端模块 JS → TypeScript：源在 `ui/web_assets/ts/`，`tsc` 编译到 `js/`（编译产物 gitignore）；`_JS_MANIFEST` 与 `main.py` 零改动
+- 新增类型契约：`pywebview.d.ts`（bridge 全 API）、`globals.d.ts`（跨文件全局类型）
+- 构建：`cd kazari_play/ui/web_assets && npm run build`；依据 `docs/TS_MIGRATION_PLAN.md`
+
+### 截图内核 WGC + 双保存 + 全屏预览
+- 三级捕获回退：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底
+- 每次截图保存**原图（原始尺寸）+ 缩略图**（512px 宽 + 屏幕同比例、等比留边不拉伸）；缩略图随原图存放，删除/重命名联动
+- 点击缩略图**全屏预览原图**（新增桥方法 `getScreenshotOriginal`）
+- 依据 `docs/SCREENSHOT_WGC_PLAN.md`、`docs/SCREENSHOT_DUAL_SAVE_PLAN.md`
+
+### 扫描功能优化
+- 准确性：中文启动器过滤（`启动游戏.exe` 等）、主 exe **体积优先**、文件夹名标题清洗、跳过辅助目录（SmartSteamEmu 等）
+- 体验：支持**多选文件夹** + 扫描进度（按已发现游戏数估算）+ **可取消**
+- 依据 `docs/SCAN_OPTIMIZATION_PLAN.md`
+
+### 性能与体验（依据 docs/PERF_OPTIMIZATION_PLAN.md）
+- 封面缓存定向失效 + 请求去重 + 缩略图生成加锁；写操作经 `games_delta` 增量刷新
+- 卡片网格 DOM 窗口化（只渲染可视区 ± 缓冲，DOM 数量恒定）
+- 封面动画修复（上浮跟随 / `.active:hover` 组合 / coverFade 防 DOM 重算重播）+ 手动刷新重播淡入
+- 游戏运行状态即时推送（UISync `running` 域）；最后游玩时间改为 `on_exit` 记录（带进程存活检测）
+- 总游玩时长最大单位改为小时；游戏窗口检测支持启动器→真游戏子进程追踪
+
+---
+
 ## V1.3 UI 优化（刷新瘦身补充：清洗配置勾选不刷新）
 
 日期：2026-08-16

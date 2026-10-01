@@ -4,7 +4,7 @@
 > 日期：2026-08-29
 > 范围：`kazari_play/core/screenshot_service.py` + `kazari_play/ui/web_bridge.py`（截图保存/缩略图链路）+ 前端 `ts/screenshots.ts` 适配
 > 原则：不改架构、小步可验证、语义不变、保留 WGC/PrintWindow 捕获内核
-> 状态：**计划稿，尚未改代码**
+> 状态：**已实施完成（2026-09-12）**：截图双保存 + 留边缩略图 + 删除/重命名联动；缩略图回退 512px 小画布（体积 24 倍下降）
 
 ---
 
