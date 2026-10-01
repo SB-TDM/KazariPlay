@@ -1,8 +1,8 @@
-# KazariPlay V1.02
+# KazariPlay V1.3
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
-原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理；V1.1 引入 **Hook 实时翻译（实验性）**。
+原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理；V1.1 引入 **Hook 实时翻译（实验性）**；V1.3 完成**前端 TypeScript 迁移**、截图内核升级为 **WGC 三级回退 + 双保存**、扫描功能优化。
 
 ## 特性
 

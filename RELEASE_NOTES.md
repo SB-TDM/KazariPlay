@@ -1,3 +1,31 @@
+# KazariPlay V1.3 发行说明
+
+> 发布日期：2026-09-12
+> 项目：KazariPlay
+> 仓库：github.com/SB-TDM/KazariPlay
+
+## 主要更新（V1.3）
+
+### 前端 TypeScript 迁移（全量）
+- 17 个前端模块 JS → TypeScript：源在 `ui/web_assets/ts/`，`tsc` 编译到 `js/`；`main.py` / `_JS_MANIFEST` 零改动
+- 新增类型契约 `pywebview.d.ts`（bridge 全 API）、`globals.d.ts`（跨文件全局类型）
+
+### 截图内核升级
+- 三级捕获回退：**WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）** → PrintWindow（GDI）→ 全屏兜底
+- 每次截图保存**原图（原始尺寸）+ 缩略图**（统一尺寸、等比留边），随原图存放，删除/重命名联动
+- 点击缩略图**全屏预览原图**
+
+### 扫描功能优化
+- 准确性：中文启动器过滤（`启动游戏.exe` 等）、主 exe 体积优先、文件夹名标题清洗、跳过辅助目录
+- 体验：支持多选文件夹 + 扫描进度（按已发现游戏数估算）+ 可取消
+
+### 性能与体验
+- 封面缓存定向失效 + 请求去重 + 缩略图生成加锁；`games_delta` 增量刷新
+- 卡片网格 DOM 窗口化（只渲染可视区 ± 缓冲）
+- 封面动画修复；游戏运行状态即时推送；游玩时长最大单位改为小时
+
+---
+
 # KazariPlay V1.1 发行说明
 
 > 发布日期：2026-08-15

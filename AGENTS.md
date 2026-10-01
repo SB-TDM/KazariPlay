@@ -54,4 +54,4 @@ python tests/smoke_screenshots.py # 截图冒烟（需显示环境）
 
 - 最新改动见 `docs/CHANGELOG.md`（2026-09 开发批次：TypeScript 迁移 / 截图内核 WGC / 扫描优化）
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消
-- 待发布版本号尚未统一（README / RELEASE_NOTES / CHANGELOG 需对齐）
+- 当前版本 V1.3（前端 TS 迁移 / 截图内核 WGC / 扫描优化）

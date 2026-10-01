@@ -1,4 +1,4 @@
-"""KazariPlay V1.1 - 视觉小说启动器 GUI 入口（pywebview）
+"""KazariPlay V1.3 - 视觉小说启动器 GUI 入口（pywebview）
 
 Copyright (C) 2026 KazariPlay 贡献者
 
