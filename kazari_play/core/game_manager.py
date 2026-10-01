@@ -84,9 +84,15 @@ class GameManager:
 
     # ---------- 扫描/添加/删除 ----------
 
-    def scan_and_add(self, folder: str) -> Tuple[int, List[Game]]:
-        """扫描文件夹并添加新游戏，返回 (新增数量, 新增游戏列表)"""
-        games = self.scanner.scan(folder)
+    def scan_and_add(self, folder: str, progress_cb=None, cancel_event=None) -> Tuple[int, List[Game]]:
+        """扫描文件夹并添加新游戏，返回 (新增数量, 新增游戏列表)
+
+        Args:
+            folder: 扫描根目录
+            progress_cb: 进度回调 progress_cb(dirs_scanned, games_found)（可选）
+            cancel_event: threading.Event，置位时提前结束扫描（可选）
+        """
+        games = self.scanner.scan(folder, progress_cb=progress_cb, cancel_event=cancel_event)
         new_games = []
         for game in games:
             # 跳过已存在的（按 exe_path 判重）

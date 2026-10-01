@@ -80,27 +80,36 @@ class GameScanner:
             "viewer", "editor", "converter", "extractor",
             # 配置工具
             "setting", "option", "preference",
+            # 中文启动器/工具关键词（保守：用具体词，避免误伤如"游戏.exe"）
+            "启动游戏", "开始游戏", "游戏启动", "启动器",
+            "安装", "卸载", "说明", "教程", "攻略",
+            "修改器", "汉化补丁",
         ]
         # 白名单：即使命中黑名单也保留的 exe（完整名匹配）
         # 防止某些游戏主程序名恰好包含黑名单词
         # 注意：只放确定是游戏主程序的名称
         self.whitelist_exact = set()
         # 文件夹名黑名单：扫描时跳过这些文件夹（子串匹配，大小写不敏感）
-        # 用于过滤补丁备份、副本等非游戏目录
+        # 用于过滤补丁备份、副本等非游戏目录，以及辅助程序目录（减少无效遍历）
         self.ignore_folders = [
             "补丁", "备份", "patch", "backup", "副本",
+            # 辅助程序目录（不含游戏本体，跳过以减少大目录遍历开销）
+            "smartsteamemu", "remotestorage", "plugin", "dxwebsetup", "__macosx",
         ]
         self.include_extensions = {".exe"}
 
-    def scan(self, folder_path: str, recursive: bool = True) -> List[Game]:
+    def scan(self, folder_path: str, recursive: bool = True,
+             progress_cb=None, cancel_event=None) -> List[Game]:
         """扫描文件夹，返回游戏列表
 
         聚合策略：一个文件夹 = 一个游戏。
-        同一文件夹内多个 exe 时，优先选汉化版启动器。
+        同一文件夹内多个 exe 时，优先选汉化版启动器（其次体积最大）。
 
         Args:
             folder_path: 要扫描的文件夹
             recursive: 是否递归扫描子文件夹
+            progress_cb: 进度回调 progress_cb(dirs_scanned, games_found)（可选）
+            cancel_event: threading.Event，置位时提前结束扫描（可选）
 
         Returns:
             找到的游戏列表
@@ -109,27 +118,45 @@ class GameScanner:
             return []
 
         # 1. 收集每个文件夹下的合法 exe（按文件夹分组）
-        folder_exes = {}  # {folder_path: [exe_filename, ...]}
+        folder_exes = {}   # {folder_path: [exe_filename, ...]}
+        folder_files = {}  # {folder_path: [所有文件名]} 缓存，供引擎检测复用（省重复 listdir）
+        dirs_scanned = 0
+
+        def _tick():
+            if progress_cb is not None:
+                progress_cb(dirs_scanned, len(folder_exes))
+
         if recursive:
             for root, dirs, files in os.walk(folder_path):
-                # 跳过黑名单文件夹（补丁备份/副本等），原地修改 dirs 让 os.walk 不进入
+                if cancel_event is not None and cancel_event.is_set():
+                    break
+                # 跳过黑名单文件夹（补丁备份/副本/辅助程序等），原地修改 dirs 让 os.walk 不进入
                 dirs[:] = [d for d in dirs if not self._is_ignored_folder(d)]
-                for f in files:
-                    if self._is_valid_game_exe(f):
-                        folder_exes.setdefault(root, []).append(f)
+                dirs_scanned += 1
+                found = [f for f in files if self._is_valid_game_exe(f)]
+                if found:
+                    folder_exes[root] = found
+                    folder_files[root] = files
+                _tick()
         else:
-            for f in os.listdir(folder_path):
-                fp = os.path.join(folder_path, f)
-                if os.path.isfile(fp) and self._is_valid_game_exe(f):
-                    folder_exes.setdefault(folder_path, []).append(f)
+            if cancel_event is None or not cancel_event.is_set():
+                for f in os.listdir(folder_path):
+                    fp = os.path.join(folder_path, f)
+                    if os.path.isfile(fp) and self._is_valid_game_exe(f):
+                        folder_exes.setdefault(folder_path, []).append(f)
+                folder_files[folder_path] = os.listdir(folder_path)
+                dirs_scanned += 1
+                _tick()
 
-        # 2. 每个文件夹选一个主 exe（汉化版优先）→ 创建 Game
+        # 2. 每个文件夹选一个主 exe（汉化优先 + 体积优先）→ 创建 Game
         games = []
         for folder, exes in folder_exes.items():
             if not exes:
                 continue
-            primary = self._pick_primary_exe(exes)
-            game = self._check_file(folder, primary)
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            primary = self._pick_primary_exe(folder, exes)
+            game = self._check_file(folder, primary, folder_files.get(folder))
             if game:
                 games.append(game)
 
@@ -155,27 +182,35 @@ class GameScanner:
         name_lower = filename.lower()
         return any(kw.lower() in name_lower for kw in self.CHS_KEYWORDS)
 
-    def _pick_primary_exe(self, exes: list) -> str:
+    def _pick_primary_exe(self, folder: str, exes: list) -> str:
         """从同文件夹多个 exe 中选主启动器
 
         优先级：
           1. 汉化版启动器优先（玩家通常想玩汉化版）
-          2. 同类里按文件名排序取第一个（保证可预测）
-          3. 非汉化版里按文件名排序取第一个
+          2. 同池内按 exe 体积降序（真游戏主程序通常最大）
+          3. 体积相同/取不到时按文件名排序（保证可预测）
         """
         if len(exes) <= 1:
             return exes[0] if exes else ""
         chs = [e for e in exes if self._is_chs_exe(e)]
-        if chs:
-            return sorted(chs)[0]
-        return sorted(exes)[0]
+        pool = chs if chs else exes
+        if len(pool) <= 1:
+            return pool[0]
+
+        def _size(name: str) -> int:
+            try:
+                return os.path.getsize(os.path.join(folder, name))
+            except OSError:
+                return 0
+
+        return sorted(pool, key=lambda e: (-_size(e), e))[0]
 
     def _is_ignored_folder(self, folder_name: str) -> bool:
         """判断文件夹是否应被跳过（补丁备份/副本等）"""
         name_lower = folder_name.lower()
         return any(kw in name_lower for kw in self.ignore_folders)
 
-    def _check_file(self, folder: str, filename: str) -> Optional[Game]:
+    def _check_file(self, folder: str, filename: str, files: list = None) -> Optional[Game]:
         """检查单个文件是否为游戏"""
         file_lower = filename.lower()
 
@@ -193,8 +228,8 @@ class GameScanner:
         # 如果有 .exe 且不是辅助程序，创建游戏对象
         exe_path = os.path.join(folder, filename)
 
-        # 检测引擎类型
-        engine = self._detect_engine(folder, file_lower)
+        # 检测引擎类型（复用扫描时已获取的文件列表，省重复 listdir）
+        engine = self._detect_engine(folder, file_lower, files)
 
         # 生成标题（优先级：exe 内嵌元信息 → 文件夹名 → 文件名）
         title = self._generate_title(folder, filename)
@@ -213,17 +248,39 @@ class GameScanner:
     def _generate_title(self, folder: str, filename: str) -> str:
         """生成游戏标题
 
-        简化方案：直接用 exe 直接父文件夹名作为标题。
-        这是用户确认的方案 —— 简单可靠，无需复杂清洗逻辑。
-        文件夹名通常包含游戏名（如「千之刃涛-桃花染之皇姬_弥生月汉化组」）。
+        用 exe 直接父文件夹名作为标题（用户确认的简化方案），
+        再做保守清洗：去平台前缀 / 开头来源标签 / 语言版本后缀。
+        文件夹名通常含游戏名（如「千之刃涛-桃花染之皇姬_弥生月汉化组」）。
         """
         folder_name = os.path.basename(os.path.normpath(folder))
         # 兜底：若文件夹名为空（理论上不会发生），用 exe 文件名
         if not folder_name:
             return os.path.splitext(filename)[0]
-        return folder_name
+        return self._clean_title(folder_name)
 
-    def _detect_engine(self, folder: str, exe_name: str) -> str:
+    def _clean_title(self, name: str) -> str:
+        """保守清洗文件夹名标题：去除明确噪声，保留核心游戏名
+
+        去除：
+          1. 开头平台前缀（PC / PC版 / 【PC】/ [PC]）
+          2. 开头来源标签（【...】/[...]，通常是开发商/汉化组/平台标识）
+          3. 结尾语言/版本后缀（_官方中文 / _汉化版 / _全年龄 等）
+        清洗后为空则回退原名，避免过度清洗丢标题。
+        """
+        import re
+        t = (name or "").strip()
+        # 1) 开头平台前缀（PC 后需跟分隔符/方括号或结尾，避免误伤 PC98 之类）
+        t = re.sub(r'^(?:PC版|PC)(?=[\s\-_\[【]|$)[\s\-_]*', '', t, flags=re.IGNORECASE)
+        # 2) 开头来源标签（仅开头，通常是开发商/汉化组/平台标签）
+        t = re.sub(r'^\s*(?:【[^】]*】|\[[^\]]*\])[\s\-_]*', '', t)
+        # 3) 结尾语言/版本后缀
+        t = re.sub(
+            r'[\s\-_]*(?:官方中文|官方繁體|官方繁体|汉化版|中文版|汉化|全年龄|无修版|无修|完全版|正式版)$',
+            '', t)
+        t = t.strip()
+        return t if t else name
+
+    def _detect_engine(self, folder: str, exe_name: str, files: list = None) -> str:
         """检测游戏引擎
 
         检测顺序（可靠性从高到低）：
@@ -234,12 +291,14 @@ class GameScanner:
         Args:
             folder:   exe 所在文件夹
             exe_name: exe 文件名（原始大小写）
+            files:    该文件夹的文件名列表（可选；不传则现取，传入可省一次 listdir）
         """
         exe_lower = exe_name.lower()
 
         # ---------- 1. 特征文件检测（最可靠）----------
         try:
-            files = os.listdir(folder)
+            if files is None:
+                files = os.listdir(folder)
             files_lower = [f.lower() for f in files]
 
             # Ren'Py 特征：有 renpy 文件夹或 .rpyc 文件

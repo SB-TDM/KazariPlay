@@ -87,6 +87,44 @@ function trackBatchProgress(title: string): void {
   }, 600);
 }
 
+// ---------- 扫描进度（后端 UISync scan_progress 域推送）----------
+interface ScanProgress {
+  running?: boolean;
+  dirs?: number;
+  games?: number;
+  folder?: string;
+  index?: number;
+  total?: number;
+}
+
+let scanHideTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 扫描进度：按「已发现游戏数」估算百分比（S 型，越接近完成越慢，结束才 100%）
+function updateScanProgress(p: ScanProgress): void {
+  const box = document.getElementById('batchProgress');
+  if (!box) return;
+  const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
+  if (!p || !p.running) {
+    // 扫描结束：延迟收起（让用户看到最终进度），隐藏取消按钮
+    if (scanHideTimer) clearTimeout(scanHideTimer);
+    scanHideTimer = setTimeout(() => {
+      box.classList.remove('show');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+    }, 800);
+    return;
+  }
+  const games = p.games || 0;
+  const pct = Math.min(95, Math.round(95 * games / (games + 20)));
+  document.getElementById('bpTitle')!.textContent = '扫描游戏文件夹…';
+  document.getElementById('bpPct')!.textContent = pct + '%';
+  (document.getElementById('bpFill') as HTMLElement).style.width = pct + '%';
+  const folderIdx = (p.index && p.total) ? `（目录 ${p.index}/${p.total}）` : '';
+  document.getElementById('bpSub')!.textContent =
+    `已扫描 ${p.dirs || 0} 个文件夹 · 发现 ${games} 个游戏 ${folderIdx}`;
+  if (cancelBtn) cancelBtn.style.display = '';
+  box.classList.add('show');
+}
+
 // ---------- 批量事件绑定 ----------
 const batchBtnEl = document.getElementById('batchBtn') as HTMLButtonElement;
 batchBtnEl.onclick = () => {
@@ -129,3 +167,5 @@ document.getElementById('btnBDel')!.onclick = () => {
   });
 };
 document.getElementById('pickerClose')!.onclick = () => closeSheet('pickerOverlay');
+// 扫描进度条上的「取消扫描」按钮
+document.getElementById('bpCancel')!.onclick = () => { bridge.cancelScan(); };

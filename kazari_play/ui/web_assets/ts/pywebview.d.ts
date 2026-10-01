@@ -79,6 +79,7 @@ interface PyWebViewApi {
 
   // ---- 扫描 / VNDB 匹配 ----
   scanFolder(): Promise<string>;
+  cancelScan(): Promise<unknown>;
   getBatchProgress(): Promise<string>;
   selectExe(): Promise<string>;
   matchVndb(game_id: string): Promise<string>;

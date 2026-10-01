@@ -61,3 +61,6 @@
                            background:var(--grad-pink);transition:width .3s var(--soft);}
   .batch-progress .bp-sub{margin-top:6px;font-size:11px;color:var(--text-disabled);
                           overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .batch-progress .bp-cancel{margin-top:8px;padding:4px 14px;border-radius:50px;cursor:pointer;
+    border:1.5px solid var(--border-soft);background:var(--bg-hover);color:var(--text-sub);font-size:12px;}
+  .batch-progress .bp-cancel:hover{border-color:var(--pink);color:var(--pink);}

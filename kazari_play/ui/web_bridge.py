@@ -319,6 +319,7 @@ class WebBridge:
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
         self._vndb_counter = 0       # VNDB 进度节流计数
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
+        self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -718,25 +719,61 @@ class WebBridge:
 
     # ---------- 文件对话框 ----------
     def scanFolder(self) -> str:
+        """选择游戏文件夹（支持多选）并后台扫描"""
         if self._window is None:
             return json.dumps({"ok": False, "msg": ""})
-        folder = self._window.create_file_dialog(webview.FOLDER_DIALOG)
-        if isinstance(folder, (list, tuple)):
-            folder = folder[0] if folder else ""
-        if not folder:
+        folders = self._window.create_file_dialog(webview.FOLDER_DIALOG, allow_multiple=True)
+        if isinstance(folders, str):
+            folders = [folders]
+        folders = [f for f in (folders or []) if f]
+        if not folders:
             return json.dumps({"ok": False, "msg": ""})
-        threading.Thread(target=self._do_scan, args=(folder,), daemon=True).start()
+        self._scan_cancel.clear()
+        threading.Thread(target=self._do_scan, args=(folders,), daemon=True).start()
         return json.dumps({"ok": True, "msg": "扫描中..."})
 
-    def _do_scan(self, folder: str):
-        added, new_games = self.manager.scan_and_add(folder)
-        logger.info("扫描完成，新增 %d 个", added)
-        if added:
-            self._add_library_path(folder)
+    def cancelScan(self):
+        """取消正在进行的扫描（已扫描完成的部分已入库）"""
+        self._scan_cancel.set()
+
+    def _do_scan(self, folders: list):
+        """后台扫描多个文件夹（支持进度上报与取消）"""
+        total_added = 0
+        all_new = []
+        cancelled = False
+        total_folders = len(folders)
+        for idx, folder in enumerate(folders):
+            if self._scan_cancel.is_set():
+                cancelled = True
+                break
+            base = os.path.basename(os.path.normpath(folder))
+
+            def _progress(dirs, games, _idx=idx, _base=base):
+                self._ui.invalidate("scan_progress", {
+                    "running": True,
+                    "dirs": dirs, "games": games,
+                    "folder": _base,
+                    "index": _idx + 1, "total": total_folders,
+                })
+
+            added, new_games = self.manager.scan_and_add(
+                folder, progress_cb=_progress, cancel_event=self._scan_cancel)
+            total_added += added
+            all_new.extend(new_games)
+            if added:
+                self._add_library_path(folder)
+            if self._scan_cancel.is_set():
+                cancelled = True
+                break
+
+        self._ui.invalidate("scan_progress", {"running": False})
+        logger.info("扫描完成，新增 %d 个%s", total_added, "（已取消）" if cancelled else "")
         self.refresh()
-        if added and new_games:
-            self.notify(f"扫描完成，新增 {added} 个游戏，开始 VNDB 匹配…")
-            self._run_vndb_match(new_games)
+        if cancelled:
+            self.notify(f"扫描已取消，新增 {total_added} 个游戏")
+        elif all_new:
+            self.notify(f"扫描完成，新增 {total_added} 个游戏，开始 VNDB 匹配…")
+            self._run_vndb_match(all_new)
 
     def _add_library_path(self, folder: str):
         paths = list(self._cfg.get("library_paths", []) or [])
