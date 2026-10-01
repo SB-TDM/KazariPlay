@@ -780,8 +780,6 @@ class WebBridge:
             total_added += added
             total_skipped += skipped
             all_new.extend(new_games)
-            if added:
-                self._add_library_path(folder)
             if self._scan_cancel.is_set():
                 cancelled = True
                 break
@@ -798,14 +796,6 @@ class WebBridge:
             self._run_vndb_match(all_new, self._vndb_cancel)
         else:
             self.notify(f"扫描完成，无新游戏{skip_msg}")
-
-    def _add_library_path(self, folder: str):
-        paths = list(self._cfg.get("library_paths", []) or [])
-        folder = os.path.normpath(folder)
-        if folder not in paths:
-            paths.append(folder)
-            self._cfg.set("library_paths", paths)
-            self._cfg.save()
 
     def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""

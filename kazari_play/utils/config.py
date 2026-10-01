@@ -20,7 +20,6 @@ from utils.singleton import singleton
 
 # 默认配置（与 read.md 中 config.json 结构一致）
 DEFAULT_CONFIG: Dict[str, Any] = {
-    "library_paths": [],
     "theme": "light",
     "hotkeys": {
         "emergency_hide": "ctrl+f12",
