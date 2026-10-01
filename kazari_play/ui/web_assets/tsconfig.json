@@ -6,7 +6,7 @@
     "strict": true,
     "outDir": "js",
     "rootDir": "ts",
-    "removeComments": false,
+    "removeComments": true,
     "sourceMap": false,
     "noEmitOnError": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
