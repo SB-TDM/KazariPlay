@@ -143,6 +143,9 @@
     pendingTheme = t;
     applyTheme(t);
     markThemeCard(t);
+    // 主题即时持久化：无需点「保存」，也避免关闭设置页时被还原
+    savedTheme = t;
+    if (bridge) bridge.setTheme(t);
   }
 
   function save(): void {

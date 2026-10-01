@@ -83,6 +83,7 @@ interface PyWebViewApi {
   cancelMatch(): Promise<unknown>;
   getBatchProgress(): Promise<string>;
   selectExe(): Promise<string>;
+  setTheme(theme: string): Promise<unknown>;
   matchVndb(game_id: string): Promise<string>;
   matchVndbBatch(ids_json: string): Promise<string>;
   setRating(game_id: string, rating: number): Promise<unknown>;

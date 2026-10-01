@@ -375,6 +375,12 @@ class WebBridge:
     def resetConfig(self):
         self._cfg.reset()
 
+    def setTheme(self, theme: str):
+        """即时持久化主题（主题切换无需点「保存」）"""
+        if theme:
+            self._cfg.set("theme", theme)
+            self._cfg.save()
+
     def getConfigPath(self) -> str:
         return self._cfg.path
 
@@ -603,6 +609,8 @@ class WebBridge:
             g.folder = os.path.dirname(exe_path)
             g.identity = self.manager.scanner._make_identity(
                 g.engine, os.path.basename(os.path.normpath(g.folder)))
+            # 用户主动重新添加：撤销该游戏的忽略标记，之后扫描不再跳过
+            self.manager.repository.remove_ignored(g.identity, g.exe_path)
             g.category_id = int(data.get("cat_id", 0) or 0)
             self.manager.add_game(g)
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
