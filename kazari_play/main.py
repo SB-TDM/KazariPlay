@@ -287,7 +287,6 @@ def main():
 
     # 截图 toast 由独立 C++ overlay.exe 进程接管（首次截图时惰性拉起）
 
-    bridge.startAutoScan()          # 启动时自动扫描 library_paths
     webview.start(func=lambda: _apply_window_extras(bridge), debug=False)
 
 

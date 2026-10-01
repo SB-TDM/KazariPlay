@@ -76,7 +76,6 @@
         translate?: Record<string, unknown>; textractor?: Record<string, unknown>;
         clean?: Record<string, unknown>; subtitle?: { enabled?: boolean };
       };
-      ($('setAutoScan') as HTMLInputElement).checked = !!cfg.auto_scan_on_startup;
       ($('setCoverSize') as HTMLSelectElement).value = (cfg.cover_size as string) || 'medium';
       ($('setLogLevel') as HTMLSelectElement).value = String(cfg.log_level || 'INFO').toUpperCase();
       ($('setDisguise') as HTMLSelectElement).value = (cfg.disguise_scene as string) || 'excel';
@@ -151,7 +150,6 @@
   function save(): void {
     if (!bridge) return;
     const data: Record<string, unknown> = {
-      auto_scan_on_startup: ($('setAutoScan') as HTMLInputElement).checked,
       cover_size: ($('setCoverSize') as HTMLSelectElement).value,
       log_level: ($('setLogLevel') as HTMLSelectElement).value,
       disguise_scene: ($('setDisguise') as HTMLSelectElement).value,

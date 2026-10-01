@@ -1245,14 +1245,6 @@ class WebBridge:
         self.refresh_delta([game_id])
 
     # ---------- 启动时自动扫描 ----------
-    def startAutoScan(self):
-        if not (self._cfg.get("auto_scan_on_startup", True)
-                and self._cfg.get("library_paths")):
-            return
-        for p in self._cfg.get("library_paths"):
-            if p and os.path.isdir(p):
-                threading.Thread(target=self._do_scan, args=(p,), daemon=True).start()
-
     # ---------- 前端刷新（统一经 UISync 合并推送，见 ui/sync.py）----------
     def refresh(self):
         """数据变化后通知前端刷新（可在任意线程调用，微延迟合并）"""

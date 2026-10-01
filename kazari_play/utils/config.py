@@ -29,7 +29,6 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "screenshot": "f12",
     },
     "disguise_scene": "excel",
-    "auto_scan_on_startup": True,
     "show_console": True,
     "cover_size": "medium",
     "language": "zh-CN",
