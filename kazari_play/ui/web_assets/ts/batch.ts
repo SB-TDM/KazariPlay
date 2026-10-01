@@ -48,6 +48,8 @@ function batchPickCollection(mode: 'add' | 'remove' | 'move'): void {
 let bpTimer: ReturnType<typeof setInterval> | null = null;
 
 function showBatchProgress(title: string): void {
+  // 取消扫描进度的延迟隐藏，避免刚显示就被扫描结束的定时器收起
+  if (scanHideTimer) { clearTimeout(scanHideTimer); scanHideTimer = null; }
   const box = document.getElementById('batchProgress');
   if (!box) return;
   document.getElementById('bpTitle')!.textContent = title || '批量处理中…';
@@ -98,6 +100,8 @@ interface ScanProgress {
 }
 
 let scanHideTimer: ReturnType<typeof setTimeout> | null = null;
+// 取消按钮当前作用对象（扫描 / VNDB 匹配）
+let cancelMode: 'scan' | 'match' = 'scan';
 
 // 扫描进度：按「已发现游戏数」估算百分比（S 型，越接近完成越慢，结束才 100%）
 function updateScanProgress(p: ScanProgress): void {
@@ -121,8 +125,22 @@ function updateScanProgress(p: ScanProgress): void {
   const folderIdx = (p.index && p.total) ? `（目录 ${p.index}/${p.total}）` : '';
   document.getElementById('bpSub')!.textContent =
     `已扫描 ${p.dirs || 0} 个文件夹 · 发现 ${games} 个游戏 ${folderIdx}`;
-  if (cancelBtn) cancelBtn.style.display = '';
+  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消扫描'; }
+  cancelMode = 'scan';
   box.classList.add('show');
+}
+
+// 批量任务进度信号（后端 UISync batch_progress 域推送）：
+// 进入批量任务（如扫描后自动 VNDB 匹配）→ 启动轮询；结束 → 收起
+function updateBatchProgress(p: { running?: boolean; title?: string }): void {
+  if (p && p.running) {
+    cancelMode = 'match';
+    const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
+    if (cancelBtn) cancelBtn.textContent = '取消匹配';
+    trackBatchProgress(p.title || '批量处理中…');
+  } else {
+    hideBatchProgress();
+  }
 }
 
 // ---------- 批量事件绑定 ----------
@@ -168,4 +186,7 @@ document.getElementById('btnBDel')!.onclick = () => {
 };
 document.getElementById('pickerClose')!.onclick = () => closeSheet('pickerOverlay');
 // 扫描进度条上的「取消扫描」按钮
-document.getElementById('bpCancel')!.onclick = () => { bridge.cancelScan(); };
+// 取消按钮：按当前阶段取消扫描或 VNDB 匹配
+document.getElementById('bpCancel')!.onclick = () => {
+  if (cancelMode === 'match') bridge.cancelMatch(); else bridge.cancelScan();
+};

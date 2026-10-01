@@ -40,6 +40,24 @@ class GameManager:
         self.tag_repo = TagRepository()
         from database.collection_repository import CollectionRepository
         self.collection_repo = CollectionRepository()
+        # 升级兼容：为缺身份键的旧记录回填（跨文件夹判重依赖 identity）
+        self._backfill_identity()
+
+    def _backfill_identity(self):
+        """按文件夹名重算所有记录的身份键（幂等，修复历史基于标题的错误值）。
+
+        identity 依赖游戏所在文件夹名而非 title——title 会被 VNDB 匹配覆盖成
+        日文/正式名，若用它算键，重扫时便对不上导致重复添加。
+        """
+        import os
+        try:
+            for g in self.repository.get_all():
+                folder_name = os.path.basename(os.path.normpath(g.folder)) if g.folder else ""
+                ident = self.scanner._make_identity(g.engine, folder_name)
+                if g.identity != ident:
+                    self.repository.set_identity(g.id, ident)
+        except Exception as e:
+            logger.error("重算游戏身份键失败: %s", e)
 
     # ---------- 查询 ----------
 
@@ -84,8 +102,8 @@ class GameManager:
 
     # ---------- 扫描/添加/删除 ----------
 
-    def scan_and_add(self, folder: str, progress_cb=None, cancel_event=None) -> Tuple[int, List[Game]]:
-        """扫描文件夹并添加新游戏，返回 (新增数量, 新增游戏列表)
+    def scan_and_add(self, folder: str, progress_cb=None, cancel_event=None) -> Tuple[int, List[Game], int]:
+        """扫描文件夹并添加新游戏，返回 (新增数量, 新增游戏列表, 跳过数量)
 
         Args:
             folder: 扫描根目录
@@ -94,13 +112,19 @@ class GameManager:
         """
         games = self.scanner.scan(folder, progress_cb=progress_cb, cancel_event=cancel_event)
         new_games = []
+        skipped = 0
         for game in games:
-            # 跳过已存在的（按 exe_path 判重）
+            # 判重①：exe 路径相同
             if self.repository.get_by_path(game.exe_path):
+                skipped += 1
+                continue
+            # 判重②：身份键相同（引擎|归一化文件夹名）→ 同一游戏换了文件夹/命名，不重复添加
+            if game.identity and self.repository.get_by_identity(game.identity):
+                skipped += 1
                 continue
             if self.repository.add(game):
                 new_games.append(game)
-        return len(new_games), new_games
+        return len(new_games), new_games, skipped
 
     def add_game(self, game: Game) -> bool:
         """手动添加单个游戏（标签同步写入关联表）"""
@@ -388,6 +412,7 @@ class GameManager:
         games: List[Game],
         force: bool = False,
         progress_cb: Optional[Callable[[str, str, str, str], None]] = None,
+        cancel_event=None,
     ) -> Tuple[int, int, int]:
         """为指定游戏列表匹配 VNDB 元数据（不匹配全库，扫描后精准匹配用）
 
@@ -395,6 +420,7 @@ class GameManager:
             games: 要匹配的游戏列表
             force: True 时强制重新匹配已有 vndb_id 的游戏
             progress_cb: 进度回调 callback(game_id, title, status, msg)
+            cancel_event: threading.Event，置位时提前结束（可选）
 
         Returns:
             (matched, skipped, failed)
@@ -403,7 +429,7 @@ class GameManager:
         if not games:
             return 0, 0, 0
         matched, skipped, failed = metadata_matcher.match_batch(
-            games, force=force, progress_cb=progress_cb
+            games, force=force, progress_cb=progress_cb, cancel_event=cancel_event
         )
         # 统一写回数据库（已匹配或已标记 vndb_id 的）
         for game in games:

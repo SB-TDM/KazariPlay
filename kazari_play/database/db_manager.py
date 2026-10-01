@@ -64,6 +64,7 @@ class DatabaseManager:
                 logo_path TEXT DEFAULT '',
                 description TEXT DEFAULT '',
                 launch_exe_path TEXT DEFAULT '',
+                identity TEXT DEFAULT '',
                 vndb_id TEXT DEFAULT '',
                 released TEXT DEFAULT '',
                 developer TEXT DEFAULT '',
@@ -122,6 +123,9 @@ class DatabaseManager:
         self._ensure_column(conn, "games", "logo_path", "TEXT DEFAULT ''")
         self._ensure_column(conn, "games", "description", "TEXT DEFAULT ''")
         self._ensure_column(conn, "games", "launch_exe_path", "TEXT DEFAULT ''")
+        self._ensure_column(conn, "games", "identity", "TEXT DEFAULT ''")
+        # 索引须在列确保存在后创建（旧库升级时列由 _ensure_column 追加）
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_identity ON games(identity)")
         # VNDB 元数据字段（v2 新增）
         self._ensure_column(conn, "games", "vndb_id", "TEXT DEFAULT ''")
         self._ensure_column(conn, "games", "released", "TEXT DEFAULT ''")

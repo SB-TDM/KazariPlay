@@ -320,6 +320,7 @@ class WebBridge:
         self._vndb_counter = 0       # VNDB 进度节流计数
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
+        self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -580,6 +581,8 @@ class WebBridge:
                 if new_exe and os.path.exists(new_exe):
                     g.exe_path = os.path.normpath(new_exe)
                     g.folder = os.path.dirname(g.exe_path)
+                g.identity = self.manager.scanner._make_identity(
+                    g.engine, os.path.basename(os.path.normpath(g.folder or "")))
                 self.manager.update_game(g)
                 self.refresh_delta([game_id])   # 编辑单卡：增量更新
         else:
@@ -598,6 +601,8 @@ class WebBridge:
             g.id = self.manager.scanner._generate_id(exe_path)
             g.exe_path = exe_path
             g.folder = os.path.dirname(exe_path)
+            g.identity = self.manager.scanner._make_identity(
+                g.engine, os.path.basename(os.path.normpath(g.folder)))
             g.category_id = int(data.get("cat_id", 0) or 0)
             self.manager.add_game(g)
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
@@ -729,6 +734,7 @@ class WebBridge:
         if not folders:
             return json.dumps({"ok": False, "msg": ""})
         self._scan_cancel.clear()
+        self._vndb_cancel.clear()
         threading.Thread(target=self._do_scan, args=(folders,), daemon=True).start()
         return json.dumps({"ok": True, "msg": "扫描中..."})
 
@@ -736,9 +742,14 @@ class WebBridge:
         """取消正在进行的扫描（已扫描完成的部分已入库）"""
         self._scan_cancel.set()
 
+    def cancelMatch(self):
+        """取消正在进行的 VNDB 批量匹配（已匹配的部分已写回）"""
+        self._vndb_cancel.set()
+
     def _do_scan(self, folders: list):
         """后台扫描多个文件夹（支持进度上报与取消）"""
         total_added = 0
+        total_skipped = 0
         all_new = []
         cancelled = False
         total_folders = len(folders)
@@ -756,9 +767,10 @@ class WebBridge:
                     "index": _idx + 1, "total": total_folders,
                 })
 
-            added, new_games = self.manager.scan_and_add(
+            added, new_games, skipped = self.manager.scan_and_add(
                 folder, progress_cb=_progress, cancel_event=self._scan_cancel)
             total_added += added
+            total_skipped += skipped
             all_new.extend(new_games)
             if added:
                 self._add_library_path(folder)
@@ -767,13 +779,17 @@ class WebBridge:
                 break
 
         self._ui.invalidate("scan_progress", {"running": False})
-        logger.info("扫描完成，新增 %d 个%s", total_added, "（已取消）" if cancelled else "")
+        logger.info("扫描完成，新增 %d 个，跳过 %d 个%s",
+                    total_added, total_skipped, "（已取消）" if cancelled else "")
         self.refresh()
+        skip_msg = f"，跳过 {total_skipped} 个重复" if total_skipped else ""
         if cancelled:
-            self.notify(f"扫描已取消，新增 {total_added} 个游戏")
+            self.notify(f"扫描已取消，新增 {total_added} 个{skip_msg}")
         elif all_new:
-            self.notify(f"扫描完成，新增 {total_added} 个游戏，开始 VNDB 匹配…")
-            self._run_vndb_match(all_new)
+            self.notify(f"扫描完成，新增 {total_added} 个{skip_msg}，开始 VNDB 匹配…")
+            self._run_vndb_match(all_new, self._vndb_cancel)
+        else:
+            self.notify(f"扫描完成，无新游戏{skip_msg}")
 
     def _add_library_path(self, folder: str):
         paths = list(self._cfg.get("library_paths", []) or [])
@@ -783,22 +799,28 @@ class WebBridge:
             self._cfg.set("library_paths", paths)
             self._cfg.save()
 
-    def _run_vndb_match(self, games: list):
+    def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""
         self._vndb_counter = 0
         if games:
             self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
+            # 通知前端启动批量进度条轮询（扫描后自动匹配同样可见）
+            self._ui.invalidate("batch_progress", {"running": True, "title": "VNDB 匹配中"})
         try:
             matched, skipped, failed = self.manager.match_vndb_for_games(
-                games, force=False, progress_cb=self._vndb_progress)
+                games, force=False, progress_cb=self._vndb_progress, cancel_event=cancel_event)
             self.reloadCovers()   # 封面可能已更新，清缓存并强制前端重载
-            self.notify(
-                f"VNDB 匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
+            if cancel_event is not None and cancel_event.is_set():
+                self.notify(f"VNDB 匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
+            else:
+                self.notify(
+                    f"VNDB 匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
         except Exception as e:
             logger.error("VNDB 批量匹配异常: %s", e)
         finally:
             if self._batch_ctx is not None:
                 self._batch_ctx["running"] = False
+            self._ui.invalidate("batch_progress", {"running": False})
 
     def _vndb_progress(self, game_id: str, title: str, status: str, msg: str):
         if status == "start":

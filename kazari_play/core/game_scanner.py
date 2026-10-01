@@ -2,6 +2,7 @@ import os
 import hashlib
 from typing import List, Optional
 from core.game_model import Game
+from utils.title_utils import normalize_title
 
 class GameScanner:
     """游戏扫描器 - 识别文件夹中的可执行文件"""
@@ -84,6 +85,12 @@ class GameScanner:
             "启动游戏", "开始游戏", "游戏启动", "启动器",
             "安装", "卸载", "说明", "教程", "攻略",
             "修改器", "汉化补丁",
+            # 引擎固定组件（Unity 崩溃处理器，非游戏主程序）
+            "unitycrashhandler",
+            # 嵌入式框架辅助进程（Electron/JCEF 等）
+            "jcef_helper",
+            # 外设驱动 / 安装包
+            "wacom",
         ]
         # 白名单：即使命中黑名单也保留的 exe（完整名匹配）
         # 防止某些游戏主程序名恰好包含黑名单词
@@ -237,12 +244,17 @@ class GameScanner:
         # 生成唯一 ID
         game_id = self._generate_id(exe_path)
 
+        # 身份键：引擎 + 归一化「文件夹名」（folder 稳定，不受 VNDB 标题覆盖影响）
+        folder_name = os.path.basename(os.path.normpath(folder)) if folder else ""
+        identity = self._make_identity(engine, folder_name)
+
         return Game(
             id=game_id,
             title=title,
             exe_path=exe_path,
             folder=folder,
-            engine=engine
+            engine=engine,
+            identity=identity
         )
 
     def _generate_title(self, folder: str, filename: str) -> str:
@@ -354,3 +366,14 @@ class GameScanner:
         """根据 exe 路径生成唯一 ID"""
         # 使用 MD5 的前16位作为 ID
         return hashlib.md5(exe_path.encode("utf-8")).hexdigest()[:16]
+
+    def _make_identity(self, engine: str, folder_name: str) -> str:
+        """生成游戏身份键：引擎 | 归一化文件夹名
+
+        用「文件夹名」而非 title：title 会被 VNDB 匹配覆盖成正式名，
+        用它算键会导致重扫时对不上。同一款游戏换文件夹 / 换主 exe /
+        不同汉化组命名，归一化后键相同，据此判重避免重复添加卡片。
+        归一化失败时回退原文件夹名。
+        """
+        key = normalize_title(folder_name) or folder_name
+        return f"{(engine or '').lower()}|{key.strip().lower()}"

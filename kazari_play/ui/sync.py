@@ -44,6 +44,7 @@ _DOMAIN_JS = {
     "cover": "reloadCover",
     "screenshots": "refreshScreenshots",
     "scan_progress": "updateScanProgress",
+    "batch_progress": "updateBatchProgress",
     "toast": "toast",
     "running": "setRunning",
 }
@@ -129,6 +130,10 @@ class UISync:
                 p = json.dumps(payload or {}, ensure_ascii=False)
                 statements.append(
                     f"window.__app && window.__app.updateScanProgress({p});")
+            elif domain == "batch_progress":
+                p = json.dumps(payload or {}, ensure_ascii=False)
+                statements.append(
+                    f"window.__app && window.__app.updateBatchProgress({p});")
             elif domain == "running":
                 gid = json.dumps(payload or "", ensure_ascii=False)
                 statements.append(

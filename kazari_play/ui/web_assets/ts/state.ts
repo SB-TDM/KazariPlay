@@ -138,4 +138,5 @@ var __app = {
   refreshScreenshots: function (gameId: number): void { refreshScreenshots(gameId); },
   setRunning: function (id: number | string): void { setRunning(id); },
   updateScanProgress: function (p: object): void { updateScanProgress(p); },
+  updateBatchProgress: function (p: object): void { updateBatchProgress(p); },
 };

@@ -33,16 +33,16 @@ class GameRepository:
         data = game.to_dict()
         sql = """
             INSERT OR REPLACE INTO games
-            (id, title, exe_path, folder, cover_path, engine, tags,
+            (id, title, exe_path, folder, cover_path, engine, identity, tags,
              is_favorite, play_count, play_time, last_played, date_added, rating,
              logo_path, description, launch_exe_path,
              vndb_id, released, developer, length_minutes, category_id,
              hook_code, hook_code_custom, translate_enabled, clean_filter_override)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         return self.db.execute(sql, (
             data["id"], data["title"], data["exe_path"], data["folder"],
-            data["cover_path"], data["engine"], "",   # tags 列保持空（关联表唯一源）
+            data["cover_path"], data["engine"], data["identity"], "",   # tags 列保持空（关联表唯一源）
             data["is_favorite"], data["play_count"], data["play_time"],
             data["last_played"], data["date_added"], data["rating"],
             data["logo_path"], data["description"], data["launch_exe_path"],
@@ -63,7 +63,19 @@ class GameRepository:
         rows = self.db.query("SELECT * FROM games WHERE exe_path = ?", (exe_path,))
         row = rows[0] if rows else None
         return self._row_to_game(row) if row else None
-    
+
+    def get_by_identity(self, identity: str) -> Optional[Game]:
+        """根据身份键获取（引擎|归一化标题，跨文件夹判重用）"""
+        if not identity:
+            return None
+        rows = self.db.query("SELECT * FROM games WHERE identity = ?", (identity,))
+        row = rows[0] if rows else None
+        return self._row_to_game(row) if row else None
+
+    def set_identity(self, game_id: str, identity: str) -> bool:
+        """仅更新身份键（迁移回填用）"""
+        return self.db.execute("UPDATE games SET identity = ? WHERE id = ?", (identity, game_id))
+
     def get_all(self) -> List[Game]:
         """获取所有游戏"""
         rows = self.db.query("SELECT * FROM games ORDER BY title")
@@ -204,6 +216,7 @@ class GameRepository:
             folder=row[3],
             cover_path=row[4],
             engine=row[5] or "",
+            identity=row["identity"] if "identity" in row.keys() else "",
             tags=self._load_tags(row[0]),
             collections=self._load_collections(row[0]),
             is_favorite=bool(row[7]),

@@ -16,6 +16,7 @@ class Game:
     folder: str = ""
     cover_path: str = ""
     engine: str = ""
+    identity: str = ""           # 游戏身份键（引擎|归一化标题），跨文件夹判重用
     tags: List[str] = field(default_factory=list)          # 旧 tags 标签（兼容保留）
     collections: List[dict] = field(default_factory=list)  # 所属收藏夹 [{"id","name","color","icon"}]
     is_favorite: bool = False
@@ -48,6 +49,7 @@ class Game:
             "folder": self.folder,
             "cover_path": self.cover_path or "",
             "engine": self.engine or "",
+            "identity": self.identity or "",
             "tags": ",".join(self.tags) if self.tags else "",
             "is_favorite": 1 if self.is_favorite else 0,
             "play_count": self.play_count,
@@ -82,6 +84,7 @@ class Game:
             folder=data.get("folder", ""),
             cover_path=data.get("cover_path", "") or "",
             engine=data.get("engine", "") or "",
+            identity=data.get("identity", "") or "",
             tags=tags,
             collections=data.get("collections") or [],
             is_favorite=bool(data.get("is_favorite", 0)),
