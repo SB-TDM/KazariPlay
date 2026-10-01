@@ -4,6 +4,19 @@
 
 ---
 
+## V1.3 扫描去重与体验（2026-10-01）
+
+- **跨文件夹去重**：游戏身份键 `identity = 引擎 | 归一化文件夹名`（新增 `utils/title_utils.py`，与 VNDB 搜索清洗共用同一套归一化）。扫描按 `exe 路径` + `identity` 双重判重，同一游戏换文件夹 / 换命名不再重复添加；入库后 `identity` 固定，不受 VNDB 标题覆盖影响。旧库启动时按文件夹名自动重算回填（幂等）。
+- **引擎黑名单补充**：`unitycrashhandler`（Unity 崩溃处理器，避免被误选为主程序）、`jcef_helper`、`wacom`。
+- **扫描反馈**：完成提示「新增 X 个，跳过 Y 个重复」；无新增时提示「无新游戏，跳过 N 个重复」。
+- **VNDB 匹配可取消**：`match_batch` / `match_vndb_for_games` 支持 `cancel_event`；进度条取消按钮按阶段切换「取消扫描 / 取消匹配」。
+- **进度可见性**：扫描后自动 VNDB 匹配新增 `batch_progress` 界面更新域，进度条不再静默。
+- **修复**：批量进度框 `.show` 未恢复 `pointer-events`，导致取消按钮点击穿透、按不动。
+
+验证：`npm run build` / `verify_frontend` / `test_scanner` / `py_compile` 全通过；真实库迁移回填 33 条（0 空 / 0 重复）；端到端扫描判重「再次扫描新增 0」。
+
+---
+
 ## V1.3 开发（2026-09）：TypeScript 迁移 / 截图内核 / 扫描优化
 
 日期：2026-09-12
@@ -146,7 +159,7 @@
 日期：2026-08-16
 
 - **批量 VNDB 匹配进度条**：前端右下角进度胶囊（标题 + 百分比 + `已完成 x/y`），每 600ms 轮询后端；完成后自动收起（汇总 toast 由后端 notify 提供）。
-- 后端新增 `getBatchProgress()` 桥方法 + `_batch_ctx` 批量任务上下文（total/done/running），`_vndb_progress` 回调更新计数，`_run_vndb_match` 结束时置 running=false。扫描后自动匹配同样计入进度（无前端轮询时静默）。
+- 后端新增 `getBatchProgress()` 桥方法 + `_batch_ctx` 批量任务上下文（total/done/running），`_vndb_progress` 回调更新计数，`_run_vndb_match` 结束时置 running=false。扫描后自动匹配同样计入进度（**当时**前端无轮询入口、静默；该可见性已于 2026-10 修复，见最新条目）。
 - 依据 `docs/UI_REDESIGN_PLAN.md` 阶段 B；阶段 A（设置页拆分）已在上一个改动完成。
 - 验证：`verify_frontend`（215 id / 185 JS 引用全匹配）、`node --check`、`py_compile`、后端进度上下文单元验证（total=3/done=3/结束标志）PASS；GUI 启动无异常。
 

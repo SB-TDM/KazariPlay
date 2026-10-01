@@ -55,7 +55,7 @@ KazariPlay_V1.0/
 │   ├── main.py                # pywebview 入口（无边框窗口 + js_api；html/js/css 启动时内联）
 │   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
 │   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
-│   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi）
+│   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi/标题归一化）
 │   ├── ui/
 │   │   ├── web_bridge.py      # pywebview js_api 桥（后端能力暴露给前端）
 │   │   ├── sync.py            # 界面更新总线（数据变化 → 前端刷新的统一推送/合并）

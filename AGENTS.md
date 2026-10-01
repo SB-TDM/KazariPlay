@@ -52,6 +52,7 @@ python tests/smoke_screenshots.py # 截图冒烟（需显示环境）
 
 ## 当前状态与下一步
 
-- 最新改动见 `docs/CHANGELOG.md`（2026-09 开发批次：TypeScript 迁移 / 截图内核 WGC / 扫描优化）
-- 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消
-- 当前版本 V1.3（前端 TS 迁移 / 截图内核 WGC / 扫描优化）
+- 最新改动见 `docs/CHANGELOG.md`（2026-09 开发批次 + 2026-10 扫描去重与体验）
+- 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
+- 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py`）：扫描按 `exe 路径` + `identity` 双重判重；改判重或标题归一化时两处需同步
+- 当前版本 V1.3（前端 TS 迁移 / 截图内核 WGC / 扫描去重与体验）
