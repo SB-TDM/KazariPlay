@@ -82,6 +82,13 @@ KazariPlay_V1.0/
 - 截图：`KazariPlay_V1.0/screenshots/{game_id}/`
 - 从旧版 Minato Launcher 升级时，`%APPDATA%\MinatoLauncher` 下已有的数据会自动迁移
 
+## 文档
+
+- [文档索引](docs/README.md)：区分当前有效文档、历史记录和未实施方案
+- [工作约束](docs/DEV_RULES.md)：修改代码、打包、提交前必读
+- [变更日志](docs/CHANGELOG.md)：开发改动与验证记录
+- [第三方组件声明](THIRD_PARTY.md)：依赖和许可证说明
+
 ## 开源许可
 
 本项目以 **GNU General Public License v3.0（GPL-3.0）** 授权，详见 [LICENSE](LICENSE)。

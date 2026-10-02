@@ -48,7 +48,7 @@ python tests/smoke_screenshots.py # 截图冒烟（需显示环境）
 - `kazari_play/ui/web_assets/`：`ts/` = TypeScript 源（唯一真相），`js/` = 编译产物（勿手改），`css/`、`partials/`、`index.html`
 - 新增前端模块：`ts/` 建文件 → 登记 `main.py` 的 `_JS_MANIFEST`（顺序即依赖顺序，两处同步）
 - `overlay/`：C++ 注入层；`tests/`：`smoke_*` / `test_*` / `verify_frontend.py`
-- 文档：`README.md`（怎么用）、`docs/DEV_RULES.md`（**工作约束，改代码/打包/提交前必读**）、`docs/CHANGELOG.md`（改动历史）、`docs/*_PLAN.md`（设计/迁移方案）
+- 文档：`README.md`（怎么用）、`docs/README.md`（文档索引）、`docs/DEV_RULES.md`（**工作约束，改代码/打包/提交前必读**）、`docs/CHANGELOG.md`（改动历史）、`docs/*_PLAN.md`（设计/迁移方案，未实施方案需以索引标注为准）
 
 ## 当前状态与下一步
 

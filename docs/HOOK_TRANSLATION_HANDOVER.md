@@ -1,14 +1,15 @@
 # KazariPlay Hook 实时翻译系统 — 交接文档
 
 > 生成时间：2026-08-15
+> 文档状态：历史交接记录。当前实现以 `README.md`、`AGENTS.md`、`docs/README.md` 和源码为准；本文中的旧路径、旧模块名和当时验证记录仅用于还原开发过程。
 > 会话范围：从《Hook实时翻译系统计划书》评审 → 全量实施 → 真机验证 → 多轮问题修复（覆盖层显示、候选推送、编码、退出、双客户端冲突等）→ AI 翻译引擎接入 → 翻译 Skill 编写
-> 对接提示：**接手前先读** `E:\文件夹\Launcher\minatoLauncher_V2.4\Hook实时翻译系统计划书.md`（附录 B 是实施与修复记录）与本会话的项目级 skill：`.dsh\skills\kazariplay-translation\SKILL.md`（DSH 会话中可用 `skill` 工具加载）
+> 当前接手入口：先读项目根目录 `AGENTS.md`、`docs/README.md` 和 `docs/DEV_RULES.md`。外部计划书不属于本仓库的现行文档合同。
 
 ---
 
 ## 一、项目概述
 
-**项目**：`E:\文件夹\Launcher\KazariPlay_V1.0`（视觉小说启动器，pywebview GUI）
+**项目**：`KazariPlay_V1.0`（视觉小说启动器，pywebview GUI）
 **功能**：游戏内实时字幕翻译 —— Hook 提取游戏文本 → 文本稳定 → 翻译（百度/AI 大模型）→ 游戏画面底部渲染原文+译文
 **技术路线**：C++ overlay.exe（注入+Hook+稳定+渲染）↔ Python（协调+翻译）↔ pywebview 前端（配置/开关/Hook 选择）
 **核心依赖**：Textractor v5.2.0（host 静态库本机构建 + texthook DLL），见 `overlay/third_party/textractor/`
@@ -53,7 +54,7 @@ overlay/bin32/overlay.exe  (x86，链接 hostlib32.lib + 同目录 texthook.dll 
 |---|---|
 | `core/overlay_client.py` | **进程内单例**（关键！见修复记录 #11）；重叠读写长连接；按位数选 overlay；读线程只分发 |
 | `core/subtitle_coordinator.py` | 队列+单 worker 保序；`_awaiting_selection` 首配状态；stop() 逐个容错发送 |
-| `core/translate.py` | 翻译器：`baidu`（百度开放平台）/ `ai`（OpenAI 兼容 chat/completions，默认 DeepSeek）；缓存+超时+失败降级空串 |
+| `core/translate.py` | 历史模块，当前已删除；AI 翻译现由 `overlay/src/ai_translator.cpp` 负责，Python 侧仅透传配置与会话状态 |
 | `core/game_launcher.py` | `_start_translation`/`_is_process_x64`/`stop_translation`；从 config 读 codepage |
 | `core/game_model.py` / `database/` | hook_code/hook_code_custom/translate_enabled 字段；`_row_to_game` 列名访问 |
 | `utils/config.py` | **递归深合并默认值**（修复 #14）；`textractor.codepage`、`translate.ai.*` 等 |
@@ -67,7 +68,7 @@ overlay/bin32/overlay.exe  (x86，链接 hostlib32.lib + 同目录 texthook.dll 
 | `scripts/real_hook_smoke.py` | 真机冒烟：启动游戏→注入→观察 host console 与 STABLE 回传 |
 | `scripts/diag_overlay.py` | **显示自检**：全屏检测+窗口状态+**自动像素验证**（亮度比值判断字幕是否真上屏） |
 | `.dsh/skills/kazariplay-translation/SKILL.md` | 项目级 skill：架构/配置/测试/调试/常见问题（DSH 会话可加载） |
-| `minatoLauncher_V2.4/Hook实时翻译系统计划书.md` | 设计文档 + 附录 B 实施与修复记录 |
+| `docs/CHANGELOG.md` / `docs/README.md` | 当前仓库内可追溯的改动历史与文档入口 |
 
 ---
 
@@ -113,7 +114,7 @@ overlay/bin32/overlay.exe  (x86，链接 hostlib32.lib + 同目录 texthook.dll 
 python tests/smoke_translation.py
 
 # 真机冒烟（注入+文本回传，9-nine 路径示例）
-python scripts/real_hook_smoke.py "E:\BaiduNetdiskDownload\PC[ぱれっと]9nine④-雪色雪花雪之痕_官方中文\PC[ぱれっと]9nine④-雪色雪花雪之痕_官方中文\PC[ぱれっと]9nine④-雪色雪花雪之痕_官方中文\nine_yukiiro.exe" --engine krkr --seconds 30
+python scripts/real_hook_smoke.py "<path-to-game-exe>" --engine krkr --seconds 30
 
 # overlay 显示自检（全屏检测 + 自动像素验证"字幕是否真上屏"）
 python scripts/diag_overlay.py "<游戏exe>"
@@ -148,7 +149,7 @@ cd overlay && build.bat && build32.bat
 ## 七、对接指引（给接手 agent）
 
 1. **先加载 skill**：会话中执行 `skill` 工具加载 `kazariplay-translation`（含架构/调试/常见问题全量指引）。
-2. **读计划书附录 B**：`minatoLauncher_V2.4\Hook实时翻译系统计划书.md` 的「实施状态与偏差记录」是完整历史。
+2. 如需追溯历史，阅读本文和 `docs/CHANGELOG.md`；不要依赖仓库外的本机路径。
 3. **环境**：网络已通（下载 Textractor 源码/镜像可用）；MSVC Build Tools 14.44 + Python 3.11 + pywebview 6.2.1 已装。
 4. **调试入口**：用户反馈"看不到/乱码/不显示"一律先跑 `scripts/diag_overlay.py` 拿客观证据（像素验证）再下结论。
 5. **改 C++ 必须双版本重编译**（build.bat + build32.bat），并跑离线回归。

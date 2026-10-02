@@ -1,5 +1,7 @@
 # KazariPlay UI 审查修复 + 字幕控制面板 — 交接文档
 
+> **文档状态：历史交接记录（2026-08-16）。** 独立字幕控制面板方案后来被合并进主窗口设置页；本文保留审查过程和技术背景，当前实现以 `README.md`、`docs/CHANGELOG.md` 和源码为准。文档分类见 [README.md](README.md)。
+
 > 生成时间：2026-08-16
 > 会话范围：① 前端（web_assets/）按 Web Interface Guidelines 全面审查与修复 → ② 按《Overlay 控制面板设计方案》实现字幕样式控制面板（C++ 渲染参数化 + pywebview 独立置顶窗口 + 管道下发）
 > 对接提示：接手前先读本会话相关设计来源：《Overlay 控制面板设计方案（简洁落地版）》（对话中整理的 PRD）、`docs/CHANGELOG.md`

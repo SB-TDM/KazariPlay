@@ -1,7 +1,7 @@
 # 前端模块说明（web_assets）
 
 > **TS 迁移已完成**：全部 17 个模块源码在 `ts/`（TypeScript），`js/` 下同名文件为
-> `npm run build` 编译产物。迁移方案见 `docs/TS_MIGRATION_PLAN.md`；
+> `npm run build` 编译产物。迁移历史见 `docs/CHANGELOG.md`，当前文档索引见 `docs/README.md`；
 > `_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
 
 前端由 **pywebview（Edge WebView2）** 渲染。`main.py` 的 `_load_html()` 在启动时把

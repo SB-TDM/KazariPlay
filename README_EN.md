@@ -1,4 +1,6 @@
-# KazariPlay V1.02
+# KazariPlay V1.02 — archived translation
+
+> **Status:** This translation documents the V1.02 feature set and is retained for reference. The current authoritative user documentation is [README.md](README.md), currently V1.3.
 
 Visual Novel (Galgame) local library launcher · **pywebview (system WebView) rendered HTML UI**
 

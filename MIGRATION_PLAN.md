@@ -1,5 +1,7 @@
 # KazariPlay：Python → C# + WebView2 迁移规划
 
+> **文档状态：未实施的历史方案。** 当前项目仍使用 Python + pywebview + C++ Overlay；本文只保留设计背景，不是当前构建或运行入口。文档分类见 [docs/README.md](docs/README.md)。
+
 ## 0. 目标与原则
 
 - **前端零改动**：`web_assets/`（index.html / css / js）原样复用
