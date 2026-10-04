@@ -14,6 +14,7 @@
 | [CHANGELOG.md](CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
 | [RELEASE_NOTES.md](../RELEASE_NOTES.md) | 面向用户的版本发行说明 |
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
+| [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 
