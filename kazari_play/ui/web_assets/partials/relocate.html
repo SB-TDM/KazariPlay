@@ -1,0 +1,19 @@
+<!-- 批量重新定位预览对话框（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<div class="overlay center" id="relocateOverlay">
+  <div class="dialog relocate">
+    <div class="dlg-title"><span>重新定位预览</span>
+      <button class="close-btn" id="relocateClose" aria-label="关闭">×</button></div>
+    <div class="relocate-sub">
+      <span id="relocateSubText"></span>
+      <span class="relocate-actions">
+        <button type="button" class="relocate-mini" id="relocateSelBtn">全选</button>
+      </span>
+    </div>
+    <div class="relocate-list" id="relocateList"></div>
+    <div class="dlg-foot">
+      <button class="pill-btn" id="relocateCancel">取消</button>
+      <button class="pill-btn primary" id="relocateOk">应用</button>
+    </div>
+  </div>
+</div>

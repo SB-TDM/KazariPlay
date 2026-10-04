@@ -662,6 +662,71 @@ class WebBridge:
         self.manager.batch_delete(json.loads(ids_json))
         self.refresh()
 
+    # ---------- 批量重新定位（路径修正，不重算 id）----------
+    def previewRelocate(self, ids_json: str) -> str:
+        """选目标根目录，扫描并按 identity 匹配选中游戏，返回预览（不写库）
+
+        返回 {"ok": bool, "msg": str, "items": [{id,title,old_exe,new_exe,status}]}
+        status: matched(将更新) / missing(未找到) / conflict(新路径已被其他卡片占用)
+        """
+        ids = json.loads(ids_json)
+        games = [g for g in (self.manager.get_game(i) for i in ids) if g]
+        if not games:
+            return json.dumps({"ok": False, "msg": "没有可定位的游戏"}, ensure_ascii=False)
+        if self._window is None:
+            return json.dumps({"ok": False, "msg": ""}, ensure_ascii=False)
+        folders = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        if isinstance(folders, str):
+            folders = [folders]
+        folders = [f for f in (folders or []) if f]
+        if not folders:
+            return json.dumps({"ok": False, "msg": ""}, ensure_ascii=False)
+        # 扫描目标目录，按 identity 建索引
+        scanned = self.manager.scanner.scan(folders[0])
+        by_identity = {}
+        for g in scanned:
+            if g.identity and g.identity not in by_identity:
+                by_identity[g.identity] = g
+        items = []
+        for game in games:
+            new_exe, status = "", "missing"
+            matched = by_identity.get(game.identity) if game.identity else None
+            if matched:
+                occupied = self.manager.repository.get_by_path(matched.exe_path)
+                if occupied and occupied.id != game.id:
+                    status = "conflict"
+                else:
+                    status = "matched"
+                    new_exe = matched.exe_path
+            items.append({
+                "id": game.id, "title": game.title,
+                "old_exe": game.exe_path, "new_exe": new_exe, "status": status,
+            })
+        return json.dumps({"ok": True, "items": items}, ensure_ascii=False)
+
+    def applyRelocate(self, mapping_json: str):
+        """应用重新定位：mapping=[{id,new_exe}]，仅更新匹配项，id 保持不变"""
+        mapping = json.loads(mapping_json)
+        updated = 0
+        for m in mapping:
+            gid = str(m.get("id") or "")
+            new_exe = (m.get("new_exe") or "").strip()
+            if not gid or not new_exe:
+                continue
+            game = self.manager.get_game(gid)
+            if not game:
+                continue
+            occupied = self.manager.repository.get_by_path(new_exe)
+            if occupied and occupied.id != gid:
+                continue   # 冲突：新路径已被占用，跳过
+            game.exe_path = os.path.normpath(new_exe)
+            game.folder = os.path.dirname(game.exe_path)
+            self.manager.repository.update_game(game)   # id 不变，保留截图/收藏/时长关联
+            updated += 1
+        if updated:
+            self.refresh()
+        self.notify(f"已重新定位 {updated} 个游戏")
+
     # ---------- 收藏夹（V1.0 collections）----------
     def getCollectionsTree(self) -> str:
         """返回树形收藏夹 JSON: [{id,name,icon,color,sort_order,game_count,children:[...]}]"""

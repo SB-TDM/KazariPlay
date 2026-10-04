@@ -176,6 +176,78 @@ document.getElementById('btnBVndb')!.onclick = () => {
   App.ui.state.selected.clear();
   trackBatchProgress('VNDB 批量匹配中');
 };
+
+// ---------- 批量重新定位（选目录 → 按 identity 匹配 → 预览确认）----------
+interface RelocateItem { id: string; title: string; old_exe: string; new_exe: string; status: string; }
+let relocateItems: RelocateItem[] = [];
+
+function closeRelocate(): void {
+  document.getElementById('relocateOverlay')!.classList.remove('show');
+}
+
+function renderRelocatePreview(items: RelocateItem[]): void {
+  relocateItems = items;
+  const matched = items.filter(i => i.status === 'matched').length;
+  const missing = items.filter(i => i.status === 'missing').length;
+  const conflict = items.filter(i => i.status === 'conflict').length;
+  document.getElementById('relocateSubText')!.textContent =
+    `将更新 ${matched} 个 · 未找到 ${missing} 个 · 冲突 ${conflict} 个`;
+  document.getElementById('relocateList')!.innerHTML = items.map((it, i) => {
+    const label = it.status === 'matched' ? '将更新'
+      : it.status === 'conflict' ? '冲突，跳过' : '未找到，跳过';
+    const cls = it.status === 'matched' ? 'ok' : 'skip';
+    const newp = it.new_exe ? esc(it.new_exe) : '—';
+    const box = it.status === 'matched'
+      ? `<input type="checkbox" class="relocate-check" data-idx="${i}" checked aria-label="选择">`
+      : `<input type="checkbox" class="relocate-check" data-idx="${i}" disabled aria-label="不可选">`;
+    return `<div class="relocate-row ${cls}">
+      <div class="rl-head">${box}<div class="rl-title">${esc(it.title)}</div><div class="rl-status">${label}</div></div>
+      <div class="rl-path">${esc(it.old_exe)}</div>
+      <div class="rl-path new">→ ${newp}</div>
+    </div>`;
+  }).join('');
+  document.querySelectorAll('#relocateList .relocate-check').forEach(cb =>
+    cb.addEventListener('change', updateRelocateSelBtn));
+  updateRelocateSelBtn();
+  document.getElementById('relocateOverlay')!.classList.add('show');
+}
+
+document.getElementById('btnBRelocate')!.onclick = () => {
+  if (App.ui.state.selected.size === 0) return;
+  bridge.previewRelocate(JSON.stringify([...App.ui.state.selected]), function (res: unknown) {
+    let r: { ok?: boolean; msg?: string; items?: RelocateItem[] } = {};
+    try { r = JSON.parse(String(res || '{}')); } catch (e) { }
+    if (!r.ok) { if (r.msg) toast(r.msg); return; }
+    renderRelocatePreview(r.items || []);
+  });
+};
+function relocateBoxes(): HTMLInputElement[] {
+  return [...document.querySelectorAll<HTMLInputElement>('#relocateList .relocate-check:not(:disabled)')];
+}
+function updateRelocateSelBtn(): void {
+  const boxes = relocateBoxes();
+  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
+  document.getElementById('relocateSelBtn')!.textContent = allOn ? '取消全选' : '全选';
+}
+document.getElementById('relocateClose')!.onclick = closeRelocate;
+document.getElementById('relocateCancel')!.onclick = closeRelocate;
+document.getElementById('relocateSelBtn')!.onclick = () => {
+  const boxes = relocateBoxes();
+  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
+  boxes.forEach(b => { b.checked = !allOn; });
+  updateRelocateSelBtn();
+};
+document.getElementById('relocateOk')!.onclick = () => {
+  const mapping: { id: string; new_exe: string }[] = [];
+  document.querySelectorAll<HTMLInputElement>('#relocateList .relocate-check:checked').forEach(cb => {
+    const it = relocateItems[Number(cb.dataset.idx)];
+    if (it && it.status === 'matched') mapping.push({ id: it.id, new_exe: it.new_exe });
+  });
+  if (mapping.length === 0) { toast('没有勾选要应用的项'); return; }
+  bridge.applyRelocate(JSON.stringify(mapping));
+  App.ui.state.selected.clear();
+  closeRelocate();
+};
 document.getElementById('btnBDel')!.onclick = () => {
   showConfirmDialog({
     title: '批量移除',

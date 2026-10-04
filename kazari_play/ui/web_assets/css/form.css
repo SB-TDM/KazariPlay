@@ -40,3 +40,20 @@
   /* 表单内联校验错误：红边 + 行下提示（与 label 列对齐） */
   .form-row.has-error input, .form-row.has-error select, .form-row.has-error textarea{border-color:#ff6f81;}
   .form-error{flex-basis:100%;font-size:11.5px;color:#ff6f81;line-height:1.5;margin-top:2px;padding-left:74px;}
+
+  /* 批量重新定位预览对话框 */
+  .dialog.relocate{max-width:640px;max-height:80vh;display:flex;flex-direction:column;padding:24px 22px 18px;}
+  .relocate-sub{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--text-sub);margin:2px 2px 10px;flex:none;}
+  .relocate-actions{display:flex;gap:6px;flex:none;}
+  .relocate-mini{padding:3px 10px;border-radius:50px;border:1.5px solid var(--border-soft);background:var(--bg-hover);color:var(--text-sub);font-size:11.5px;cursor:pointer;}
+  .relocate-mini:hover{border-color:var(--pink);color:var(--pink);}
+  .relocate-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:6px;}
+  .relocate-row{padding:10px 12px;border-radius:12px;border:1.5px solid var(--border-soft);background:var(--bg-hover);font-size:12px;}
+  .relocate-row .rl-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .relocate-row .relocate-check{flex:none;accent-color:var(--pink);cursor:pointer;}
+  .relocate-row .relocate-check:disabled{cursor:not-allowed;}
+  .relocate-row .rl-title{font-weight:600;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .relocate-row .rl-status{flex:none;font-size:11px;color:var(--text-disabled);}
+  .relocate-row .rl-path{color:var(--text-sub);word-break:break-all;line-height:1.5;}
+  .relocate-row .rl-path.new{color:var(--pink-deep);}
+  .relocate-row.skip{opacity:.55;}

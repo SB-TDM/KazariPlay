@@ -86,6 +86,8 @@ interface PyWebViewApi {
   setTheme(theme: string): Promise<unknown>;
   matchVndb(game_id: string): Promise<string>;
   matchVndbBatch(ids_json: string): Promise<string>;
+  previewRelocate(ids_json: string): Promise<string>;
+  applyRelocate(mapping_json: string): Promise<unknown>;
   setRating(game_id: string, rating: number): Promise<unknown>;
   getRunning(): Promise<string>;
   updateScreenshotHotkey(hotkey?: string): Promise<boolean>;
