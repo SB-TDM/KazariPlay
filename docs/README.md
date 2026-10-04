@@ -16,6 +16,7 @@
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
+| [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版与翻译实验版的分支、工作区和同步规则 |
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 

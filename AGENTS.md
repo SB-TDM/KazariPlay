@@ -2,6 +2,8 @@
 
 ## 项目定位
 
+当前分支为 `feature/hook-translation` 翻译实验版，`main` / `develop` 为无翻译原版。共享修复选择性同步，禁止将本分支整体合入原版；流程见 `docs/BRANCH_WORKFLOW.md`。
+
 视觉小说（Galgame）本地库启动器：扫描/管理本地游戏、Hook 实时翻译、VNDB/Bangumi 元数据匹配。
 Python + pywebview（系统 Edge WebView2）渲染 HTML UI；独立 C++ overlay 负责游戏内截图提示与字幕。
 
