@@ -59,9 +59,11 @@ python tests/smoke_overlay.py
 
 ## 远端边界
 
-本轮只创建本地分支和提交，远端仍是原来的 `master`。没有推送、切换 GitHub 默认分支、删除旧远端分支或创建标签/Release。
+2026-10-05 已推送 `main`、`develop`、`feature/hook-translation`，本地分支分别跟踪同名远端分支。原版分离代码已在 `main/develop`，翻译实验版已在对应远端分支。
 
-后续需单独确认：推送三条分支、将 GitHub 默认分支设为 `main`，再决定是否删除旧 `master`。保护规则/Rulesets、编译期开关、正式 Release 保持待定，不能作为本地分离的附带操作执行。
+GitHub 默认分支仍为 `master`：本机 `gh` 未登录，修改仓库设置被认证阻塞，用户明确选择暂缓切换。旧 `master` 保留，不自动删除；在默认分支调整前访问 GitHub 首页仍看到旧版，应主动选择对应版本分支。
+
+后续先完成 GitHub CLI 授权，再切换默认分支到 `main`，最后单独决定旧 `master` 是否删除。保护规则/Rulesets、编译期开关、正式 Release 保持待定，本轮均未操作；Git SSH 推送权限不等于仓库设置 API 权限。
 
 ## 当前实施与验证
 
