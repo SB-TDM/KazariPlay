@@ -133,7 +133,7 @@ class DatabaseManager:
         self._ensure_column(conn, "games", "length_minutes", "INTEGER DEFAULT 0")
         # 分类归属字段（v2.4 新增；0 = 未分类）
         self._ensure_column(conn, "games", "category_id", "INTEGER DEFAULT 0")
-        # Hook 实时翻译字段（V1.1 新增）
+        # 保留实验版列，避免两条版本线读取同一旧库时破坏 schema。
         self._ensure_column(conn, "games", "hook_code", "TEXT DEFAULT ''")
         self._ensure_column(conn, "games", "hook_code_custom", "TEXT DEFAULT ''")
         self._ensure_column(conn, "games", "translate_enabled", "INTEGER DEFAULT 0")

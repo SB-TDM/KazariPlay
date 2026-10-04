@@ -1,5 +1,7 @@
 # KazariPlay V1.3 发行说明
 
+> 分支说明：本文保留历史发行记录。当前 `main` / `develop` 为无翻译原版，翻译功能在 `feature/hook-translation` 独立实验维护；本地分离不等于发布新 Release，现状见 [开发流程](docs/BRANCH_WORKFLOW.md)。
+
 > 发布日期：2026-09-12
 > 项目：KazariPlay
 > 仓库：github.com/SB-TDM/KazariPlay

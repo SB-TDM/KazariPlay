@@ -34,7 +34,7 @@ class Game:
     developer: str = ""          # 开发商名称
     length_minutes: int = 0      # 预计游玩时长（分钟，VNDB length 字段转换）
     category_id: int = 0         # 分类归属（0 = 未分类；v2.4 新增）
-    # Hook 实时翻译（V1.1 新增）
+    # 旧实验版字段仅用于数据兼容，原版不启用或编辑这些能力。
     hook_code: str = ""          # 已选定的 HookCode（空 = 未配置）
     hook_code_custom: str = ""   # 用户自定义 HookCode
     translate_enabled: bool = False  # 该游戏是否启用实时翻译

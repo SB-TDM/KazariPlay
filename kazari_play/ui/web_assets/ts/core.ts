@@ -40,19 +40,10 @@ function toast(msg: string): void {
   toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-// 统一启动入口：所有启动按钮/菜单都走这里（详情页、卡片右键等），
-// 保证「首次启用翻译且无 hook_code」时 Hook 选择弹窗必然弹出；
-// 否则字幕会被等待选择状态吞掉（_awaiting_selection），用户看不到任何字幕。
+// 详情页和卡片菜单共用启动入口。
 function launchGame(gameId: number): void {
   if (!bridge) return;
-  bridge.launch(String(gameId), function (res: unknown) {
-    try {
-      const r = JSON.parse(String(res) || '{}');
-      if (r && r.ok && r.need_hook_select && window.HookSelect) {
-        window.HookSelect.open(gameId);
-      }
-    } catch (e) { /* 解析失败静默 */ }
-  });
+  bridge.launch(String(gameId));
 }
 
 // 星级字符串（1-5，0 表示未评分）

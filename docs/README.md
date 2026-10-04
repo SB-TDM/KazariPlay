@@ -16,6 +16,7 @@
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
+| [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 
@@ -25,7 +26,7 @@
 
 | 文档 | 说明 |
 |---|---|
-| [HOOK_TRANSLATION_HANDOVER.md](HOOK_TRANSLATION_HANDOVER.md) | 2026-08 Hook 翻译系统交接记录 |
+| [HOOK_TRANSLATION_HANDOVER.md](HOOK_TRANSLATION_HANDOVER.md) | 仅适用于历史和 feature/hook-translation，原版不提供对应源码/API |
 | [UI_REVIEW_CONTROL_PANEL_HANDOVER.md](UI_REVIEW_CONTROL_PANEL_HANDOVER.md) | 2026-08 UI 审查和字幕控制面板交接记录；独立控制面板后来被合并进主设置页 |
 | [UI_REDESIGN_PLAN.md](UI_REDESIGN_PLAN.md) | 已完成 UI 改造批次及历史计划 |
 
@@ -41,4 +42,4 @@
 
 ## 当前验证边界
 
-截至 2026-10-02，已验证 TypeScript 类型检查、前端组装、扫描器、多源、缓存、UI Sync、收藏夹、截图和 Overlay 控制面板冒烟流程。`tests/smoke_translation.py` 仍有一项 CSS 检查失败，且 C++ x64/x86 构建尚未在当前终端完成验证；这些状态不能写成“全部通过”。
+原版与实验版分别验证，不借用另一工作区的生成物。原版现有边界测试验证旧库/配置兼容与翻译执行链移除；前端和 x64/x86 截图 Overlay 已完成编译。详细实施结果见 [分支开发流程](BRANCH_WORKFLOW.md)。实验分支的 `smoke_translation.py` 仍有旧 CSS 检查问题，不能视为原版测试失败，也不能写成实验版已全通过。

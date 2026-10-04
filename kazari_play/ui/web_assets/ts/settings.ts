@@ -7,26 +7,6 @@
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   let savedTheme = 'light';
   let pendingTheme: string | null = null;
-  let savedOverlay: Record<string, unknown> = {};   // 保留 overlay 其他配置（合并保存用）
-
-  // 清洗过滤器清单（与 C++ overlay/src/filter_chain.cpp 注册保持一致）
-  // agg=true 为"激进"过滤器：默认关闭，误伤正常字幕风险高（叠词/短重复/ABAB），需手动开启
-  const FILTER_DEFS: CleanFilterDef[] = [
-    { id: 'dedup_chars', name: '重复字符去重', desc: 'AAAABBBB→AB' },
-    { id: 'dedup_lines', name: '整句重复去重', desc: 'ABCDABCD→ABCD' },
-    { id: 'dedup_mixed_lines', name: '混合重复行去重', desc: 'S1S1S2S2→S1S2', agg: true },
-    { id: 'incremental_dedup', name: '递增拼接去重', desc: '「マ「マジ…→「マジ', agg: true },
-    { id: 'furigana', name: '注音清理', desc: '{漢字/かな}→漢字' },
-    { id: 'html_tag', name: 'HTML 标签清理', desc: '<div>x</div>→x' },
-    { id: 'control_char', name: '控制字符过滤', desc: '丢弃 ASCII 控制符' },
-    { id: 'shift_jis', name: '非日文字符过滤', desc: '乱码清除', agg: true },
-    { id: 'english_symbol', name: '英文标点过滤', desc: '丢弃 ASCII 标点', agg: true },
-    { id: 'quote_only', name: '仅保留「」内容', desc: '会丢旁白', agg: true },
-    { id: 'unicode_normalize', name: '全角转半角', desc: 'Unicode 正规化' },
-    { id: 'line_trimmer', name: '行截取', desc: '只留前/后 N 行', agg: true },
-    { id: 'regex_replace', name: '正则替换', desc: '用户自定义规则', agg: true },
-  ];
-  window.CLEAN_FILTER_DEFS = FILTER_DEFS;   // 供游戏详情页清洗配置共用
 
   function applyTheme(t: string): void {
     const root = document.documentElement;
@@ -49,22 +29,19 @@
 
   function open(): void {
     loadConfig();
-    if (window.SubtitleStyle) window.SubtitleStyle.load();
     $('settingsOverlay').classList.add('show');
     // 恢复上次停留的 tab（阶段 E：tab 记忆）
     let lastTab = 'general';
     try { lastTab = localStorage.getItem('settings_tab') || 'general'; } catch (e) { }
+    if (!document.getElementById('set-' + lastTab)) lastTab = 'general';
     document.querySelectorAll<HTMLElement>('#setNav .nav-item').forEach((x) =>
       x.classList.toggle('active', x.dataset.tab === lastTab));
     document.querySelectorAll<HTMLElement>('#settingsOverlay .page').forEach((p) =>
       p.style.display = p.id === 'set-' + lastTab ? 'block' : 'none');
-    if (lastTab === 'subtitle' && window.SubtitleStyle) window.SubtitleStyle.load();
   }
 
   function close(): void {
     if (pendingTheme !== null && pendingTheme !== savedTheme) applyTheme(savedTheme);
-    // 关闭设置页时隐藏预览字幕（预览应随字幕界面关闭而消失）
-    if (bridge && bridge.hideSubtitle) bridge.hideSubtitle();
     closeSheet('settingsOverlay');
   }
 
@@ -72,9 +49,7 @@
     if (!bridge) return;
     bridge.getConfig(function (s: unknown) {
       const cfg = JSON.parse(String(s || '{}')) as Record<string, unknown> & {
-        hotkeys?: Record<string, string>; overlay?: Record<string, unknown>;
-        translate?: Record<string, unknown>; textractor?: Record<string, unknown>;
-        clean?: Record<string, unknown>; subtitle?: { enabled?: boolean };
+        hotkeys?: Record<string, string>;
       };
       ($('setCoverSize') as HTMLSelectElement).value = (cfg.cover_size as string) || 'medium';
       ($('setLogLevel') as HTMLSelectElement).value = String(cfg.log_level || 'INFO').toUpperCase();
@@ -90,25 +65,6 @@
       pendingTheme = savedTheme;
       applyTheme(savedTheme);
       markThemeCard(savedTheme);
-      // Hook 实时翻译配置
-      savedOverlay = cfg.overlay || {};
-      const tr = cfg.translate || {};
-      const tx = cfg.textractor || {};
-      const ai = (tr.ai || {}) as Record<string, string>;
-      ($('setAiBaseUrl') as HTMLInputElement).value = ai.base_url || 'https://api.deepseek.com';
-      ($('setAiApiKey') as HTMLInputElement).value = ai.api_key || '';
-      ($('setAiModel') as HTMLInputElement).value = ai.model || 'deepseek-chat';
-      ($('setSrcLang') as HTMLSelectElement).value = (tr.source_lang as string) || 'ja';
-      ($('setDstLang') as HTMLSelectElement).value = (tr.target_lang as string) || 'zh';
-      ($('setHostDir') as HTMLInputElement).value = (tx.host_dir as string) || '';
-      ($('setTextCodepage') as HTMLInputElement).value = String(tx.codepage || 0);
-      ($('setSubtitleEnabled') as HTMLInputElement).checked = (savedOverlay.subtitle_enabled !== false);
-      // 字幕总开关以 subtitle.enabled 为准（控制面板并入后由该键持久化），缺省开
-      const subEnabled = cfg.subtitle && cfg.subtitle.enabled;
-      if (typeof subEnabled === 'boolean') ($('setSubtitleEnabled') as HTMLInputElement).checked = subEnabled;
-      const cln = cfg.clean || {};
-      ($('setAiClean') as HTMLInputElement).checked = !!cln.ai_assist_enabled;
-      ($('setAiCleanTh') as HTMLSelectElement).value = (cln.ai_assist_threshold as string) === 'always' ? 'always' : 'dirty';
     });
     loadMetaSources();
   }
@@ -160,25 +116,6 @@
         fullscreen_toggle: ($('setHkFull') as HTMLInputElement).value,
         mute_toggle: ($('setHkMute') as HTMLInputElement).value,
         screenshot: ($('setHkShot') as HTMLInputElement).value,
-      },
-      overlay: Object.assign({}, savedOverlay, { subtitle_enabled: ($('setSubtitleEnabled') as HTMLInputElement).checked }),
-      textractor: {
-        host_dir: ($('setHostDir') as HTMLInputElement).value.trim(),
-        codepage: parseInt(($('setTextCodepage') as HTMLInputElement).value, 10) || 0,
-      },
-      translate: {
-        engine: 'ai',
-        ai: {
-          base_url: ($('setAiBaseUrl') as HTMLInputElement).value.trim(),
-          api_key: ($('setAiApiKey') as HTMLInputElement).value.trim(),
-          model: ($('setAiModel') as HTMLInputElement).value.trim() || 'deepseek-chat',
-        },
-        source_lang: ($('setSrcLang') as HTMLSelectElement).value,
-        target_lang: ($('setDstLang') as HTMLSelectElement).value,
-      },
-      clean: {
-        ai_assist_enabled: ($('setAiClean') as HTMLInputElement).checked,
-        ai_assist_threshold: ($('setAiCleanTh') as HTMLSelectElement).value,
       },
     };
     bridge.saveConfigs(JSON.stringify(data));
@@ -243,30 +180,11 @@
       $('set-' + item.dataset.tab).style.display = 'block';
       // 记录当前 tab（阶段 E：下次打开停留在上次位置）
       try { localStorage.setItem('settings_tab', item.dataset.tab!); } catch (err) { }
-      // 离开字幕 tab 时隐藏预览字幕（预览随字幕界面切换而消失）
-      if (item.dataset.tab !== 'subtitle' && bridge && bridge.hideSubtitle) bridge.hideSubtitle();
-      // 字幕 tab 激活时加载样式（实时生效区，无需点保存）
-      if (item.dataset.tab === 'subtitle' && window.SubtitleStyle) window.SubtitleStyle.load();
     });
 
     $('setClose').onclick = close;
     $('setCancel').onclick = close;
     $('setSave').onclick = save;
-    // 「显示字幕」开关：实时下发 C++ overlay（游戏运行中立即生效），并持久化
-    ($('setSubtitleEnabled') as HTMLInputElement).addEventListener('change', function () {
-      if (bridge.setSubtitleEnabled) bridge.setSubtitleEnabled(($('setSubtitleEnabled') as HTMLInputElement).checked);
-    });
-    // 翻译测试（用已保存配置；未保存时先点保存）
-    ($('setTransTest')).onclick = function () {
-      const resEl = $('setTransTestRes');
-      resEl.textContent = '测试中…（使用已保存配置）';
-      bridge.testTranslation('こんにちは、世界', function (s: unknown) {
-        try {
-          const r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string };
-          resEl.textContent = r.ok ? ('✓ ' + r.msg) : ('✗ ' + r.msg);
-        } catch (e) { resEl.textContent = '✗ 测试失败'; }
-      });
-    };
     ($('setReset')).onclick = function () {
       if (!bridge) return;
       bridge.resetConfig();

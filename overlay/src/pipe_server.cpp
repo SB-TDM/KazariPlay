@@ -71,7 +71,7 @@ void PipeServer::stop() {
 
 void PipeServer::loop() {
     // 统一长连接：唯一客户端是 Python（KazariPlay 主程序）。
-    // Python 保持一条双工连接：写命令 + 读回传（stable_text/hook_candidates/hook_error）。
+    // Python 保持一条双工连接，复用截图提示命令与连接生命周期。
     //
     // ⚠️ 必须用 FILE_FLAG_OVERLAPPED + 重叠 ReadFile：
     //   同步（阻塞）ReadFile 挂起时会阻塞同一句柄上后续的 WriteFile

@@ -13,6 +13,7 @@ kazari_play/data/
 screenshots/
 overlay/bin/
 overlay/bin32/
+overlay/build/
 *.obj
 *.pdb
 

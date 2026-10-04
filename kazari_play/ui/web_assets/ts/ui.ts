@@ -58,9 +58,8 @@ function closeSheet(id: string, instant?: boolean): void {
   if (id === 'detailOverlay') setActiveCard(null);
 }
 
-// 点击遮罩关闭（Hook 选择弹窗除外：误关后只能重启游戏才能再选）
+// 点击遮罩关闭。
 document.querySelectorAll('.overlay').forEach(o => {
-  if (o.id === 'hookSelectOverlay') return;
   o.addEventListener('click', e => { if (e.target === o) closeSheet(o.id); });
 });
 

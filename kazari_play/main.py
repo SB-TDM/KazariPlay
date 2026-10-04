@@ -65,14 +65,11 @@ _JS_MANIFEST = [
     "games.js",        # 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态
     "cards.js",        # 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单
     "detail.js",       # 详情底部抽屉
-    "detail_translate.js",  # 详情内 Hook 实时翻译行 + 每游戏清洗配置
     "screenshots.js",  # 截图卡片 / 预览 / 右键管理
     "collections.js",  # 收藏夹树 / 收藏夹管理抽屉
     "manage_games.js", # 管理游戏对话框（批量勾选收藏夹内游戏）
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
-    "hook_select.js",  # Hook 点选择弹窗（V1.1，依赖 core/ui）
-    "subtitle_style.js",  # 字幕样式控制面板（设置页「字幕」tab）
     "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
 ]
@@ -84,7 +81,6 @@ _PARTIAL_MANIFEST = [
     "collections.html", # 收藏夹管理 + 管理游戏对话框
     "form.html",        # 编辑 / 添加表单
     "settings.html",    # 设置窗口
-    "hook_select.html", # Hook 选择对话框
     "relocate.html",    # 批量重新定位预览对话框
     "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）
 ]

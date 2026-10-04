@@ -1,6 +1,6 @@
 # 前端模块说明（web_assets）
 
-> **TS 迁移已完成**：全部 17 个模块源码在 `ts/`（TypeScript），`js/` 下同名文件为
+> **原版前端**：全部 14 个运行模块源码在 `ts/`（TypeScript），`js/` 下同名文件为
 > `npm run build` 编译产物。迁移历史见 `docs/CHANGELOG.md`，当前文档索引见 `docs/README.md`；
 > `_JS_MANIFEST` 只按文件名加载，main.py 无需改动。
 
@@ -57,7 +57,6 @@ npm run typecheck  # 只做类型检查，不产出文件
 | `form.css` | 编辑 / 添加表单 / 选择面板 / 元数据候选 / 校验 |
 | `settings.css` | 设置窗口（居中模态） |
 | `sources.css` | 多源元数据 / 自定义复选框（Kawaii 方块） |
-| `hook.css` | Hook 选择 / 翻译卡片 |
 
 ## JS 模块（ts/ 源 → js/ 产物）
 
@@ -73,15 +72,12 @@ npm run typecheck  # 只做类型检查，不产出文件
 | `ts/games.ts` | 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态 | `refreshAll` `renderAll` `filterGames` `markRunning` `toggleSelect` `setActiveCard` `renderEmpty` |
 | `ts/cards.ts` | 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单 | `buildCard` `renderCards` `openCardMenu` |
 | `ts/detail.ts` | 详情底部抽屉（展示 / 评分 / 收藏） | `openDetail` `refreshDetail` `initRateEdit` |
-| `ts/detail_translate.ts` | 详情内 Hook 实时翻译行 + 每游戏清洗配置 | `renderTransRow` `loadCleanCfg` `saveCleanCfg` |
 | `ts/screenshots.ts` | 截图卡片 / 预览 / 右键管理 / 截图后定向刷新 | `renderScreenshots` `refreshScreenshots` `openShotPreview` `showShotMenu` |
 | `ts/collections.ts` | 收藏夹树 / 收藏夹管理抽屉 | `renderCollectionTree` `selectCollection` `openCollectionManager` |
 | `ts/manage_games.ts` | 管理游戏对话框（批量勾选收藏夹内游戏） | `openManageGames` `renderManageGames` `saveManageGames` |
 | `ts/batch.ts` | 批量选择模式 | `updateBatchBar` `batchPickCollection` |
 | `ts/form.ts` | 编辑 / 添加表单 + 元数据候选 | `openEdit` `openAdd` `saveForm` `renderCandidates` |
-| `ts/hook_select.ts` | Hook 点选择弹窗（自包含 IIFE） | `window.HookSelect` |
-| `ts/subtitle_style.ts` | 字幕样式控制面板（设置页「字幕」tab，自包含 IIFE） | `window.SubtitleStyle` |
-| `ts/settings.ts` | 设置窗口（自包含 IIFE） | `window.Settings` `window.CLEAN_FILTER_DEFS` |
+| `ts/settings.ts` | 设置窗口（自包含 IIFE） | `window.Settings` |
 | `ts/app.ts` | 启动引导（最后加载，只做粘合） | `init` `bindFilterMenu` |
 
 > 类型契约：`ts/pywebview.d.ts`（bridge 全 API）、`ts/globals.d.ts`（跨文件全局类型）。

@@ -31,6 +31,10 @@ class GameRepository:
             game.date_added = datetime.now().isoformat()
 
         data = game.to_dict()
+        existing = self.get_by_path(game.exe_path) or self.get_by_id(game.id)
+        if existing:
+            for key in ("hook_code", "hook_code_custom", "translate_enabled", "clean_filter_override"):
+                data[key] = existing.to_dict()[key]
         sql = """
             INSERT OR REPLACE INTO games
             (id, title, exe_path, folder, cover_path, engine, identity, tags,
@@ -169,9 +173,7 @@ class GameRepository:
                cover_path = ?, logo_path = ?, description = ?,
                launch_exe_path = ?, exe_path = ?, folder = ?,
                vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
-               category_id = ?, rating = ?,
-               hook_code = ?, hook_code_custom = ?, translate_enabled = ?,
-               clean_filter_override = ?
+               category_id = ?, rating = ?
                WHERE id = ?""",
             (game.title, game.engine or "", "",
              game.cover_path or "", game.logo_path or "",
@@ -180,31 +182,7 @@ class GameRepository:
              game.vndb_id or "", game.released or "",
              game.developer or "", game.length_minutes or 0,
              game.category_id or 0, game.rating or 0,
-             game.hook_code or "", game.hook_code_custom or "",
-             1 if game.translate_enabled else 0,
-             game.clean_filter_override or "",
              game.id)
-        )
-
-    def update_hook_code(self, game_id: str, hook_code: str) -> bool:
-        """保存选定的 HookCode（持久化，重启游戏无需重新选择）"""
-        return self.db.execute(
-            "UPDATE games SET hook_code = ? WHERE id = ?",
-            (hook_code or "", game_id)
-        )
-
-    def set_translate_enabled(self, game_id: str, enabled: bool) -> bool:
-        """设置游戏翻译开关"""
-        return self.db.execute(
-            "UPDATE games SET translate_enabled = ? WHERE id = ?",
-            (1 if enabled else 0, game_id)
-        )
-
-    def update_clean_filter_override(self, game_id: str, override: str) -> bool:
-        """保存该游戏的清洗过滤器覆盖（JSON 数组字符串，空 = 引擎默认）"""
-        return self.db.execute(
-            "UPDATE games SET clean_filter_override = ? WHERE id = ?",
-            (override or "", game_id)
         )
 
     def record_play(self, game_id: str):

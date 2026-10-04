@@ -30,9 +30,6 @@ class GameManager:
         # 注入进程检测回调，供 record_play 判断游戏是否仍在运行
         self.repository.set_process_checker(self.launcher.is_running)
         self.monitor = GameMonitor(self.repository, self.launcher)
-        # 游戏退出（自然退出或换游戏）时停止 Hook 翻译会话
-        self.monitor.register_callback(
-            "on_exit", lambda *a: self.launcher.stop_translation())
         # 游戏退出时记录"最后游玩时间"（进程已结束，正常写入）
         self.monitor.register_callback(
             "on_exit", lambda game_id, runtime: self.repository.record_play(game_id))

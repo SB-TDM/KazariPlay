@@ -1,12 +1,4 @@
-"""C++ overlay 命名管道客户端 - 驱动游戏内截图 toast 与 Hook 实时翻译
-
-统一长连接（见计划书 3.4 / 3.8）：
-- 所有消息（show/hide/quit + start_hook/stop_hook/subtitle/select_hook）走同一条
-  双工管道（\\.\pipe\KazariPlayOverlay_{pid}）；
-- 读线程常驻：只解析 + 分发，回调必须快速返回（on_stable_text 只入队，
-  翻译由 SubtitleCoordinator 的 worker 消费）；
-- 任何失败均静默降级，不影响截图/主功能。
-"""
+"""截图 toast 的 C++ Overlay 客户端，命名管道失败时不影响截图保存。"""
 import ctypes
 import json
 import os
@@ -49,9 +41,7 @@ class _OVERLAPPED(ctypes.Structure):
 class OverlayClient:
     """命名管道客户端（统一长连接，overlay.exe 进程常驻）
 
-    单例：SubtitleCoordinator（翻译）与 WebBridge（截图 toast）必须共用
-    同一实例——C++ PipeServer 是单实例管道，两个客户端各自建连会互相
-    抢占（第二个连接失败，toast/命令静默丢失）。
+    单实例管道由一个客户端持有，截图提示复用同一进程与连接。
     """
     _instance = None
     _instance_lock = threading.Lock()
@@ -75,12 +65,6 @@ class OverlayClient:
         self._read_thread = None
         self._stop_read = threading.Event()
         self._exe_is_x64 = True   # 当前 overlay 进程位数（x64=bin/，x86=bin32/）
-        # 回调（读线程触发，必须快速返回）
-        self.on_candidates = None       # (list)
-        self.on_error = None            # (msg)
-        self.on_test_translate_result = None   # (ok, result, error)
-        self.on_filter_config = None    # (list) 过滤器配置回传
-        self.on_subtitle_pos = None     # (x_pct, y_pct) 字幕拖拽结束回传位置
 
     @property
     def pipe_path(self) -> str:
@@ -199,11 +183,7 @@ class OverlayClient:
         return None
 
     def _read_loop(self):
-        """读线程：持续读 C++ 回传（只解析 + 分发，禁止耗时操作）
-
-        重叠 ReadFile：阻塞读挂起时不会阻塞同一句柄上其他线程的 WriteFile
-        （见计划书 3.8 —— 读线程只分发、翻译移出，且句柄为重叠模式）。
-        """
+        """保持双工连接并检测服务端断开；原版没有字幕回传命令。"""
         kernel32 = ctypes.windll.kernel32
         kernel32.ReadFile.argtypes = [
             wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
@@ -240,35 +220,10 @@ class OverlayClient:
                     break
             elif read.value == 0:
                 break
-            try:
-                msg = json.loads(buf.raw[:read.value].decode("utf-8", errors="replace"))
-            except Exception:
-                continue
-            self._dispatch(msg)
         # 清理句柄
         if self._pipe_handle:
             kernel32.CloseHandle(self._pipe_handle)
             self._pipe_handle = None
-
-    def _dispatch(self, msg: dict):
-        """分发 C++ 回传消息（读线程执行，回调必须快速返回）"""
-        t = msg.get("type")
-        if t == "hook_candidates" and self.on_candidates:
-            self.on_candidates(msg.get("list", []))
-        elif t == "hook_error":
-            logger.error("Hook 错误: %s", msg.get("msg"))
-            if self.on_error:
-                self.on_error(msg.get("msg", ""))
-        elif t == "test_translate_result" and self.on_test_translate_result:
-            self.on_test_translate_result(bool(msg.get("ok")),
-                                          msg.get("result", "") or "",
-                                          msg.get("error", "") or "")
-        elif t == "filter_config_response" and self.on_filter_config:
-            self.on_filter_config(msg.get("filters", []) or [])
-        elif t == "subtitle_pos":
-            if self.on_subtitle_pos:
-                self.on_subtitle_pos(float(msg.get("x", 0.5)),
-                                     float(msg.get("y", 0.8)))
 
     def _raw_write(self, data: bytes) -> bool:
         """重叠写（不自启动进程、不加锁；供 _send_long 与 _quit_current 复用）"""
@@ -344,88 +299,3 @@ class OverlayClient:
                 return False
             self._quit_current()
             return True
-
-    # ---------- Hook 翻译命令 ----------
-
-    def send_start_hook(self, pid: int, is_x64: bool,
-                        hook_code: str = "", engine: str = "",
-                        codepage: int = 0, ai_config: dict = None,
-                        ai_clean_mode: int = 0) -> bool:
-        """启动 Hook 会话，并传 AI 翻译配置（翻译在 C++ 内部执行）"""
-        ai = ai_config or {}
-        return self._send_long({
-            "type": "start_hook",
-            "pid": pid,
-            "is_x64": is_x64,
-            "hook_code": hook_code or "",
-            "engine": engine or "",
-            "codepage": int(codepage or 0),
-            "ai_base_url": ai.get("base_url", "") or "",
-            "ai_api_key": ai.get("api_key", "") or "",
-            "ai_model": ai.get("model", "") or "",
-            "src_lang": ai.get("source_lang", "") or "",
-            "dst_lang": ai.get("target_lang", "") or "",
-            "ai_clean_mode": int(ai_clean_mode or 0),
-        }, is_x64=is_x64)
-
-    def send_stop_hook(self) -> bool:
-        return self._send_long({"type": "stop_hook"})
-
-    def send_hide_subtitle(self) -> bool:
-        return self._send_long({"type": "hide_subtitle"})
-
-    def send_set_subtitle_enabled(self, enabled: bool) -> bool:
-        """设置实时翻译开关（关闭时 C++ 隐藏字幕并停止显示）"""
-        return self._send_long({
-            "type": "set_subtitle_enabled",
-            "enabled": bool(enabled),
-        })
-
-    def send_subtitle_style(self, style: dict) -> bool:
-        """下发字幕样式到 C++（游戏运行中实时重绘字幕；未运行则仅保存配置）"""
-        return self._send_long({
-            "type": "set_subtitle_style",
-            "style": style or {},
-        })
-
-    def send_subtitle_drag(self, drag: bool) -> bool:
-        """进入/退出字幕拖拽定位模式（拖拽结束经 on_subtitle_pos 回传位置）"""
-        return self._send_long({
-            "type": "set_subtitle_drag",
-            "drag": bool(drag),
-        })
-
-    def send_preview_subtitle(self) -> bool:
-        """显示示例字幕（控制面板实时预览用，不依赖游戏运行）"""
-        return self._send_long({"type": "preview_subtitle"})
-
-    def send_test_translate(self, text: str, ai_config: dict = None) -> bool:
-        """设置页测试翻译：C++ 同步调用 AI，结果经 test_translate_result 回传"""
-        ai = ai_config or {}
-        return self._send_long({
-            "type": "test_translate",
-            "text": text or "",
-            "ai_base_url": ai.get("base_url", "") or "",
-            "ai_api_key": ai.get("api_key", "") or "",
-            "ai_model": ai.get("model", "") or "",
-            "src_lang": ai.get("source_lang", "") or "",
-            "dst_lang": ai.get("target_lang", "") or "",
-        })
-
-    def send_select_hook(self, handle: int, hook_code: str = "") -> bool:
-        return self._send_long({
-            "type": "select_hook",
-            "handle": handle,
-            "hook_code": hook_code or "",
-        })
-
-    def send_update_filter_config(self, filters: list) -> bool:
-        """下发清洗过滤器配置到 C++（游戏运行中实时生效）"""
-        return self._send_long({
-            "type": "update_filter_config",
-            "filters": filters or [],
-        })
-
-    def send_query_filter_config(self) -> bool:
-        """查询 C++ 当前清洗过滤器配置（结果经 on_filter_config 回传）"""
-        return self._send_long({"type": "query_filter_config"})

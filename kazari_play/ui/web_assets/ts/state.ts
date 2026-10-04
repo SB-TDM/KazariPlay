@@ -39,8 +39,6 @@ interface Game {
   cover_url: string;
   has_cover: boolean;
   cover_version: number;
-  translate_enabled: boolean;
-  has_hook_code: boolean;
 }
 
 /** 收藏夹树节点（后端 getCollectionsTree 返回） */

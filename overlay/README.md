@@ -1,6 +1,8 @@
-# KazariPlay Overlay（C++）
+# KazariPlay 截图 Overlay（C++，原版）
 
 游戏内截图成功提示的独立置顶透明窗口，替代原先的 pywebview overlay。
+
+`main` / `develop` 仅编译截图 toast。字幕、Hook、AI 和 Textractor 均保留在 `feature/hook-translation`，原版无需对应 DLL/LIB。
 
 - 形态：独立 C++ 进程，通过**命名管道**接收 KazariPlay 主程序（Python）消息
 - 绘制：Direct2D + DirectWrite（圆角卡片 + 缩略图 + 中文文字）
@@ -13,6 +15,7 @@
 ```bat
 cd overlay
 build.bat
+build32.bat
 ```
 
 或使用 CMake：
@@ -22,7 +25,7 @@ cmake -B build -A x64
 cmake --build build --config Release
 ```
 
-产物：`overlay/bin/overlay.exe`
+产物：x64 为 `overlay/bin/overlay.exe`，x86 为 `overlay/bin32/overlay.exe`。CMake 根据目标架构选择相同目录。不要复制实验分支的 EXE/DLL 作为原版产物。
 
 ## 依赖
 

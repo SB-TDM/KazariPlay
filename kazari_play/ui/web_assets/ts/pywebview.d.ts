@@ -32,18 +32,8 @@ interface PyWebViewApi {
 
   // ---- 收藏 / 启动 ----
   toggleFav(game_id: string): Promise<unknown>;
-  /** { ok, need_hook_select } */
+  /** { ok } */
   launch(game_id: string): Promise<string>;
-  /** { list, error } */
-  getHookCandidates(): Promise<string>;
-  selectHook(game_id: string, handle: number, hook_code: string): Promise<boolean>;
-  clearHookCode(game_id: string): Promise<boolean>;
-  toggleGameTranslation(game_id: string, enabled: boolean): Promise<boolean>;
-  /** 测试翻译：返回译文文本 */
-  testTranslation(text?: string): Promise<string>;
-  /** 每游戏清洗配置 JSON */
-  getCleanFilterConfig(game_id: string): Promise<string>;
-  setCleanFilterConfig(game_id: string, filters_json: string): Promise<boolean>;
   openFolder(game_id: string): Promise<unknown>;
   deleteGame(game_id: string): Promise<unknown>;
 
@@ -114,17 +104,6 @@ interface PyWebViewApi {
   // ---- 通用后端事件 ----
   refresh(): Promise<unknown>;
   notify(msg: string): Promise<unknown>;
-
-  // ---- 字幕样式 ----
-  getSubtitleStyle(): Promise<string>;
-  setSubtitleStyle(style_json: string): Promise<unknown>;
-  previewSubtitle(): Promise<unknown>;
-  setSubtitleDrag(drag: boolean): Promise<unknown>;
-  hideSubtitle(): Promise<unknown>;
-  setSubtitleEnabled(enabled: boolean): Promise<unknown>;
-  getSubtitleStylePresets(): Promise<string>;
-  saveSubtitlePreset(name: string, style_json: string): Promise<string>;
-  deleteSubtitlePreset(name: string): Promise<string>;
 
   // ---- 通用通知 ----
   reloadCovers(): Promise<unknown>;

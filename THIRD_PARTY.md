@@ -2,15 +2,18 @@
 
 本项目使用了以下开源组件。请遵守各组件各自的许可证条款。
 
-## 需要遵守 GPLv3 的组件
+## 分支范围
+
+本文件描述无翻译原版。原版仍采用 GPL-3.0；移除翻译功能不改变项目现有许可。
+
+以下组件只存在于 `feature/hook-translation` 及历史提交，不在原版源码、构建或打包清单中：
 
 ### Textractor（GPL-3.0）
-- **用途**：`overlay/third_party/textractor/` 的 host 头文件与 `hostlib.lib` 被**静态链接**进 `overlay.exe`，用于 Hook 提取游戏文本。
-- **影响**：根据 GPLv3，`overlay.exe` 属于 Textractor 的衍生作品，`overlay/` 目录下的源码以 GPL-3.0 授权发布。
+- **实验版用途**：host 头文件与 `hostlib.lib` 静态链接进实验版 `overlay.exe`，用于提取文本；原版不使用或分发这些组件。
 - **上游**：https://github.com/Artikash/Textractor
 
 ### LunaTranslator（GPL-3.0）
-- **用途**：本项目 Hook 文本清洗过滤器链（去重字符/行、递增拼接等）的设计参考来源（仅参考设计思路，未复制其代码）。
+- **历史用途**：实验版文本清洗过滤器的设计参考来源；原版没有过滤器链。
 - **上游**：https://github.com/HIllya51/LunaTranslator
 
 ## 宽松许可组件（不传染本项目）

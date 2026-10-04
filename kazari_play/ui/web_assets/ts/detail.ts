@@ -3,7 +3,6 @@
 // 依赖：state.ts / core.ts（loadCoverTo/toast/chipColor/esc）/ ui.ts（showSheet/closeSheet/
 //       showConfirmDialog）/ games.ts（setActiveCard/markRunning）/
 //       screenshots.ts（renderScreenshots）/ collections.ts（openCollectionManager）/
-//       detail_translate.ts（renderTransRow）
 // 定义：openDetail / refreshDetail / renderInfoBar / initRateEdit /
 //       collectionPath / renderDetailTags / updateFavBtn + 详情事件绑定
 // ============================================================
@@ -47,7 +46,6 @@ function refreshDetail(): void {
   const rate = document.querySelector('.rate-edit') as HTMLElement | null;
   if (rate) { rate.dataset.r = String(App.data.currentGame.rating); initRateEdit(); }
   markRunning();
-  renderTransRow();
 }
 
 // 详情信息栏（开发商/引擎/发售日/游玩时长/上次游玩/评分）
