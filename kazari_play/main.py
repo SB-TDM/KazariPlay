@@ -1,4 +1,4 @@
-"""KazariPlay V1.3 - 视觉小说启动器 GUI 入口（pywebview）
+"""KazariPlay - 视觉小说启动器 GUI 入口（pywebview）
 
 Copyright (C) 2026 KazariPlay 贡献者
 
@@ -29,6 +29,7 @@ import re
 import sys
 import ctypes
 import threading
+from html import escape
 
 import webview
 
@@ -36,6 +37,7 @@ from core.game_manager import GameManager
 from ui.web_bridge import WebBridge
 from utils.config import Config
 from utils.logger import get_logger, set_level
+from version import DISPLAY_VERSION, PRODUCT_LINE, WINDOW_TITLE
 
 logger = get_logger()
 
@@ -132,6 +134,9 @@ def _load_html() -> str:
                             f'<div class="logo">{img}</div>')
         html = html.replace('<div class="a-logo">☺</div>',
                             f'<div class="a-logo">{img}</div>')
+    html = html.replace("{{APP_VERSION}}", escape(DISPLAY_VERSION))
+    html = html.replace("{{PRODUCT_LINE}}", escape(PRODUCT_LINE))
+    html = html.replace("{{APP_TITLE}}", escape(WINDOW_TITLE))
     return html
 
 
@@ -237,7 +242,7 @@ def main():
         "--renderer-process-limit=1 "
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreen"
     )
-    logger.info("启动 KazariPlay (pywebview)")
+    logger.info("启动 KazariPlay %s (%s, pywebview)", DISPLAY_VERSION, PRODUCT_LINE)
 
     manager = GameManager()
     bridge = WebBridge(manager)
@@ -247,7 +252,7 @@ def main():
     sw, sh = _screen_size()
     w, h = int(sw * 0.82), int(sh * 0.82)
     win = webview.create_window(
-        "KazariPlay",
+        WINDOW_TITLE,
         html=_load_html(),
         js_api=bridge,
         frameless=True,

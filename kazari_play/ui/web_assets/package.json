@@ -1,7 +1,7 @@
 {
   "name": "kazariplay-webassets",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.4.0-beta.1",
   "description": "KazariPlay 前端资源（TS 渐进迁移工具链）",
   "scripts": {
     "build": "tsc",

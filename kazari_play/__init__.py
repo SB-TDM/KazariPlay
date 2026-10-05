@@ -1,1 +1,1 @@
-﻿# KazariPlay V1.0 - 视觉小说启动器
+﻿from .version import VERSION as __version__

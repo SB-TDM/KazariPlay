@@ -23,6 +23,7 @@ from ui.sync import UISync
 from utils.config import Config
 from utils.path_utils import get_app_data_dir
 from utils.logger import get_logger
+from version import WINDOW_TITLE
 
 logger = get_logger()
 
@@ -1288,7 +1289,7 @@ class WebBridge:
             return 0
         try:
             import ctypes
-            return ctypes.windll.user32.FindWindowW(None, "KazariPlay")
+            return ctypes.windll.user32.FindWindowW(None, WINDOW_TITLE)
         except Exception:
             return 0
 

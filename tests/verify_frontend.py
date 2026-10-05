@@ -9,13 +9,16 @@
     python tests/verify_frontend.py
 """
 import os
+import json
 import re
 import sys
+from html import escape
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "kazari_play"))
 
 import main  # noqa: E402
+from version import DISPLAY_VERSION, VERSION, WINDOW_TITLE
 
 
 def run():
@@ -23,11 +26,25 @@ def run():
     html = main._load_html()
 
     # ---------- 1. 占位符 / 外链残留 ----------
-    for marker in ("<!-- PARTIALS -->", "<!-- SCRIPTS -->", 'src="js/', 'href="css/'):
+    for marker in ("<!-- PARTIALS -->", "<!-- SCRIPTS -->", 'src="js/', 'href="css/',
+                   "{{APP_VERSION}}", "{{PRODUCT_LINE}}", "{{APP_TITLE}}"):
         if marker in html:
             errors.append(f"残留标记: {marker}")
     if '<link rel="stylesheet"' in html:
         errors.append("css 未内联")
+    if f"<title>{escape(WINDOW_TITLE)}</title>" not in html:
+        errors.append("窗口标题与版本来源不一致")
+    if f'版本 {escape(DISPLAY_VERSION)}' not in html:
+        errors.append("关于页与版本来源不一致")
+    assets = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "kazari_play", "ui", "web_assets")
+    with open(os.path.join(assets, "package.json"), encoding="utf-8") as stream:
+        package = json.load(stream)
+    with open(os.path.join(assets, "package-lock.json"), encoding="utf-8") as stream:
+        lock = json.load(stream)
+    if any(value != VERSION for value in (package["version"], lock["version"],
+                                         lock["packages"][""]["version"])):
+        errors.append("前端构建元数据与版本来源不一致")
     if '<div class="logo">☺</div>' in html or '<div class="a-logo">☺</div>' in html:
         errors.append("图标占位符未替换")
 

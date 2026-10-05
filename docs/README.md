@@ -8,7 +8,7 @@
 
 | 文档 | 用途 |
 |---|---|
-| [README.md](../README.md) | 用户安装、运行、功能和当前版本说明；当前版本为 V1.3 |
+| [README.md](../README.md) | 用户安装、运行、功能和当前版本说明；当前本地版本为 V1.4.0 Beta 1 |
 | [AGENTS.md](../AGENTS.md) | Agent/协作者工作入口、目录约定和验证命令 |
 | [DEV_RULES.md](DEV_RULES.md) | 改代码、打包、提交和用户数据保护约束 |
 | [CHANGELOG.md](CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
@@ -17,6 +17,7 @@
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
 | [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
+| [VERSIONING.md](VERSIONING.md) | 三段式编号、两版预发布标识、唯一版本来源和历史编号映射 |
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 

@@ -1,6 +1,6 @@
 # KazariPlay V1.02 — 舊版翻譯
 
-> **文件狀態：** 本文件保留 V1.02 的功能說明作為參考。現行版本與完整使用說明以 [README.md](README.md) 為準，目前版本為 V1.3。
+> **文件狀態：** 本文件保留 V1.02 的功能說明作為參考。現行版本與完整使用說明以 [README.md](README.md) 為準，目前本機版本為 V1.4.0 Beta 1。
 
 視覺小說（Galgame）本機資料庫啟動器 · **pywebview（系統 WebView）渲染 HTML UI**
 
