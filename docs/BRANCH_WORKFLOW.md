@@ -57,6 +57,19 @@ python tests/smoke_overlay.py
 
 最后两项为原版专用；`smoke_overlay.py` 需先在 `overlay/` 用 `build.bat`/`build32.bat` 构建。实验版继续用自身的翻译测试，测试前隔离本机 API 配置，不调用付费接口进行普通回归。
 
+`build.bat` 与 `build32.bat` 共用当前目录的 OBJ，必须顺序运行；需要并行时分别指定独立中间产物目录。
+
+P1 回归从对应工作区根目录运行：
+
+```powershell
+python -B tests/test_p1_reliability.py
+node tests/test_p1_frontend.cjs
+python -B tests/test_overlay_lifecycle.py
+python -B tests/smoke_screenshots.py
+```
+
+前端回归需先构建 JS，真实管道回归需对应版本的 x64/x86 EXE。实验字幕另运行 `node tests/test_ai_worker.cjs`（MSVC，受控替身，无网络）；`tests/subtitle_revision.cpp` 与 `tests/pipe_lifecycle.cpp` 可用 MSVC 编译验证。
+
 ## 远端边界
 
 2026-10-05 已推送 `main`、`develop`、`feature/hook-translation`，本地分支分别跟踪同名远端分支。原版分离代码已在 `main/develop`，翻译实验版已在对应远端分支。
@@ -67,7 +80,9 @@ GitHub 默认分支仍为 `master`：本机 `gh` 未登录，修改仓库设置�
 
 ## 当前实施与验证
 
-含翻译初始基线保存为 `df48607`，历史和旧标签不重写。2026-10-05 公共 P0 修复已在本地 `develop` 集成为 `f113656`，选择性同步到实验分支；实验另有 Hook PID 专属修复。`main` 仍保留之前的稳定基线，本轮未推送，正式发布仍需验收剩余 P1/P2。
+含翻译初始基线保存为 `df48607`，历史和旧标签不重写。2026-10-05 公共 P0/P1 已集成到本地 `develop`，选择性同步实验分支；实验另有 Hook PID 和字幕异步专属修复。代码提交映射与详细结果以 [开发待办](DEVELOPMENT_BACKLOG.md) 为准。
+
+本轮未推送：本地 `main` 与 `origin/main`、`origin/develop` 仍为 `d0232a6`，`origin/feature/hook-translation` 为 `5aed7bc`；这些是本地跟踪引用记录，不表示 P0/P1 已发布。`fix/p1-reliability` 和两个 worktree 保留。
 
 已通过：TypeScript 检查与构建、Python 语法、前端组装、扫描、多源、缓存、缩略图、UI Sync、收藏夹迁移，以及 4 项无翻译边界/兼容测试；MSVC x64/x86 截图 Overlay 均编译成功。
 
@@ -76,3 +91,5 @@ GitHub 默认分支仍为 `master`：本机 `gh` 未登录，修改仓库设置�
 截图服务回归通过原图与缩略图保存、列表、重命名、删除和路径边界，本轮 WGC 探测实际取得 2560x1440 帧。未验证真实游戏 Hook、付费 API、独占全屏和多显示器；普通窗口采集成功不等于独占全屏已实测。
 
 P0 增量验证：9 项写入/取消测试、10 项进程测试、前端字符串 ID/新增协议/失败状态探针，以及两版源码 UI 新增/编辑/删除通过。实验 Hook 目标、位数与取消的 5 项接线回归和离线翻译冒烟已通过；真实 Textractor 注入未验证。
+
+P1 增量验证：两版 18 项数据/任务回归、Node 截图/进度隔离和源码 GUI 重新定位/同名截图通过；原版 x64/x86 toast、真实管道重连/架构切换/句柄计数和 C++ 挂起 I/O 停止通过。实验在临时目录完整构建 x64/x86，序号和真实 worker 的阻塞结果测试、临时 EXE 生命周期通过；原有实验 `bin/bin32` 未覆盖，普通启动不会自动使用临时产物。仍需真实游戏、AI 服务、独占全屏及多显示器验收，P2 尚未处理。

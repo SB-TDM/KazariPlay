@@ -27,6 +27,8 @@ cmake --build build --config Release
 
 产物：x64 为 `overlay/bin/overlay.exe`，x86 为 `overlay/bin32/overlay.exe`。CMake 根据目标架构选择相同目录。不要复制实验分支的 EXE/DLL 作为原版产物。
 
+`build.bat` 与 `build32.bat` 共用当前目录的 OBJ，必须顺序运行，避免架构混编或文件占用。P1 管道与 toast 验证入口见 [分支流程](../docs/BRANCH_WORKFLOW.md)。
+
 ## 依赖
 
 - `third_party/json.hpp`（nlohmann/json 单头文件，已随项目分发）
