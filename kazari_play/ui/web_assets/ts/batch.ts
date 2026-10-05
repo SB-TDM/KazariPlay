@@ -46,6 +46,7 @@ function batchPickCollection(mode: 'add' | 'remove' | 'move'): void {
 
 // ---------- 批量进度条（VNDB 批量匹配等耗时操作反馈） ----------
 let bpTimer: ReturnType<typeof setInterval> | null = null;
+let bpGeneration = 0;
 
 function showBatchProgress(title: string): void {
   // 取消扫描进度的延迟隐藏，避免刚显示就被扫描结束的定时器收起
@@ -58,6 +59,7 @@ function showBatchProgress(title: string): void {
 }
 
 function hideBatchProgress(): void {
+  bpGeneration++;
   if (bpTimer) { clearInterval(bpTimer); bpTimer = null; }
   const box = document.getElementById('batchProgress');
   if (box) box.classList.remove('show');
@@ -66,6 +68,7 @@ function hideBatchProgress(): void {
 // 轮询后端批量任务进度；完成（running=false）时收起并提示
 function trackBatchProgress(title: string): void {
   hideBatchProgress();
+  const generation = bpGeneration;
   showBatchProgress(title);
   const box = document.getElementById('batchProgress');
   if (!box) return;
@@ -77,6 +80,7 @@ function trackBatchProgress(title: string): void {
   if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; }
   bpTimer = setInterval(function () {
     bridge.getBatchProgress(function (s: unknown) {
+      if (generation !== bpGeneration) return;
       let p: BatchProgress = {};
       try { p = JSON.parse(String(s || '{}')) as BatchProgress; } catch (e) { }
       if (!p || !p.running) {
@@ -120,6 +124,8 @@ function updateScanProgress(p: ScanProgress): void {
     }, 800);
     return;
   }
+  if (scanHideTimer) { clearTimeout(scanHideTimer); scanHideTimer = null; }
+  if (bpTimer) hideBatchProgress();
   const games = p.games || 0;
   const pct = Math.min(95, Math.round(95 * games / (games + 20)));
   document.getElementById('bpTitle')!.textContent = '扫描游戏文件夹…';

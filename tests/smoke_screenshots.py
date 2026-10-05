@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import shutil
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "kazari_play"))
@@ -63,8 +64,6 @@ def test_core():
     # 5. WGC 捕获（有显示环境时验证核心路径；库缺失时静默降级不报错）
     _wgc_probe()
 
-    # 清理
-    shutil.rmtree(_tmp_root, ignore_errors=True)
     print("SHOT TEST PASS")
 
 
@@ -112,4 +111,9 @@ def _wgc_probe():
 
 
 if __name__ == "__main__":
-    test_core()
+    try:
+        with patch.object(pu, "get_screenshots_dir", return_value=_tmp_root), \
+                patch.object(screenshot_service, "get_screenshots_dir", return_value=_tmp_root):
+            test_core()
+    finally:
+        shutil.rmtree(_tmp_root, ignore_errors=True)
