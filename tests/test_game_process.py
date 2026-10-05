@@ -73,6 +73,14 @@ class ProcessTests(unittest.TestCase):
         launcher, _ = self.fixture_launcher()
         self.assertIsNone(launcher.wait_for_game_pid())
 
+    def test_missing_creation_time_is_not_a_ready_target(self):
+        launcher, _ = self.fixture_launcher()
+        launcher._target_ready = True
+        launcher._game_creation_time = None
+        with patch.object(module, "_is_process_alive", return_value=True), \
+             patch.object(module, "_process_creation_time", return_value=None):
+            self.assertIsNone(launcher.wait_for_game_pid())
+
     def test_close_failure_retains_game_state(self):
         launcher, parent = self.fixture_launcher()
         with patch.object(module, "_is_process_alive", return_value=True), \

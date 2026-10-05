@@ -406,7 +406,8 @@ class GameLauncher:
         if stop_event.is_set() or self.current_process is not process or not self._target_ready:
             return None
         pid = self.get_game_pid()
-        if pid and _is_process_alive(pid) and _process_creation_time(pid) == self._game_creation_time:
+        if (pid and self._game_creation_time is not None and _is_process_alive(pid)
+                and _process_creation_time(pid) == self._game_creation_time):
             return pid
         return None
     
