@@ -42,4 +42,4 @@
 
 ## 当前验证边界
 
-P0/P1 已集成到本地原版 `develop`，公共修复选择性同步实验版；两版数据、前端、源码 GUI、x64/x86 构建和管道回归通过。P2 的 AI JSON/HTTPS/日志修复只在实验版，x64/x86 受控请求、日志隐私及源码 GUI HTTPS 拒绝通过。旧实验 EXE/DLL/OBJ 保留，普通启动仍使用旧产物；真实 Hook、TLS/AI 服务、独占全屏和多显示器尚未验收，本轮未推送或更新稳定 `main`。详细结果以 [开发待办](DEVELOPMENT_BACKLOG.md) 为准，运行与同步步骤见 [分支流程](BRANCH_WORKFLOW.md)。
+P0/P1 已集成到本地原版 `develop`，公共修复选择性同步实验版；两版数据、前端、源码 GUI、x64/x86 构建和管道回归通过。P2 与新产物启用只在实验版，默认使用 runtime 双架构 EXE/DLL，受控请求、日志隐私、GUI HTTPS 拒绝、toast/字幕像素和 COM 成对释放回归通过。旧实验 EXE/DLL/OBJ 保留且哈希未变，显式配置仍优先；原版运行目录不变。真实 Hook、TLS/AI 服务、独占全屏、多显示器和实际打包尚未验收，本轮未推送或更新稳定 `main`。详细结果以 [开发待办](DEVELOPMENT_BACKLOG.md) 为准，运行与同步步骤见 [分支流程](BRANCH_WORKFLOW.md)。
