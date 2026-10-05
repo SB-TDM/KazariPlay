@@ -56,7 +56,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 
 ## 当前状态与下一步
 
-- 最新改动见 `docs/CHANGELOG.md`；P0/P1 本地修复与未验收项以 `docs/DEVELOPMENT_BACKLOG.md` 为准
+- 最新改动见 `docs/CHANGELOG.md`；P0/P1/P2 本地修复与未验收项以 `docs/DEVELOPMENT_BACKLOG.md` 为准
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏/忽略项回填
 - 当前版本 V1.3（前端 TS 迁移 / 截图内核 WGC / 扫描去重与体验）
