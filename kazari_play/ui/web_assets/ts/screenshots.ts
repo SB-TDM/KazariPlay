@@ -86,7 +86,7 @@ function renderScreenshots(): void {
           if (!en.isIntersecting) return;
           const item = en.target as HTMLElement;
           shotObserver!.unobserve(item);
-           const gid = item.dataset.gameId || '';
+          const gid = item.dataset.gameId || '';
           const f = item.dataset.shotFile;
           if (!gid || !f) return;
           bridge.getScreenshotThumb(gid, f, function (uri: unknown) {

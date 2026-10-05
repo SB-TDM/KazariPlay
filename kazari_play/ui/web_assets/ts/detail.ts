@@ -138,7 +138,13 @@ document.querySelectorAll<HTMLElement>('#dlgMoreMenu .item').forEach(it => {
     document.getElementById('dlgMoreMenu')!.classList.remove('show');
     if (!App.data.currentGame) return;
     const g = App.data.currentGame;
-    if (it.dataset.act === 'vndb') { bridge.matchVndb(String(g.id)); toast('开始匹配：' + g.title); }
+    if (it.dataset.act === 'vndb') {
+      bridge.matchVndb(String(g.id), function (s: unknown) {
+        let result: { ok?: boolean; msg?: string } = {};
+        try { result = JSON.parse(String(s || '{}')); } catch (e) { }
+        toast(result.ok ? '开始匹配：' + g.title : (result.msg || '匹配未启动'));
+      });
+    }
     else if (it.dataset.act === 'open') bridge.openFolder(String(g.id));
     else showConfirmDialog({
       title: '从库中移除',

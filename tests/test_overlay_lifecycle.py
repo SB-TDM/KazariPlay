@@ -25,9 +25,12 @@ class OverlayLifecycleTests(unittest.TestCase):
     def test_reconnect_switch_and_shutdown_release_reader(self):
         with tempfile.TemporaryDirectory(prefix='kazari-pipe-') as tmp:
             Config._instances.clear()
-            Config(str(Path(tmp) / 'config.json'))
+            cfg = Config(str(Path(tmp) / 'config.json'))
             OverlayClient._instance = None
             client = OverlayClient()
+            verification = os.environ.get('KAZARI_TEST_OVERLAY_DIR')
+            if verification:
+                client._resolve_exe = lambda arch=True: str(Path(verification) / ('experiment_x64' if arch else 'experiment_x86') / 'overlay.exe')
             kernel32 = ctypes.windll.kernel32
             kernel32.GetCurrentProcess.restype = wintypes.HANDLE
             kernel32.GetProcessHandleCount.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]

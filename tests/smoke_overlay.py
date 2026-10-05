@@ -33,6 +33,8 @@ def run(arch):
     if not exe.exists():
         raise RuntimeError("Build Overlay first: " + str(exe))
     user32 = ctypes.windll.user32
+    user32.SetProcessDpiAwarenessContext.argtypes = [wintypes.HANDLE]
+    user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
     user32.CreateWindowExW.argtypes = [wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
                                      wintypes.DWORD, ctypes.c_int, ctypes.c_int, ctypes.c_int,
                                      ctypes.c_int, wintypes.HWND, wintypes.HMENU,

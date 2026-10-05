@@ -225,6 +225,9 @@ class OverlayClient:
 
         ov = _OVERLAPPED()
         ov.hEvent = kernel32.CreateEventW(None, True, False, None)
+        if not ov.hEvent:
+            self._read_failed.set()
+            return
         while not stop_event.is_set():
             kernel32.ResetEvent(ov.hEvent)
             buf = ctypes.create_string_buffer(_READ_BUF)
@@ -272,6 +275,8 @@ class OverlayClient:
         written = wintypes.DWORD(0)
         ov = _OVERLAPPED()
         ov.hEvent = kernel32.CreateEventW(None, True, False, None)
+        if not ov.hEvent:
+            return False
         ok = kernel32.WriteFile(handle, buf, len(data),
                                 ctypes.byref(written), ctypes.byref(ov))
         if not ok:
