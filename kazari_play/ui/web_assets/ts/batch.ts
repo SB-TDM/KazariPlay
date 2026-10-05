@@ -173,9 +173,13 @@ document.getElementById('btnBRem')!.onclick = () => batchPickCollection('remove'
 document.getElementById('btnBMove')!.onclick = () => batchPickCollection('move');
 document.getElementById('btnBVndb')!.onclick = () => {
   if (App.ui.state.selected.size === 0) return;
-  bridge.matchVndbBatch(JSON.stringify([...App.ui.state.selected]));
-  App.ui.state.selected.clear();
-  trackBatchProgress('VNDB 批量匹配中');
+  bridge.matchVndbBatch(JSON.stringify([...App.ui.state.selected]), function (s: unknown) {
+    let result: { ok?: boolean; msg?: string } = {};
+    try { result = JSON.parse(String(s || '{}')); } catch (e) { }
+    if (!result.ok) { toast(result.msg || '匹配未启动'); return; }
+    App.ui.state.selected.clear();
+    trackBatchProgress('VNDB 批量匹配中');
+  });
 };
 
 // ---------- 批量重新定位（选目录 → 按 identity 匹配 → 预览确认）----------
@@ -245,9 +249,18 @@ document.getElementById('relocateOk')!.onclick = () => {
     if (it && it.status === 'matched') mapping.push({ id: it.id, new_exe: it.new_exe });
   });
   if (mapping.length === 0) { toast('没有勾选要应用的项'); return; }
-  bridge.applyRelocate(JSON.stringify(mapping));
-  App.ui.state.selected.clear();
-  closeRelocate();
+  bridge.applyRelocate(JSON.stringify(mapping), function (s: unknown) {
+    let result: { ok?: boolean; updated?: number; failures?: { id: string; msg: string }[] } = {};
+    try { result = JSON.parse(String(s || '{}')); } catch (e) { }
+    if (result.ok) {
+      App.ui.state.selected.clear();
+      closeRelocate();
+    } else {
+      const failures = result.failures || [];
+      document.getElementById('relocateSubText')!.textContent =
+        `已更新 ${result.updated || 0} 个 · ` + (failures.map(f => f.msg).join('；') || '应用失败，请重试');
+    }
+  });
 };
 document.getElementById('btnBDel')!.onclick = () => {
   showConfirmDialog({

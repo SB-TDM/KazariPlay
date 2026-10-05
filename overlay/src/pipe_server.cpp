@@ -1,29 +1,16 @@
 #include "pipe_server.h"
 
-#include <windows.h>
-
-#include <string>
-
 namespace {
-
 std::wstring Utf8ToWide(const std::string& s) {
-    if (s.empty()) {
-        return {};
-    }
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), nullptr, 0);
-    if (n <= 0) {
-        return {};
-    }
-    std::wstring w(static_cast<size_t>(n), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), &w[0], n);
-    return w;
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0);
+    std::wstring out(n, L'\0');
+    if (n) MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), out.data(), n);
+    return out;
+}
 }
 
-}  // namespace
-
 DWORD WINAPI PipeServer::threadProc(LPVOID param) {
-    auto* self = static_cast<PipeServer*>(param);
-    self->loop();
+    static_cast<PipeServer*>(param)->loop();
     return 0;
 }
 
@@ -38,9 +25,7 @@ PipeServer::~PipeServer() {
 }
 
 bool PipeServer::start() {
-    if (m_thread) {
-        return true;
-    }
+    if (m_thread) return true;
     m_stopping = false;
     m_thread = CreateThread(nullptr, 0, threadProc, this, 0, nullptr);
     return m_thread != nullptr;
@@ -48,146 +33,88 @@ bool PipeServer::start() {
 
 void PipeServer::stop() {
     m_stopping = true;
-    // 打断挂起读，让 loop 尽快退出
     EnterCriticalSection(&m_writeCs);
-    if (m_clientPipe) {
-        CancelIoEx(m_clientPipe, nullptr);
-    }
+    if (m_pipe) CancelIoEx(m_pipe, nullptr);
     LeaveCriticalSection(&m_writeCs);
-    // 必须等管道线程退出后再释放 CS/句柄，否则线程会访问已删除的临界区（0xC0000005）
     if (m_thread) {
-        WaitForSingleObject(m_thread, 3000);
+        WaitForSingleObject(m_thread, INFINITE);
         CloseHandle(m_thread);
         m_thread = nullptr;
     }
-    EnterCriticalSection(&m_writeCs);
-    if (m_clientPipe) {
-        DisconnectNamedPipe(m_clientPipe);
-        CloseHandle(m_clientPipe);
-        m_clientPipe = nullptr;
-    }
-    LeaveCriticalSection(&m_writeCs);
 }
 
 void PipeServer::loop() {
-    // 统一长连接：唯一客户端是 Python（KazariPlay 主程序）。
-    // Python 保持一条双工连接，复用截图提示命令与连接生命周期。
-    //
-    // ⚠️ 必须用 FILE_FLAG_OVERLAPPED + 重叠 ReadFile：
-    //   同步（阻塞）ReadFile 挂起时会阻塞同一句柄上后续的 WriteFile
-    //   （sendToClient 由 UI 线程/看门狗线程调用），导致命令与回传互相卡死。
-    const std::wstring fullName = L"\\\\.\\pipe\\" + Utf8ToWide(m_pipeName);
-    char buf[65536];   // 64KB，扛住自动播放/快进的文本突发（原 4096）
+    const auto name = L"\\\\.\\pipe\\" + Utf8ToWide(m_pipeName);
     while (!m_stopping) {
-        HANDLE pipe = CreateNamedPipeW(
-            fullName.c_str(),
-            PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,   // 双向 + 重叠 I/O
-            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
-            1,                                           // 单实例即可
-            65536, 65536, 0, nullptr);
-        if (pipe == INVALID_HANDLE_VALUE) {
-            Sleep(500);
-            continue;
-        }
-
-        // 等待客户端连接（重叠 ConnectNamedPipe）
-        OVERLAPPED ovConnect = {};
-        ovConnect.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        BOOL connected = ConnectNamedPipe(pipe, &ovConnect);
-        if (!connected) {
-            DWORD err = GetLastError();
-            if (err == ERROR_IO_PENDING) {
-                WaitForSingleObject(ovConnect.hEvent, INFINITE);
-            } else if (err != ERROR_PIPE_CONNECTED) {
-                CloseHandle(ovConnect.hEvent);
-                CloseHandle(pipe);
-                Sleep(200);
-                continue;
-            }
-        }
-        CloseHandle(ovConnect.hEvent);
-
-        // 连接建立即持有句柄：Python 命令与 C++ 回传共用这一条连接
+        HANDLE pipe = CreateNamedPipeW(name.c_str(), PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1, 65536, 65536, 0, nullptr);
+        if (pipe == INVALID_HANDLE_VALUE) { Sleep(50); continue; }
         EnterCriticalSection(&m_writeCs);
-        m_clientPipe = pipe;
+        m_pipe = pipe;
         LeaveCriticalSection(&m_writeCs);
-
-        // 重叠读循环：同一挂起读反复等待（200ms 轮询以响应 stop/断线），
-        // 完成后才重新发起下一次读；禁止在挂起时复用 OVERLAPPED 重发读。
-        OVERLAPPED ovRead = {};
-        ovRead.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        bool reading = false;
-        DWORD read = 0;
-        while (!m_stopping) {
-            if (!reading) {
-                ResetEvent(ovRead.hEvent);
-                read = 0;
-                BOOL ok = ReadFile(pipe, buf, sizeof(buf) - 1, &read, &ovRead);
-                if (!ok) {
-                    DWORD err = GetLastError();
-                    if (err != ERROR_IO_PENDING) {
-                        break;   // 硬错误 → 客户端断开
-                    }
-                    reading = true;   // 挂起读已发起，等待其完成
-                } else if (read == 0) {
-                    break;   // 立即完成但无数据 → 断开
-                } else {
-                    // 立即完成且有数据：直接处理
-                    buf[read] = '\0';
-                    if (m_handler) {
-                        m_handler(std::string(buf, read));
-                    }
-                    continue;
-                }
+        OVERLAPPED ov = {};
+        ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        // 不在取消后释放 OVERLAPPED/缓冲区，必须等内核完成此次操作。
+        auto finish = [&](DWORD& bytes) {
+            while (!m_stopping && WaitForSingleObject(ov.hEvent, 50) == WAIT_TIMEOUT) {}
+            if (m_stopping) CancelIoEx(pipe, &ov);
+            return GetOverlappedResult(pipe, &ov, &bytes, TRUE) != FALSE;
+        };
+        DWORD bytes = 0;
+        bool connected = false;
+        if (ov.hEvent && !m_stopping) {
+            connected = ConnectNamedPipe(pipe, &ov) != FALSE;
+            if (!connected) {
+                const auto error = GetLastError();
+                connected = error == ERROR_PIPE_CONNECTED || (error == ERROR_IO_PENDING && finish(bytes));
             }
-            // reading == true：等待同一个挂起读完成
-            DWORD wait = WaitForSingleObject(ovRead.hEvent, 200);
-            if (wait == WAIT_OBJECT_0) {
-                reading = false;
-                if (!GetOverlappedResult(pipe, &ovRead, &read, FALSE) || read == 0) {
-                    break;   // 客户端断开
-                }
-                buf[read] = '\0';
-                if (m_handler) {
-                    m_handler(std::string(buf, read));
-                }
-            } else if (m_stopping) {
-                CancelIoEx(pipe, &ovRead);   // 取消挂起读，让 loop 尽快退出
-                break;
-            }
-            // WAIT_TIMEOUT 且未停止：继续等待同一挂起读
         }
-        CloseHandle(ovRead.hEvent);
-
+        if (connected && !m_stopping) {
+            EnterCriticalSection(&m_writeCs);
+            m_clientPipe = pipe;
+            LeaveCriticalSection(&m_writeCs);
+            char buffer[65536];
+            while (!m_stopping) {
+                ResetEvent(ov.hEvent);
+                bytes = 0;
+                bool ok = ReadFile(pipe, buffer, sizeof(buffer), &bytes, &ov) != FALSE;
+                if (!ok && GetLastError() == ERROR_IO_PENDING) ok = finish(bytes);
+                if (!ok || !bytes || m_stopping) break;
+                if (m_handler) m_handler(std::string(buffer, bytes));
+            }
+        }
         EnterCriticalSection(&m_writeCs);
-        m_clientPipe = nullptr;   // 断开后清空，sendToClient 返回 false
+        m_clientPipe = nullptr;
+        m_pipe = nullptr;
         LeaveCriticalSection(&m_writeCs);
+        CancelIoEx(pipe, nullptr);
+        if (ov.hEvent) CloseHandle(ov.hEvent);
         DisconnectNamedPipe(pipe);
         CloseHandle(pipe);
-
-        // 客户端断开（Python 退出/崩溃/主动 quit）→ 通知上层退出，避免进程残留
-        if (m_onDisconnect) {
-            m_onDisconnect();
-        }
-        // 正常情况下发送过 quit 消息后也会走到这里，此时 m_stopping 已置位，
-        // 但显式 break 保证不再进入下一轮等待连接
-        if (m_stopping) {
-            break;
-        }
+        if (connected && !m_stopping && m_onDisconnect) m_onDisconnect();
     }
 }
 
 bool PipeServer::sendToClient(const std::string& message) {
     EnterCriticalSection(&m_writeCs);
-    if (!m_clientPipe) {
-        LeaveCriticalSection(&m_writeCs);
-        return false;
+    bool ok = false;
+    if (m_clientPipe && !m_stopping) {
+        OVERLAPPED ov = {};
+        ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        DWORD written = 0;
+        if (ov.hEvent) {
+            ok = WriteFile(m_clientPipe, message.data(), static_cast<DWORD>(message.size()), &written, &ov) != FALSE;
+            if (!ok && GetLastError() == ERROR_IO_PENDING) {
+                const auto deadline = GetTickCount64() + 2000;
+                while (!m_stopping && GetTickCount64() < deadline &&
+                       WaitForSingleObject(ov.hEvent, 50) == WAIT_TIMEOUT) {}
+                if (m_stopping || GetTickCount64() >= deadline) CancelIoEx(m_clientPipe, &ov);
+                ok = GetOverlappedResult(m_clientPipe, &ov, &written, TRUE) != FALSE;
+            }
+            ok = ok && written == message.size();
+            CloseHandle(ov.hEvent);
+        }
     }
-    DWORD written = 0;
-    // 重叠句柄上同步写：数据写入管道缓冲即返回；不要 FlushFileBuffers——
-    // 它会阻塞到对端读取，客户端未及时读时会卡死本线程（管道线程/UI 线程）。
-    BOOL ok = WriteFile(m_clientPipe, message.c_str(),
-                        static_cast<DWORD>(message.size()), &written, nullptr);
     LeaveCriticalSection(&m_writeCs);
-    return ok != 0;
+    return ok;
 }

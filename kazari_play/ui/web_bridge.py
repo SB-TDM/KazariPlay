@@ -317,6 +317,8 @@ class WebBridge:
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
         self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
+        self._task_lock = threading.Lock()
+        self._task_thread = None
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -473,8 +475,8 @@ class WebBridge:
                 return json.dumps({"ok": False, "msg": "添加失败，请检查启动路径是否重复"}, ensure_ascii=False)
             self.manager.repository.remove_ignored(g.identity, g.exe_path)
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
-            threading.Thread(target=self._run_vndb_match, args=([g],),
-                             daemon=True).start()
+            if not self._start_task(self._run_vndb_match, ([g],)):
+                self.notify('游戏已添加；当前任务结束后可手动匹配元数据')
             self.refresh()   # 新增卡片：全量刷新让新卡出现
         return json.dumps({"ok": True, "msg": ""}, ensure_ascii=False)
 
@@ -545,13 +547,16 @@ class WebBridge:
         scanned = self.manager.scanner.scan(folders[0])
         by_identity = {}
         for g in scanned:
-            if g.identity and g.identity not in by_identity:
-                by_identity[g.identity] = g
+            if g.identity:
+                by_identity.setdefault(g.identity, []).append(g)
         items = []
         for game in games:
             new_exe, status = "", "missing"
-            matched = by_identity.get(game.identity) if game.identity else None
-            if matched:
+            candidates = by_identity.get(game.identity, [])
+            matched = candidates[0] if len(candidates) == 1 else None
+            if len(candidates) > 1:
+                status = "conflict"
+            elif matched:
                 occupied = self.manager.repository.get_by_path(matched.exe_path)
                 if occupied and occupied.id != game.id:
                     status = "conflict"
@@ -564,28 +569,53 @@ class WebBridge:
             })
         return json.dumps({"ok": True, "items": items}, ensure_ascii=False)
 
-    def applyRelocate(self, mapping_json: str):
+    def applyRelocate(self, mapping_json: str) -> str:
         """应用重新定位：mapping=[{id,new_exe}]，仅更新匹配项，id 保持不变"""
         mapping = json.loads(mapping_json)
         updated = 0
+        failures = []
         for m in mapping:
             gid = str(m.get("id") or "")
             new_exe = (m.get("new_exe") or "").strip()
             if not gid or not new_exe:
+                failures.append({"id": gid, "msg": "路径为空"})
                 continue
             game = self.manager.get_game(gid)
             if not game:
+                failures.append({"id": gid, "msg": "游戏不存在"})
+                continue
+            new_exe = os.path.normpath(os.path.abspath(new_exe))
+            if not os.path.isfile(new_exe):
+                failures.append({"id": gid, "msg": "目标文件不存在"})
                 continue
             occupied = self.manager.repository.get_by_path(new_exe)
             if occupied and occupied.id != gid:
+                failures.append({"id": gid, "msg": "目标路径已被占用"})
                 continue   # 冲突：新路径已被占用，跳过
+            if game.launch_exe_path:
+                old_folder = os.path.abspath(game.folder)
+                override = os.path.abspath(game.launch_exe_path)
+                try:
+                    internal = os.path.normcase(os.path.commonpath([old_folder, override])) == os.path.normcase(old_folder)
+                except ValueError:
+                    internal = False
+                if internal:
+                    override = os.path.join(os.path.dirname(new_exe), os.path.relpath(override, old_folder))
+                if not os.path.isfile(override):
+                    failures.append({"id": gid, "msg": "自定义启动文件不存在，请先处理启动路径"})
+                    continue
+                game.launch_exe_path = override
             game.exe_path = os.path.normpath(new_exe)
             game.folder = os.path.dirname(game.exe_path)
-            self.manager.repository.update_game(game)   # id 不变，保留截图/收藏/时长关联
+            game.identity = self.manager.scanner._make_identity(game.engine, os.path.basename(game.folder))
+            if not self.manager.repository.update_game(game):
+                failures.append({"id": gid, "msg": "数据库更新失败"})
+                continue
             updated += 1
         if updated:
             self.refresh()
-        self.notify(f"已重新定位 {updated} 个游戏")
+        self.notify(f"已重新定位 {updated} 个游戏，失败 {len(failures)} 个")
+        return json.dumps({"ok": not failures, "updated": updated, "failures": failures}, ensure_ascii=False)
 
     # ---------- 收藏夹（V1.0 collections）----------
     def getCollectionsTree(self) -> str:
@@ -656,6 +686,34 @@ class WebBridge:
         self.refresh()
 
     # ---------- 文件对话框 ----------
+    def _start_task(self, target, args=()) -> bool:
+        if not self._task_lock.acquire(blocking=False):
+            return False
+        self._scan_cancel = threading.Event()
+        self._vndb_cancel = threading.Event()
+
+        def run():
+            try:
+                target(*args)
+            except Exception as e:
+                logger.error('后台任务失败: %s', e)
+                self.notify('后台任务失败，请查看日志')
+            finally:
+                try:
+                    if self._batch_ctx is not None:
+                        self._batch_ctx['running'] = False
+                    self._ui.invalidate('scan_progress', {'running': False})
+                    self._ui.invalidate('batch_progress', {'running': False})
+                finally:
+                    self._task_lock.release()
+        try:
+            self._task_thread = threading.Thread(target=run, daemon=True)
+            self._task_thread.start()
+            return True
+        except Exception:
+            self._task_lock.release()
+            raise
+
     def scanFolder(self) -> str:
         """选择游戏文件夹（支持多选）并后台扫描"""
         if self._window is None:
@@ -666,9 +724,8 @@ class WebBridge:
         folders = [f for f in (folders or []) if f]
         if not folders:
             return json.dumps({"ok": False, "msg": ""})
-        self._scan_cancel.clear()
-        self._vndb_cancel.clear()
-        threading.Thread(target=self._do_scan, args=(folders,), daemon=True).start()
+        if not self._start_task(self._do_scan, (folders,)):
+            return json.dumps({'ok': False, 'msg': '已有扫描或匹配任务正在运行'}, ensure_ascii=False)
         return json.dumps({"ok": True, "msg": "扫描中..."})
 
     def cancelScan(self):
@@ -725,6 +782,7 @@ class WebBridge:
     def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""
         self._vndb_counter = 0
+        cancel_event = cancel_event if cancel_event is not None else self._vndb_cancel
         if games:
             self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
             # 通知前端启动批量进度条轮询（扫描后自动匹配同样可见）
@@ -780,8 +838,8 @@ class WebBridge:
 
     # ---------- VNDB 匹配（后台线程，VNDB 有限速） ----------
     def matchVndb(self, game_id: str) -> str:
-        threading.Thread(target=self._do_match, args=(game_id,),
-                         daemon=True).start()
+        if not self._start_task(self._do_match, (game_id,)):
+            return json.dumps({'ok': False, 'msg': '已有扫描或匹配任务正在运行'}, ensure_ascii=False)
         return json.dumps({"ok": True, "msg": "开始匹配 VNDB..."})
 
     def _do_match(self, game_id: str):
@@ -797,9 +855,10 @@ class WebBridge:
     def matchVndbBatch(self, ids_json: str) -> str:
         ids = set(json.loads(ids_json))
         games = [g for g in self.manager.get_all_games() if g.id in ids]
-        self._vndb_cancel.clear()
-        threading.Thread(target=self._do_match_batch, args=(games,),
-                         daemon=True).start()
+        if not games:
+            return json.dumps({'ok': False, 'msg': '没有需要匹配的游戏'}, ensure_ascii=False)
+        if not self._start_task(self._do_match_batch, (games,)):
+            return json.dumps({'ok': False, 'msg': '已有扫描或匹配任务正在运行'}, ensure_ascii=False)
         return json.dumps({"ok": True, "msg": "开始批量匹配..."})
 
     def _do_match_batch(self, games: list):

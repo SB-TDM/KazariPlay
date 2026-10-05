@@ -53,6 +53,13 @@ class GameManager:
                 ident = self.scanner._make_identity(g.engine, folder_name)
                 if g.identity != ident:
                     self.repository.set_identity(g.id, ident)
+            for row in self.repository.db.query("SELECT rowid, identity, exe_path FROM ignored_games") or []:
+                if row[1] and row[2]:
+                    engine = row[1].split("|", 1)[0]
+                    name = os.path.basename(os.path.dirname(os.path.normpath(row[2])))
+                    ident = self.scanner._make_identity(engine, name)
+                    if ident != row[1]:
+                        self.repository.db.execute("UPDATE ignored_games SET identity=? WHERE rowid=?", (ident, row[0]))
         except Exception as e:
             logger.error("重算游戏身份键失败: %s", e)
 

@@ -60,10 +60,11 @@ class OverlayClient:
         self._pipe_name = f"KazariPlayOverlay_{os.getpid()}"
         self._proc = None
         self._proc_lock = threading.Lock()
-        self._send_lock = threading.Lock()
+        self._send_lock = threading.RLock()
         self._pipe_handle = None
         self._read_thread = None
         self._stop_read = threading.Event()
+        self._read_failed = threading.Event()
         self._exe_is_x64 = True   # 当前 overlay 进程位数（x64=bin/，x86=bin32/）
 
     @property
@@ -95,29 +96,39 @@ class OverlayClient:
 
     def _quit_current(self):
         """停止当前 overlay 进程（位数切换/退出时；调用方须已持有 _proc_lock）"""
-        self._stop_read.set()
-        if self._pipe_handle:
+        handle = self._pipe_handle
+        if handle and not self._read_failed.is_set():
             try:
                 self._raw_write(json.dumps({"type": "quit"}).encode("utf-8"))
             except Exception:
                 pass
+        self._stop_read.set()
+        if handle:
+            kernel32 = self._kernel32()
+            kernel32.CancelIoEx(handle, None)
+        if self._read_thread and self._read_thread is not threading.current_thread():
+            self._read_thread.join()
+        if handle:
+            self._kernel32().CloseHandle(handle)
         if self._proc:
             try:
                 self._proc.wait(timeout=2)
             except Exception:
                 try:
                     self._proc.kill()
+                    self._proc.wait(timeout=5)
                 except Exception:
                     pass
+        self._read_thread = None
         self._proc = None
         self._pipe_handle = None
 
     def _ensure_process(self, is_x64: bool = True) -> bool:
         with self._proc_lock:
-            if self._proc and self._proc.poll() is None and self._exe_is_x64 == is_x64:
+            if self._proc and self._proc.poll() is None and self._exe_is_x64 == is_x64 and not self._read_failed.is_set():
                 return True
             # 位数不符或未启动：先停旧进程（已持锁，_quit_current 内部不再加锁）
-            if self._proc and self._proc.poll() is None:
+            if self._proc or self._pipe_handle or self._read_thread:
                 self._quit_current()
             exe = self._resolve_exe(is_x64)
             if not exe:
@@ -138,6 +149,10 @@ class OverlayClient:
     # ---------- 统一长连接 ----------
 
     def ensure_bidirectional(self, is_x64=None) -> bool:
+        with self._send_lock:
+            return self._connect(is_x64)
+
+    def _connect(self, is_x64=None) -> bool:
         """启动 overlay.exe 并建立唯一长连接（含读线程）
 
         is_x64=None 时保持当前进程位数；否则按位数选择 overlay 版本。
@@ -155,9 +170,10 @@ class OverlayClient:
             return False
         logger.info("ensure_bidirectional: 已连接 pipe=%s", self.pipe_path)
         self._pipe_handle = handle
-        self._stop_read.clear()
+        self._stop_read = threading.Event()
+        self._read_failed.clear()
         self._read_thread = threading.Thread(
-            target=self._read_loop, daemon=True, name="overlay-reader")
+            target=self._read_loop, args=(handle, self._stop_read), daemon=True, name="overlay-reader")
         self._read_thread.start()
         return True
 
@@ -182,9 +198,18 @@ class OverlayClient:
             time.sleep(_CONNECT_RETRY_DELAY)
         return None
 
-    def _read_loop(self):
-        """保持双工连接并检测服务端断开；原版没有字幕回传命令。"""
+    @staticmethod
+    def _kernel32():
         kernel32 = ctypes.windll.kernel32
+        kernel32.CreateEventW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+        kernel32.CreateEventW.restype = wintypes.HANDLE
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CancelIoEx.argtypes = [wintypes.HANDLE, ctypes.POINTER(_OVERLAPPED)]
+        return kernel32
+
+    def _read_loop(self, handle, stop_event):
+        """保持双工连接并检测服务端断开；原版没有字幕回传命令。"""
+        kernel32 = self._kernel32()
         kernel32.ReadFile.argtypes = [
             wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
             ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(_OVERLAPPED)]
@@ -200,36 +225,37 @@ class OverlayClient:
 
         ov = _OVERLAPPED()
         ov.hEvent = kernel32.CreateEventW(None, True, False, None)
-        while not self._stop_read.is_set() and self._pipe_handle:
+        while not stop_event.is_set():
             kernel32.ResetEvent(ov.hEvent)
             buf = ctypes.create_string_buffer(_READ_BUF)
             read = wintypes.DWORD(0)
-            ok = kernel32.ReadFile(self._pipe_handle, buf, _READ_BUF - 1,
+            ok = kernel32.ReadFile(handle, buf, _READ_BUF - 1,
                                    ctypes.byref(read), ctypes.byref(ov))
             if not ok:
                 err = kernel32.GetLastError()
                 if err == _ERROR_IO_PENDING:
-                    wr = kernel32.WaitForSingleObject(ov.hEvent, _INFINITE)
-                    if wr != _WAIT_OBJECT_0:
-                        break
+                    while not stop_event.is_set() and kernel32.WaitForSingleObject(ov.hEvent, 50) != _WAIT_OBJECT_0:
+                        pass
+                    if stop_event.is_set():
+                        kernel32.CancelIoEx(handle, ctypes.byref(ov))
                     if not kernel32.GetOverlappedResult(
-                            self._pipe_handle, ctypes.byref(ov),
-                            ctypes.byref(read), False) or read.value == 0:
+                            handle, ctypes.byref(ov),
+                            ctypes.byref(read), True) or read.value == 0:
                         break   # 管道断开（overlay 退出/崩溃）
                 else:
                     break
             elif read.value == 0:
                 break
         # 清理句柄
-        if self._pipe_handle:
-            kernel32.CloseHandle(self._pipe_handle)
-            self._pipe_handle = None
+        kernel32.CloseHandle(ov.hEvent)
+        self._read_failed.set()
 
     def _raw_write(self, data: bytes) -> bool:
         """重叠写（不自启动进程、不加锁；供 _send_long 与 _quit_current 复用）"""
         if not self._pipe_handle:
             return False
-        kernel32 = ctypes.windll.kernel32
+        kernel32 = self._kernel32()
+        handle = self._pipe_handle
         kernel32.WriteFile.argtypes = [
             wintypes.HANDLE, wintypes.LPCVOID, wintypes.DWORD,
             ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(_OVERLAPPED)]
@@ -246,7 +272,7 @@ class OverlayClient:
         written = wintypes.DWORD(0)
         ov = _OVERLAPPED()
         ov.hEvent = kernel32.CreateEventW(None, True, False, None)
-        ok = kernel32.WriteFile(self._pipe_handle, buf, len(data),
+        ok = kernel32.WriteFile(handle, buf, len(data),
                                 ctypes.byref(written), ctypes.byref(ov))
         if not ok:
             err = kernel32.GetLastError()
@@ -254,14 +280,16 @@ class OverlayClient:
                 wr = kernel32.WaitForSingleObject(ov.hEvent, 10000)
                 if wr == _WAIT_OBJECT_0:
                     ok = kernel32.GetOverlappedResult(
-                        self._pipe_handle, ctypes.byref(ov),
+                        handle, ctypes.byref(ov),
                         ctypes.byref(written), False)
                 else:
+                    kernel32.CancelIoEx(handle, ctypes.byref(ov))
+                    kernel32.GetOverlappedResult(handle, ctypes.byref(ov), ctypes.byref(written), True)
                     ok = False
             else:
                 ok = False
         kernel32.CloseHandle(ov.hEvent)
-        return bool(ok)
+        return bool(ok) and written.value == len(data)
 
     def _send_long(self, payload: dict, is_x64=None) -> bool:
         """经长连接发送命令（线程安全；is_x64 指定 overlay 位数，None=保持当前）"""
@@ -294,8 +322,7 @@ class OverlayClient:
         return self._send_long({"type": "hide"})
 
     def quit(self) -> bool:
-        with self._proc_lock:
-            if not self._proc or self._proc.poll() is not None:
-                return False
+        with self._send_lock, self._proc_lock:
+            active = bool(self._proc or self._pipe_handle or self._read_thread)
             self._quit_current()
-            return True
+            return active

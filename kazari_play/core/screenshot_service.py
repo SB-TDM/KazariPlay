@@ -323,11 +323,19 @@ def take_screenshot(game_id: Optional[str] = None, pid: Optional[int] = None) ->
     folder = get_game_screenshots_dir(game_id) if game_id else os.path.join(
         get_screenshots_dir(), "_unsorted")
     os.makedirs(folder, exist_ok=True)
-    filename = f"shot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-    path = os.path.join(folder, filename)
     try:
-        # 1) 原图：保持原始尺寸
-        img.save(path, "PNG")
+        base = f"shot_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        suffix = 0
+        while True:
+            filename = f"{base}{'_' + str(suffix) if suffix else ''}.png"
+            path = os.path.join(folder, filename)
+            try:
+                output = open(path, "xb")
+                break
+            except FileExistsError:
+                suffix += 1
+        with output:
+            img.save(output, "PNG")
         logger.info("截图已保存(原图): %s", path)
         # 2) 缩略图：统一小画布（512 宽 + 屏幕同比例，等比留边不拉伸），截图时立即生成
         tw, th = _thumb_canvas_size()
@@ -370,7 +378,9 @@ def get_screenshots(game_id: str) -> List[Dict]:
 def _extract_time(filename: str) -> str:
     """从文件名 shot_20260811_201530.png 提取时间；失败返回空"""
     try:
-        s = filename.replace("shot_", "").replace(".png", "")
+        if not filename.startswith("shot_"):
+            return ""
+        s = os.path.splitext(filename)[0][5:20]
         dt = datetime.strptime(s, "%Y%m%d_%H%M%S")
         return dt.strftime("%Y-%m-%d %H:%M")
     except Exception:

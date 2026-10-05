@@ -375,5 +375,5 @@ class GameScanner:
         不同汉化组命名，归一化后键相同，据此判重避免重复添加卡片。
         归一化失败时回退原文件夹名。
         """
-        key = normalize_title(folder_name) or folder_name
+        key = normalize_title(folder_name, for_identity=True) or folder_name
         return f"{(engine or '').lower()}|{key.strip().lower()}"

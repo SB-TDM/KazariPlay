@@ -10,10 +10,11 @@ import re
 _LANG_SUFFIX = r"(?:DL版|简体版|繁体版|汉化版|中文版|完结版|官方中文|民间汉化)"
 
 
-def normalize_title(title: str) -> str:
+def normalize_title(title: str, *, for_identity: bool = False) -> str:
     """标题归一化：去除常见前缀/后缀和符号，提取核心游戏名
 
-    处理规则（按顺序）：
+    for_identity=True 时保留章节、副标题和未知下划线后缀，仅移除明确语言/汉化组噪声。
+    搜索模式的处理规则（按顺序）：
     1. 去除开头的平台前缀：PC / PC+krkr / PC+renpy 等
     2. 去除开头的 [xxx] / (xxx) 前缀（公司名、汉化组标识）
     3. 去除 _xxx 后缀（汉化组、子标题、年份等）
@@ -54,8 +55,10 @@ def normalize_title(title: str) -> str:
         t = t[end + 1:].strip()
 
     # 3. 去除 _xxx 后缀（汉化组、子标题、年份）
-    if "_" in t:
+    if "_" in t and not for_identity:
         t = t.split("_")[0].strip()
+    elif for_identity:
+        t = re.sub(r"_(?:[^_]*(?:汉化组|漢化組)|" + _LANG_SUFFIX + r")$", "", t).strip()
 
     # 4. 去除版本号后缀：v1.02 / Ver1.02 / v1.02.3（不区分大小写）
     t = re.sub(r"\s*[vV](?:er)?\d+(?:\.\d+)*\s*$", "", t).strip()
@@ -67,11 +70,13 @@ def normalize_title(title: str) -> str:
     t = re.sub(r"\s*" + _LANG_SUFFIX + r"\s*$", "", t).strip()
 
     # 7. 去除 ～副标题～ / ~副标题~ 后缀（只保留主标题）
-    t = re.sub(r"[～~][^～~]*[～~]\s*$", "", t).strip()
+    if not for_identity:
+        t = re.sub(r"[～~][^～~]*[～~]\s*$", "", t).strip()
 
     # 8. 去除 第X章 / Chapter X 后缀
-    t = re.sub(r"\s*第\d+章\s*$", "", t).strip()
-    t = re.sub(r"\s*[Cc]hapter\s*\d+\s*$", "", t).strip()
+    if not for_identity:
+        t = re.sub(r"\s*第\d+章\s*$", "", t).strip()
+        t = re.sub(r"\s*[Cc]hapter\s*\d+\s*$", "", t).strip()
 
     # 9. 去除多余空格
     t = re.sub(r"\s+", " ", t).strip()

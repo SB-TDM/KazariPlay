@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <functional>
+#include <atomic>
 #include <string>
 
 class PipeServer {
@@ -31,8 +32,9 @@ private:
     MessageHandler m_handler;
     DisconnectHandler m_onDisconnect;
     HANDLE m_thread = nullptr;
-    volatile bool m_stopping = false;
+    std::atomic<bool> m_stopping{false};
 
     HANDLE m_clientPipe = nullptr;      // 当前长连接句柄（pipe 线程持有，UI 线程经锁读写）
+    HANDLE m_pipe = nullptr;           // 含连接等待状态，由 loop 独占释放
     CRITICAL_SECTION m_writeCs;         // 保护 m_clientPipe 与写操作
 };
