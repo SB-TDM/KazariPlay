@@ -72,6 +72,9 @@ function trackBatchProgress(title: string): void {
   const pctEl = document.getElementById('bpPct');
   const fillEl = document.getElementById('bpFill');
   const subEl = document.getElementById('bpSub');
+  const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
+  cancelMode = 'match';
+  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; }
   bpTimer = setInterval(function () {
     bridge.getBatchProgress(function (s: unknown) {
       let p: BatchProgress = {};
@@ -153,10 +156,8 @@ batchBtnEl.onclick = () => {
   // 批量模式仅切换勾选框显隐（body.batch 类控制）+ 刷新批量工具栏，
   // 不需要全量重建网格
   updateBatchBar();
-  // 注意：原 JS 用 c.dataset.id（string）与 selected（number Set）比较，恒 false；
-  // 用 cast 保持原运行时行为（不隐式转换），与原 JS 语义等价
   document.querySelectorAll<HTMLElement>('.card').forEach(c =>
-    c.classList.toggle('selected', App.ui.state.selected.has(c.dataset.id as unknown as number)));
+    c.classList.toggle('selected', App.ui.state.selected.has(c.dataset.id!)));
 };
 document.getElementById('btnSelAll')!.onclick = () => {
   const ids = filterGames(App.data.games).map(g => g.id);
@@ -164,7 +165,7 @@ document.getElementById('btnSelAll')!.onclick = () => {
   else { App.ui.state.selected = new Set(ids); }
   // 局部同步全部卡片选中态，避免全量重建网格
   document.querySelectorAll<HTMLElement>('.card').forEach(c =>
-    c.classList.toggle('selected', App.ui.state.selected.has(c.dataset.id as unknown as number)));
+    c.classList.toggle('selected', App.ui.state.selected.has(c.dataset.id!)));
   updateBatchBar();
 };
 document.getElementById('btnBAdd')!.onclick = () => batchPickCollection('add');

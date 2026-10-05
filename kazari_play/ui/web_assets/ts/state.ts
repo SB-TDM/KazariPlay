@@ -20,7 +20,7 @@ interface CollectionRef {
 
 /** 游戏对象（后端 getGames / getGame 返回的 JSON 结构） */
 interface Game {
-  id: number;
+  id: string;
   title: string;
   exe_path: string;
   dev: string;
@@ -59,9 +59,9 @@ interface AppDataShape {
   /** 当前详情打开的游戏对象 */
   currentGame: Game | null;
   /** 当前编辑/添加表单对应的游戏 id（'' 表示手动添加） */
-  editingId: number | null;
-  /** 正在运行的游戏 id（由后端 getRunning 轮询；原 JS 运行时可为 number 或 string，故保持联合类型） */
-  runningId: number | string;
+  editingId: string | null;
+  /** 正在运行的游戏 id，空字符串表示未运行 */
+  runningId: string;
 }
 
 /** 全局 UI 状态命名空间（App.ui.state） */
@@ -75,7 +75,7 @@ interface AppUiStateShape {
   /** 批量选择模式 */
   batch: boolean;
   /** 批量模式下勾选的游戏 id */
-  selected: Set<number>;
+  selected: Set<string>;
   /** 当前筛选的收藏夹 id */
   collectionId: number | null;
   /** 当前筛选所属分组 id（分组筛选时等于 collectionId） */
@@ -133,8 +133,8 @@ var __app = {
   reloadCovers: function (): void { reloadCovers(); },
   reloadCover: function (gameId: string): void { reloadCover(gameId); },
   applyGamesDelta: function (ids: string[]): void { applyGamesDelta(ids); },
-  refreshScreenshots: function (gameId: number): void { refreshScreenshots(gameId); },
-  setRunning: function (id: number | string): void { setRunning(id); },
+  refreshScreenshots: function (gameId: string): void { refreshScreenshots(gameId); },
+  setRunning: function (id: string): void { setRunning(id); },
   updateScanProgress: function (p: object): void { updateScanProgress(p); },
   updateBatchProgress: function (p: object): void { updateBatchProgress(p); },
 };

@@ -38,7 +38,8 @@ interface PyWebViewApi {
   deleteGame(game_id: string): Promise<unknown>;
 
   // ---- 表单 / 编辑 ----
-  saveGame(game_id: string, data_json: string): Promise<unknown>;
+  /** { ok, msg }，空 game_id 表示新增 */
+  saveGame(game_id: string, data_json: string): Promise<string>;
   addTag(name: string, color: string): Promise<string>;
   deleteTag(tag_id: number): Promise<unknown>;
   setGameTags(game_id: string, tags_json: string): Promise<unknown>;

@@ -9,7 +9,7 @@
 // ---------- 管理游戏对话框（批量勾选收藏夹内游戏）----------
 let manageGamesId: number | null = null;        // 当前管理的收藏夹 id
 let manageGamesIsGroup = false;  // 是否分组（分组时聚合子分类保存）
-let manageGamesSel = new Set<number>();  // 已勾选游戏 id
+let manageGamesSel = new Set<string>();  // 已勾选游戏 id
 let manageGamesData: Game[] = [];        // 全部游戏（title/id 缓存）
 
 function openManageGames(node: CollectionTreeNode): void {
@@ -22,13 +22,13 @@ function openManageGames(node: CollectionTreeNode): void {
   const idsToFetch = manageGamesIsGroup
     ? [node.id].concat((node.children || []).map(c => c.id))
     : [node.id];
-  const allSel = new Set<number>();
+  const allSel = new Set<string>();
   let pending = idsToFetch.length;
   if (!pending) { manageGamesSel = new Set(); manageGamesData = App.data.games.slice(); renderManageGames(); return; }
   idsToFetch.forEach(cid => {
     bridge.getGamesInCollection(cid, function (idsStr: unknown) {
-      let ids: number[] = [];
-      try { ids = JSON.parse(String(idsStr || '[]')) as number[]; } catch (e) { }
+      let ids: string[] = [];
+      try { ids = JSON.parse(String(idsStr || '[]')) as string[]; } catch (e) { }
       ids.forEach(i => allSel.add(i));
       if (--pending === 0) {
         manageGamesSel = allSel;
@@ -67,7 +67,7 @@ function renderManageGames(): void {
 }
 
 // 勾选/取消勾选一个管理游戏行（行整体点击 + 键盘 Enter/空格 共用）
-function toggleManageGame(d: HTMLElement, gid: number): void {
+function toggleManageGame(d: HTMLElement, gid: string): void {
   if (manageGamesSel.has(gid)) manageGamesSel.delete(gid); else manageGamesSel.add(gid);
   d.setAttribute('aria-checked', manageGamesSel.has(gid) ? 'true' : 'false');
   d.classList.toggle('on', manageGamesSel.has(gid));

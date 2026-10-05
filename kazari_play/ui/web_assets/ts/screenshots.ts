@@ -85,7 +85,7 @@ function renderScreenshots(): void {
 // 截图保存后由后端 evaluate_js 定向调用（与 reloadCovers 同风格的轻量更新）：
 // 仅当详情抽屉正打开该游戏时重渲染截图卡片，立即显示新截图；
 // 详情未打开或不是该游戏时无需处理（打开详情时会拉取最新列表）。
-function refreshScreenshots(gameId: number): void {
+function refreshScreenshots(gameId: string): void {
   if (!App.data.currentGame || App.data.currentGame.id !== gameId) return;
   const overlay = document.getElementById('detailOverlay');
   if (overlay && overlay.classList.contains('show')) {

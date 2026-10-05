@@ -28,7 +28,7 @@ function replayCoverFade(): void {
 
 // ---------- 卡片 ----------
 let coverObserver: IntersectionObserver | null = null;
-let _renderedIds: number[] = [];   // 当前网格已渲染的卡片 id 顺序
+let _renderedIds: string[] = [];   // 当前网格已渲染的卡片 id 顺序
 
 // ============ DOM 窗口化（只渲染可视区 ± 缓冲） ============
 // WindowCalculator：由滚动位置 / 容器尺寸计算当前应渲染的数据项索引范围。
@@ -124,7 +124,7 @@ function buildCard(g: Game): HTMLElement {
       ${g.fav ? '<span class="fav">★</span>' : ''}
       <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
     </div>
-    ${(g.id as number | string) === App.data.runningId ? '<span class="running">运行中</span>' : ''}
+    ${g.id === App.data.runningId ? '<span class="running">运行中</span>' : ''}
     <div class="meta"><span class="dev">${esc(g.dev || '未知')}</span><span class="stars">${stars(g.rating)}</span></div>`;
   card.onclick = () => { if (App.ui.state.batch) toggleSelect(g.id, card); else openDetail(g); };
   // 键盘可达：卡片作为可聚焦交互元素（Enter/空格 触发与点击一致）
@@ -151,8 +151,8 @@ function renderCards(list: Game[]): void {
   const winList = list.slice(win.start, win.end);
   _updateSpacers(list.length, win);
   const newIds = winList.map(g => g.id);
-  const byId: Record<number, Game> = {}; winList.forEach(g => byId[g.id] = g);
-  const oldMap: Record<number, HTMLElement> = {}; _renderedIds.forEach(id => {
+  const byId: Record<string, Game> = {}; winList.forEach(g => byId[g.id] = g);
+  const oldMap: Record<string, HTMLElement> = {}; _renderedIds.forEach(id => {
     const c = grid.querySelector(`.card[data-id="${id}"]`) as HTMLElement | null; if (c) oldMap[id] = c;
   });
 

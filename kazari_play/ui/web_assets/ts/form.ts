@@ -99,8 +99,15 @@ function saveForm(): void {
   // 编辑：标题仍必填；添加：只要求 exe（标题由后端自动推导，不强制取名）
   if (App.data.editingId && !data.title.trim()) { showFormError('fTitleRow', '标题不能为空'); return; }
   if (!App.data.editingId && !data.exe_path.trim()) { showFormError('fExeRow', '请先选择要添加的 exe 文件'); return; }
-  bridge.saveGame(String(App.data.editingId), JSON.stringify(data));
-  closeSheet('formOverlay');
+  bridge.saveGame(App.data.editingId || '', JSON.stringify(data), function (s: unknown) {
+    let result: { ok?: boolean; msg?: string } = {};
+    try { result = JSON.parse(String(s || '{}')); } catch (e) { }
+    if (!result.ok) {
+      showFormError('fExeRow', result.msg || '保存失败，请重试');
+      return;
+    }
+    closeSheet('formOverlay');
+  });
 }
 
 // ---------- 多源元数据检索（源可自行配置，见 core/multi_source.py）----------

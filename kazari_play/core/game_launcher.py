@@ -15,7 +15,7 @@ _GAME_SPAWN_TIMEOUT = 10.0
 # 子进程树追踪轮询间隔（秒）
 _GAME_TRACE_INTERVAL = 0.3
 # 排除的控制台/系统进程名（不可能是游戏主进程）
-_NON_GAME_EXES = frozenset((
+_NON_GAME_EXES = frozenset(name.lower() for name in (
     "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "explorer.exe",
     "svchost.exe", "dllhost.exe", "rundll32.exe", "sihost.exe", "taskhostw.exe",
     "ctfmon.exe", "SearchHost.exe", "RuntimeBroker.exe", "backgroundTaskHost.exe",
@@ -32,8 +32,6 @@ def _process_children(pid: int) -> list:
     from ctypes import wintypes
 
     TH32CS_SNAPPROCESS = 0x2
-    PROCESSENTRY32_SIZE = 568  # 32 位系统上不同，这里按 64 位；用 ctypes 动态算
-
     kernel32 = ctypes.windll.kernel32
 
     class PROCESSENTRY32W(ctypes.Structure):
@@ -41,7 +39,7 @@ def _process_children(pid: int) -> list:
             ("dwSize", wintypes.DWORD),
             ("cntUsage", wintypes.DWORD),
             ("th32ProcessID", wintypes.DWORD),
-            ("th32DefaultHeapID", ctypes.c_ulonglong),
+            ("th32DefaultHeapID", ctypes.c_size_t),
             ("th32ModuleID", wintypes.DWORD),
             ("cntThreads", wintypes.DWORD),
             ("th32ParentProcessID", wintypes.DWORD),
@@ -50,7 +48,11 @@ def _process_children(pid: int) -> list:
             ("szExeFile", ctypes.c_wchar * 260),
         ]
 
+    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
     kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     snap = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     if not snap or snap == wintypes.HANDLE(-1).value:
         return []
@@ -92,6 +94,10 @@ def _is_process_alive(pid: int) -> bool:
     from ctypes import wintypes
     kernel32 = ctypes.windll.kernel32
     PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     h = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not h:
         return False
@@ -110,6 +116,8 @@ def _has_visible_window(pid: int) -> bool:
     import ctypes
     from ctypes import wintypes
     user32 = ctypes.windll.user32
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user32.IsWindowVisible.argtypes = [wintypes.HWND]
     found = [False]
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -125,6 +133,62 @@ def _has_visible_window(pid: int) -> bool:
     return found[0]
 
 
+def _creation_time(handle) -> Optional[int]:
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(wintypes.FILETIME)] * 4
+    times = [wintypes.FILETIME() for _ in range(4)]
+    if not kernel32.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+        return None
+    return (times[0].dwHighDateTime << 32) | times[0].dwLowDateTime
+
+
+def _process_creation_time(pid: int) -> Optional[int]:
+    import ctypes
+    from ctypes import wintypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.OpenProcess(0x1000, False, pid)
+    if not handle:
+        return None
+    try:
+        return _creation_time(handle)
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _terminate_pid(pid: Optional[int], creation_time: Optional[int], timeout_ms: int = 5000) -> bool:
+    """终止由本次启动链确认的单个进程。失败返回 False，不按进程名匹配。"""
+    if not pid or creation_time is None or os.name != "nt":
+        return False
+    import ctypes
+    from ctypes import wintypes
+    PROCESS_TERMINATE = 0x0001
+    SYNCHRONIZE = 0x00100000
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.TerminateProcess.restype = wintypes.BOOL
+    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = kernel32.OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE | 0x1000, False, pid)
+    if not handle:
+        return False
+    try:
+        if _creation_time(handle) != creation_time:
+            return False
+        if not kernel32.TerminateProcess(handle, 1):
+            return False
+        return kernel32.WaitForSingleObject(handle, timeout_ms) == 0
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 class GameLauncher:
     """游戏启动器 - 管理进程启动"""
 
@@ -138,6 +202,11 @@ class GameLauncher:
         self._start_time: Optional[float] = None
         self._trace_stop = threading.Event()
         self._trace_thread: Optional[threading.Thread] = None
+        self._trace_done = threading.Event()
+        self._trace_done.set()
+        self._game_creation_time: Optional[int] = None
+        self._tracked_processes = {}
+        self._target_ready = False
 
     def _start_trace(self):
         """启动子进程追踪线程：找到真游戏 pid 填入 current_game_pid。
@@ -145,50 +214,66 @@ class GameLauncher:
         适用于启动器拉起真游戏的场景（SmartSteamEmu / 安装器退出后游戏仍在）。
         追踪到真进程后线程退出（该 pid 由 monitor 生命周期管理）。
         """
-        self._trace_stop.clear()
+        self._trace_stop = threading.Event()
+        self._trace_done = threading.Event()
+        self._tracked_processes = {}
+        self._target_ready = False
         self._trace_thread = threading.Thread(
-            target=self._trace_loop, name="GameTrace", daemon=True)
+            target=self._trace_loop,
+            args=(self.current_process, self._trace_stop, self._trace_done),
+            name="GameTrace", daemon=True)
         self._trace_thread.start()
 
-    def _trace_loop(self):
+    def _trace_loop(self, process, stop_event, done_event):
         """轮询追踪 current_process 的后代进程，找到真正的游戏进程
 
         优先选「有可见顶层窗口」的后代（排除 conhost/cmd 等控制台进程）；
         启动器已退出时仍能通过整棵后代树找到真游戏。
         """
-        import ctypes
-        from ctypes import wintypes
+        root_pid = process.pid
+        deadline = time.monotonic() + _GAME_SPAWN_TIMEOUT
+        known = {root_pid: ("", self._game_creation_time)}
+        fallback = root_pid
 
-        root_pid = self.current_process.pid if self.current_process else None
-        if not root_pid:
-            return
-        deadline = time.time() + _GAME_SPAWN_TIMEOUT
-        while not self._trace_stop.is_set() and time.time() < deadline:
-            descendants = _collect_descendants(root_pid)
-            # 第一遍：找「有可见窗口 且 非控制台/系统进程」的后代（真游戏）
-            for cpid, cexe in descendants:
-                exe_lower = (cexe or "").lower()
-                if (exe_lower in _NON_GAME_EXES or not exe_lower.endswith(".exe")):
-                    continue
-                if _is_process_alive(cpid) and _has_visible_window(cpid):
-                    self.current_game_pid = cpid
-                    logger.info(
-                        "追踪到游戏进程: pid=%s exe=%s (启动器 pid=%s)",
-                        cpid, cexe, root_pid)
+        def select(pid, created):
+            if not stop_event.is_set() and self.current_process is process:
+                self.current_game_pid = pid
+                self._game_creation_time = created
+                self._target_ready = True
+                logger.info("游戏目标已就绪: pid=%s (启动 PID=%s)", pid, root_pid)
+
+        try:
+            while not stop_event.is_set():
+                # 保留已观察到的中间启动器，父进程退出后仍可找到它的后代。
+                for parent, (_, created) in list(known.items()):
+                    now_created = _process_creation_time(parent)
+                    if now_created is not None and created is not None and now_created != created:
+                        continue
+                    for pid, name in _collect_descendants(parent):
+                        if pid not in known:
+                            child_created = _process_creation_time(pid)
+                            if child_created is not None and (created is None or child_created >= created):
+                                known[pid] = (name, child_created)
+                                if not stop_event.is_set() and (name or "").lower() not in _NON_GAME_EXES:
+                                    self._tracked_processes[pid] = child_created
+                candidates = []
+                for pid, (name, created) in reversed(list(known.items())):
+                    if pid == root_pid or (name or "").lower() in _NON_GAME_EXES:
+                        continue
+                    if _process_creation_time(pid) == created and _is_process_alive(pid):
+                        candidates.append((pid, created))
+                        if _has_visible_window(pid):
+                            select(pid, created)
+                            return
+                if candidates:
+                    fallback = candidates[0][0]
+                if time.monotonic() >= deadline:
+                    if _is_process_alive(fallback):
+                        select(fallback, known[fallback][1])
                     return
-            # 第二遍：回退到任意存活非控制台后代（无窗口游戏/后台进程）
-            for cpid, cexe in descendants:
-                exe_lower = (cexe or "").lower()
-                if exe_lower in _NON_GAME_EXES:
-                    continue
-                if _is_process_alive(cpid):
-                    self.current_game_pid = cpid
-                    logger.info(
-                        "追踪到游戏进程(无窗口回退): pid=%s exe=%s (启动器 pid=%s)",
-                        cpid, cexe, root_pid)
-                    return
-            # 还没有后代，等下一次轮询
-            self._trace_stop.wait(_GAME_TRACE_INTERVAL)
+                stop_event.wait(_GAME_TRACE_INTERVAL)
+        finally:
+            done_event.set()
 
     def launch(self, game: Game, extra_args: list = None) -> bool:
         """
@@ -214,7 +299,8 @@ class GameLauncher:
 
         try:
             # 如果已有游戏在运行，先关闭
-            self.close()
+            if not self.close():
+                return False
 
             # 构建命令
             args = [exe]
@@ -231,6 +317,7 @@ class GameLauncher:
                 creationflags=subprocess.CREATE_NEW_CONSOLE
             )
             self.current_game_pid = self.current_process.pid   # 默认即真游戏
+            self._game_creation_time = _process_creation_time(self.current_process.pid)
             self.current_game_id = game.id
             self._start_time = time.time()
 
@@ -246,25 +333,59 @@ class GameLauncher:
     def close(self):
         """关闭当前游戏进程"""
         self._trace_stop.set()
+        if self._trace_thread and self._trace_thread.is_alive():
+            self._trace_thread.join()
+        root_pid = self.current_process.pid if self.current_process else None
+        game_pid = self.current_game_pid
+        targets = dict(self._tracked_processes)
+        if self.current_process and self.current_process.poll() is None:
+            for pid, name in _collect_descendants(root_pid):
+                if pid not in targets and (name or "").lower() not in _NON_GAME_EXES:
+                    targets[pid] = _process_creation_time(pid)
+        if game_pid and game_pid != root_pid:
+            targets[game_pid] = self._game_creation_time
+        for pid, created in reversed(list(targets.items())):
+            if not _is_process_alive(pid):
+                continue
+            current_created = _process_creation_time(pid)
+            if created is None or current_created is None:
+                logger.error("无法确认游戏子进程身份，保留运行状态: pid=%s", pid)
+                return False
+            if current_created != created:
+                continue
+            if not _terminate_pid(pid, created) and _is_process_alive(pid):
+                logger.error("游戏子进程关闭失败，保留运行状态: pid=%s", pid)
+                return False
         if self.current_process:
             try:
-                self.current_process.terminate()
-                # 等待进程结束（最多5秒）
-                self.current_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.current_process.kill()
-            except Exception:
-                pass
-            finally:
-                self.current_process = None
-                self.current_game_id = None
-                self.current_game_pid = None
-                self._start_time = None
+                if self.current_process.poll() is None:
+                    self.current_process.terminate()
+                try:
+                    self.current_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.current_process.kill()
+                    self.current_process.wait(timeout=5)
+            except Exception as e:
+                logger.error("启动进程关闭失败: %s", e)
+                return False
+        self.current_process = None
+        self.current_game_id = None
+        self.current_game_pid = None
+        self._game_creation_time = None
+        self._start_time = None
+        self._trace_thread = None
+        self._tracked_processes = {}
+        self._target_ready = False
+        return True
     
     def is_running(self) -> bool:
         """检查游戏是否正在运行（优先用追踪到的真游戏 pid）"""
+        if not self._trace_stop.is_set() and not self._trace_done.is_set():
+            return True
         pid = self.get_game_pid()
         if not pid:
+            return False
+        if self._game_creation_time is not None and _process_creation_time(pid) != self._game_creation_time:
             return False
         return _is_process_alive(pid)
 
@@ -274,6 +395,19 @@ class GameLauncher:
             return self.current_game_pid
         if self.current_process and self.current_process.poll() is None:
             return self.current_process.pid
+        return None
+
+    def wait_for_game_pid(self) -> Optional[int]:
+        """等待本轮启动目标就绪；关闭或切换后不能返回旧目标。"""
+        process = self.current_process
+        stop_event = self._trace_stop
+        if not self._trace_done.wait(_GAME_SPAWN_TIMEOUT + 1):
+            return None
+        if stop_event.is_set() or self.current_process is not process or not self._target_ready:
+            return None
+        pid = self.get_game_pid()
+        if pid and _is_process_alive(pid) and _process_creation_time(pid) == self._game_creation_time:
+            return pid
         return None
     
     def get_runtime(self) -> int:

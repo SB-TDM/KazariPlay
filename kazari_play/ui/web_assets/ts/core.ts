@@ -41,7 +41,7 @@ function toast(msg: string): void {
 }
 
 // 详情页和卡片菜单共用启动入口。
-function launchGame(gameId: number): void {
+function launchGame(gameId: string): void {
   if (!bridge) return;
   bridge.launch(String(gameId));
 }
@@ -60,7 +60,7 @@ function chipColor(tag: string): string {
 }
 
 // 把封面 data URI 应用到元素（prefix='img' → 设 src；否则设 backgroundImage + 渐变兜底）
-function loadCoverTo(gameId: number, el: HTMLElement | null, prefix: string): void {
+function loadCoverTo(gameId: string, el: HTMLElement | null, prefix: string): void {
   if (!el) return;
   bridge.getCover(String(gameId), function (uri: unknown) {
     if (!uri) return;

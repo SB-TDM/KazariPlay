@@ -135,8 +135,22 @@ class GameRepository:
         return [self._row_to_game(row) for row in rows]
     
     def delete(self, game_id: str) -> bool:
-        """删除游戏"""
-        return self.db.execute("DELETE FROM games WHERE id = ?", (game_id,))
+        """移除游戏并记入忽略清单，与批量删除使用同一事务。"""
+        return self.delete_many([game_id])
+
+    def delete_many(self, game_ids: List[str]) -> bool:
+        from datetime import datetime
+        removed_at = datetime.now().isoformat()
+        statements = []
+        for game_id in dict.fromkeys(game_ids):
+            statements.extend([
+                ("INSERT INTO ignored_games (identity, exe_path, title, removed_at) "
+                 "SELECT identity, exe_path, title, ? FROM games WHERE id = ?", (removed_at, game_id)),
+                ("DELETE FROM game_tags WHERE game_id = ?", (game_id,)),
+                ("DELETE FROM game_collection_link WHERE game_id = ?", (game_id,)),
+                ("DELETE FROM games WHERE id = ?", (game_id,)),
+            ])
+        return self.db.execute_many(statements)
 
     def update_favorite(self, game_id: str, is_favorite: bool) -> bool:
         """更新收藏状态"""

@@ -138,13 +138,7 @@ class GameManager:
 
         删除后记入忽略清单：文件仍在磁盘时，启动自动扫描不会把它重新加回。
         """
-        game = self.repository.get_by_id(game_id)
-        if self.launcher.current_game_id == game_id and self.launcher.is_running():
-            self.close_game()
-        ok = self.repository.delete(game_id)
-        if ok and game:
-            self.repository.add_ignored(game.identity, game.exe_path, game.title)
-        return ok
+        return self.batch_delete([game_id]) == 1
 
     # ---------- 收藏/评分/标签 ----------
 
@@ -256,12 +250,12 @@ class GameManager:
 
     def batch_delete(self, game_ids: List[str]) -> int:
         """批量删除游戏（正在运行的先关闭）"""
-        statements = []
-        for gid in game_ids:
+        existing_ids = [gid for gid in dict.fromkeys(game_ids) if self.repository.get_by_id(gid)]
+        for gid in existing_ids:
             if self.launcher.current_game_id == gid and self.launcher.is_running():
-                self.close_game()
-            statements.append(("DELETE FROM games WHERE id = ?", (gid,)))
-        return len(game_ids) if self.repository.db.execute_many(statements) else 0
+                if not self.close_game():
+                    return 0
+        return len(existing_ids) if self.repository.delete_many(existing_ids) else 0
 
     # ---------- 收藏夹管理（V1.0 collections，委托 CollectionRepository）----------
 
@@ -328,7 +322,8 @@ class GameManager:
 
         # 启动前若有其他游戏在跑，先关闭
         if self.launcher.is_running():
-            self.close_game()
+            if not self.close_game():
+                return False
 
         if not self.launcher.launch(game, extra_args=extra_args):
             return False
@@ -337,14 +332,16 @@ class GameManager:
         self.monitor.start(game_id)
         return True
 
-    def close_game(self) -> None:
+    def close_game(self) -> bool:
         """关闭当前游戏并停止监控
 
         先关进程再停监控：确保 on_exit 触发时进程已结束，
         让 record_play 能正常写入"最后游玩时间"。
         """
-        self.launcher.close()
+        if not self.launcher.close():
+            return False
         self.monitor.stop()
+        return True
 
     def is_game_running(self) -> bool:
         """是否有游戏正在运行"""

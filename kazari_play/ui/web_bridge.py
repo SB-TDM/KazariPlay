@@ -419,65 +419,64 @@ class WebBridge:
         self.manager.delete_game(game_id)
         self.refresh_delta([game_id])
 
-    def saveGame(self, game_id: str, data_json: str):
+    def saveGame(self, game_id: str, data_json: str) -> str:
         """前端编辑/添加保存。game_id 为空视为手动添加。
 
         收藏夹归属与标签不在此处理（编辑表单已移除收藏夹/标签管理，
         归属经由 addGamesToCollection / removeGamesFromCollection 独立维护）。
         """
         data = json.loads(data_json)
-        g = Game(
-            id=game_id,
-            title=data.get("title", ""),
-            engine=data.get("engine", ""),
-            developer=data.get("developer", ""),
-            description=data.get("description", ""),
-            rating=int(data.get("rating", 0) or 0),
-        )
         if game_id:
-            old = self.manager.get_game(game_id)
-            if old:
-                g.exe_path = old.exe_path
-                g.folder = old.folder
-                g.cover_path = old.cover_path
-                g.tags = list(old.tags)   # 保留已有标签（编辑表单不再提供）
-                g.collections = list(old.collections)
-                g.category_id = int(data.get("cat_id", old.category_id) or 0)
-                # 启动文件：若前端提供了新路径则更新 exe 与所在目录
-                new_exe = (data.get("exe_path") or "").strip()
-                if new_exe and os.path.exists(new_exe):
-                    g.exe_path = os.path.normpath(new_exe)
-                    g.folder = os.path.dirname(g.exe_path)
-                g.identity = self.manager.scanner._make_identity(
-                    g.engine, os.path.basename(os.path.normpath(g.folder or "")))
-                self.manager.update_game(g)
-                self.refresh_delta([game_id])   # 编辑单卡：增量更新
+            g = self.manager.get_game(game_id)
+            if g is None:
+                return json.dumps({"ok": False, "msg": "游戏不存在，请刷新后重试"}, ensure_ascii=False)
+            for field in ("title", "engine", "developer", "description"):
+                if field in data:
+                    setattr(g, field, data[field])
+            if "rating" in data:
+                g.rating = int(data["rating"] or 0)
+            if "cat_id" in data:
+                g.category_id = int(data["cat_id"] or 0)
+            new_exe = (data.get("exe_path") or "").strip()
+            if new_exe:
+                if not os.path.isfile(new_exe):
+                    return json.dumps({"ok": False, "msg": "启动文件不存在"}, ensure_ascii=False)
+                g.exe_path = os.path.normpath(new_exe)
+                g.folder = os.path.dirname(g.exe_path)
+            g.identity = self.manager.scanner._make_identity(
+                g.engine, os.path.basename(os.path.normpath(g.folder or "")))
+            if not self.manager.update_game(g):
+                return json.dumps({"ok": False, "msg": "保存失败，请检查启动路径是否重复"}, ensure_ascii=False)
+            self.refresh_delta([game_id])
         else:
             # 手动添加单个 exe：exe 必填；标题自动推导（exe 所在文件夹名，兜底文件名），
             # 添加前不强制取名；引擎/开发商/简介留空，可进详情后编辑
             exe_path = (data.get("exe_path") or "").strip()
-            if not exe_path:
-                self.notify("请先选择要添加的 exe 文件")
-                return
+            if not exe_path or not os.path.isfile(exe_path):
+                return json.dumps({"ok": False, "msg": "请选择存在的 exe 文件"}, ensure_ascii=False)
             exe_path = os.path.normpath(exe_path)
+            if self.manager.repository.get_by_path(exe_path):
+                return json.dumps({"ok": False, "msg": "该游戏已在库中，请使用编辑功能"}, ensure_ascii=False)
             title = (data.get("title") or "").strip()
             if not title:
                 title = self.manager.scanner._generate_title(
                     os.path.dirname(exe_path), os.path.basename(exe_path))
-            g.title = title
-            g.id = self.manager.scanner._generate_id(exe_path)
-            g.exe_path = exe_path
-            g.folder = os.path.dirname(exe_path)
+            g = Game(id=self.manager.scanner._generate_id(exe_path), title=title,
+                     exe_path=exe_path, folder=os.path.dirname(exe_path),
+                     engine=data.get("engine", ""), developer=data.get("developer", ""),
+                     description=data.get("description", ""), rating=int(data.get("rating", 0) or 0))
             g.identity = self.manager.scanner._make_identity(
                 g.engine, os.path.basename(os.path.normpath(g.folder)))
             # 用户主动重新添加：撤销该游戏的忽略标记，之后扫描不再跳过
-            self.manager.repository.remove_ignored(g.identity, g.exe_path)
             g.category_id = int(data.get("cat_id", 0) or 0)
-            self.manager.add_game(g)
+            if not self.manager.add_game(g):
+                return json.dumps({"ok": False, "msg": "添加失败，请检查启动路径是否重复"}, ensure_ascii=False)
+            self.manager.repository.remove_ignored(g.identity, g.exe_path)
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
             threading.Thread(target=self._run_vndb_match, args=([g],),
                              daemon=True).start()
             self.refresh()   # 新增卡片：全量刷新让新卡出现
+        return json.dumps({"ok": True, "msg": ""}, ensure_ascii=False)
 
     # ---------- 标签 / 分类 ----------
     def addTag(self, name: str, color: str) -> str:
@@ -798,12 +797,13 @@ class WebBridge:
     def matchVndbBatch(self, ids_json: str) -> str:
         ids = set(json.loads(ids_json))
         games = [g for g in self.manager.get_all_games() if g.id in ids]
+        self._vndb_cancel.clear()
         threading.Thread(target=self._do_match_batch, args=(games,),
                          daemon=True).start()
         return json.dumps({"ok": True, "msg": "开始批量匹配..."})
 
     def _do_match_batch(self, games: list):
-        self._run_vndb_match(games)
+        self._run_vndb_match(games, self._vndb_cancel)
         self.refresh()
 
     # ---------- 评分 / 运行状态 ----------

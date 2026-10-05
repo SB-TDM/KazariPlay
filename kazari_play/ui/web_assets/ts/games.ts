@@ -68,7 +68,7 @@ function refreshAll(force: boolean): void {
     App.ui.state.collectionTree = JSON.parse(String(s || '[]')) as CollectionTreeNode[];
     renderCollectionTree();
   });
-  bridge.getRunning(function (r: unknown) { App.data.runningId = (r as number | string) || ''; markRunning(); });
+  bridge.getRunning(function (r: unknown) { App.data.runningId = String(r || ''); markRunning(); });
 }
 
 // 增量刷新：后端写操作（收藏/评分/编辑/删除等）只通知变化项。
@@ -77,7 +77,7 @@ function refreshAll(force: boolean): void {
 function applyGamesDelta(ids: string[]): void {
   if (!bridge || !ids || !ids.length) return;
   let pending = ids.length;
-  const deleted = new Set<number>();
+  const deleted = new Set<string>();
   ids.forEach(idStr => {
     bridge.getGame(idStr, function (s: unknown) {
       try {
@@ -87,12 +87,13 @@ function applyGamesDelta(ids: string[]): void {
           if (gi >= 0) App.data.games[gi] = fresh;
           else App.data.games.push(fresh);   // 新增卡（saveGame 全量场景已覆盖，此处兜底）
         } else {
-          deleted.add(+idStr);   // 删除场景：id 不存在
+          deleted.add(idStr);   // 删除场景：id 不存在
         }
       } catch (e) { }
       if (--pending === 0) {
         if (deleted.size) {
           App.data.games = App.data.games.filter(g => !deleted.has(g.id));
+          deleted.forEach(id => App.ui.state.selected.delete(id));
         }
         // 增量渲染：只更新窗口内变化卡片，不重算滚动位置/不整网格重建。
         // 直接调 renderCards（内部做窗口化 + DOM diff，复用未变卡片含封面），
@@ -200,9 +201,7 @@ function markRunning(): void {
   });
   const b = document.getElementById('dlgStart') as HTMLButtonElement | null;
   if (b) {
-    // 注意：保留原 JS 语义（currentGame.id 为 number，runningId 为 string，
-    // 严格比较恒 false——原样迁移，不在此修复）
-    if (App.data.currentGame && (App.data.currentGame.id as unknown as string) === App.data.runningId) {
+    if (App.data.currentGame && App.data.currentGame.id === App.data.runningId) {
       b.disabled = true; b.textContent = '运行中';
     }
     else { b.disabled = false; b.textContent = '开始游戏'; }
@@ -210,20 +209,20 @@ function markRunning(): void {
 }
 
 // 后端事件推送：启动/退出游戏时即时更新"运行中"状态（无需等 30s 兜底轮询）
-function setRunning(id: number | string): void {
+function setRunning(id: string): void {
   App.data.runningId = id || '';
   markRunning();
 }
 
 // 批量模式下勾选 / 取消勾选
-function toggleSelect(id: number, card: HTMLElement): void {
+function toggleSelect(id: string, card: HTMLElement): void {
   if (App.ui.state.selected.has(id)) { App.ui.state.selected.delete(id); card.classList.remove('selected'); }
   else { App.ui.state.selected.add(id); card.classList.add('selected'); }
   updateBatchBar();
 }
 
 // 当前详情打开的卡片高亮（ring 主色描边 + shadow）
-function setActiveCard(id: number | null): void {
+function setActiveCard(id: string | null): void {
   document.querySelectorAll('.card.active').forEach(c => c.classList.remove('active'));
   if (!id) return;
   const c = document.querySelector(`.card[data-id="${id}"]`);

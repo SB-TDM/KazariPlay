@@ -102,7 +102,9 @@ class ClassicBoundaryTests(unittest.TestCase):
         exe.write_bytes(b"test")
         launcher = GameLauncher()
         game = Game(id="legacy", exe_path=str(exe), folder=str(self.root), translate_enabled=True)
-        with patch("core.game_launcher.subprocess.Popen") as popen, patch.object(launcher, "_start_trace"):
+        with patch("core.game_launcher.subprocess.Popen") as popen, \
+             patch("core.game_launcher._process_creation_time", return_value=123), \
+             patch.object(launcher, "_start_trace"):
             self.assertTrue(launcher.launch(game))
             popen.assert_called_once()
             launcher.close()
