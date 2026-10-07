@@ -63,6 +63,9 @@ function hideBatchProgress(): void {
   if (bpTimer) { clearInterval(bpTimer); bpTimer = null; }
   const box = document.getElementById('batchProgress');
   if (box) box.classList.remove('show');
+  // 任务结束后恢复取消按钮（下次任务重新可用）
+  const cancelBtn = document.getElementById('bpCancel') as HTMLButtonElement | null;
+  if (cancelBtn) cancelBtn.disabled = false;
 }
 
 // 轮询后端批量任务进度；完成（running=false）时收起并提示
@@ -77,7 +80,7 @@ function trackBatchProgress(title: string): void {
   const subEl = document.getElementById('bpSub');
   const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
   cancelMode = 'match';
-  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; }
+  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; (cancelBtn as HTMLButtonElement).disabled = false; }
   bpTimer = setInterval(function () {
     bridge.getBatchProgress(function (s: unknown) {
       if (generation !== bpGeneration) return;
@@ -134,7 +137,7 @@ function updateScanProgress(p: ScanProgress): void {
   const folderIdx = (p.index && p.total) ? `（目录 ${p.index}/${p.total}）` : '';
   document.getElementById('bpSub')!.textContent =
     `已扫描 ${p.dirs || 0} 个文件夹 · 发现 ${games} 个游戏 ${folderIdx}`;
-  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消扫描'; }
+  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消扫描'; (cancelBtn as HTMLButtonElement).disabled = false; }
   cancelMode = 'scan';
   box.classList.add('show');
 }
@@ -184,7 +187,7 @@ document.getElementById('btnBVndb')!.onclick = () => {
     try { result = JSON.parse(String(s || '{}')); } catch (e) { }
     if (!result.ok) { toast(result.msg || '匹配未启动'); return; }
     App.ui.state.selected.clear();
-    trackBatchProgress('VNDB 批量匹配中');
+    trackBatchProgress('元数据匹配中');
   });
 };
 
@@ -280,5 +283,8 @@ document.getElementById('pickerClose')!.onclick = () => closeSheet('pickerOverla
 // 扫描进度条上的「取消扫描」按钮
 // 取消按钮：按当前阶段取消扫描或 VNDB 匹配
 document.getElementById('bpCancel')!.onclick = () => {
+  const btn = document.getElementById('bpCancel') as HTMLButtonElement | null;
+  // 立即反馈“正在取消”（实际终止可能需等在途请求返回）
+  if (btn && !btn.disabled) { btn.disabled = true; btn.textContent = '正在取消…'; }
   if (cancelMode === 'match') bridge.cancelMatch(); else bridge.cancelScan();
 };

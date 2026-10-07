@@ -243,7 +243,7 @@ function openCardMenu(g: Game, x: number, y: number): void {
     'sep',
     { icon: '🗂️', text: '管理收藏夹', action: () => { App.data.currentGame = g; openCollectionManager(); } },
     { icon: '✏️', text: '编辑', action: () => openEdit(g) },
-    { icon: '🔄', text: 'VNDB 匹配', action: () => {
+    { icon: '🔄', text: '元数据匹配', action: () => {
       bridge.matchVndb(String(g.id), function (s: unknown) {
         let result: { ok?: boolean; msg?: string } = {};
         try { result = JSON.parse(String(s || '{}')); } catch (e) { }

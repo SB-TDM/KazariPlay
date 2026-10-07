@@ -60,27 +60,37 @@ def _should_retry(exc: Exception) -> bool:
     return False
 
 
-def _request_with_retry(send: callable) -> bytes:
+def _request_with_retry(send: callable, cancel_event=None) -> bytes:
     """带重试的 HTTP 请求：send 为返回 bytes 的可调用对象
 
     对超时/临时网络错误重试 _MAX_RETRIES 次，每次递增间隔。
     HTTPError（4xx/5xx）不重试（VNDB 明确的拒绝），直接抛出。
+
+    cancel_event 置位时：不再发起新请求；退避等待用可唤醒的 wait，
+    取消后立即抛出，不空等。已在途的请求仍按其超时返回（不强制中断）。
     """
     last_exc = None
     for attempt in range(_MAX_RETRIES + 1):
+        if cancel_event is not None and cancel_event.is_set():
+            raise VndbError("已取消")
         try:
             return send()
         except VndbError as e:
             if not _should_retry(e) or attempt >= _MAX_RETRIES:
                 raise
             last_exc = e
-            time.sleep(_RETRY_BACKOFF * (attempt + 1))
+            wait_s = _RETRY_BACKOFF * (attempt + 1)
+            if cancel_event is not None:
+                if cancel_event.wait(wait_s):
+                    raise VndbError("已取消")
+            else:
+                time.sleep(wait_s)
             logger.warning("VNDB 请求超时/网络波动，第 %d 次重试: %s",
                            attempt + 1, e)
     raise last_exc
 
 
-def _http_post_json(url: str, data: dict) -> dict:
+def _http_post_json(url: str, data: dict, cancel_event=None) -> dict:
     """POST JSON 请求并返回 JSON 响应"""
     body = json.dumps(data).encode("utf-8")
     req = urllib.request.Request(
@@ -108,11 +118,11 @@ def _http_post_json(url: str, data: dict) -> dict:
         except urllib.error.URLError as e:
             raise VndbError(f"VNDB 网络错误: {e.reason}") from None
 
-    raw = _request_with_retry(send)
+    raw = _request_with_retry(send, cancel_event=cancel_event)
     return json.loads(raw.decode("utf-8"))
 
 
-def _http_get(url: str) -> bytes:
+def _http_get(url: str, cancel_event=None) -> bytes:
     """GET 二进制内容（用于下载封面），带超时重试"""
     req = urllib.request.Request(
         url,
@@ -132,7 +142,7 @@ def _http_get(url: str) -> bytes:
         except urllib.error.URLError as e:
             raise VndbError(f"下载封面网络错误: {e.reason}") from None
 
-    return _request_with_retry(send)
+    return _request_with_retry(send, cancel_event=cancel_event)
 
 
 def _clean_html(text: str) -> str:
@@ -196,16 +206,17 @@ def _parse_vn_item(item: dict) -> dict:
     }
 
 
-def search_vn(title: str, count: int = 5) -> List[dict]:
+def search_vn(title: str, count: int = 5, cancel_event=None) -> List[dict]:
     """搜索视觉小说
 
     Args:
         title: 搜索关键词（标题或罗马音）
         count: 返回结果数（最多 100）
+        cancel_event: threading.Event，置位时不再发起请求（可选）
 
     Returns:
         候选列表，每项是 _parse_vn_item 返回的字典，按 VNDB 相关度排序。
-        失败时返回空列表（不抛异常，由调用方决定如何处理）。
+        失败/取消时返回空列表（不抛异常，由调用方决定如何处理）。
     """
     title = (title or "").strip()
     if not title:
@@ -224,7 +235,7 @@ def search_vn(title: str, count: int = 5) -> List[dict]:
     }
 
     try:
-        resp = _http_post_json(f"{_VNDB_API_BASE}/vn", payload)
+        resp = _http_post_json(f"{_VNDB_API_BASE}/vn", payload, cancel_event=cancel_event)
     except VndbError as e:
         logger.warning("VNDB 搜索失败: title=%s, err=%s", title, e)
         return []
@@ -241,9 +252,9 @@ def search_vn(title: str, count: int = 5) -> List[dict]:
     return parsed
 
 
-def search_first_vn(title: str) -> Optional[dict]:
+def search_first_vn(title: str, cancel_event=None) -> Optional[dict]:
     """搜索并返回第一个匹配结果（自动选策略用）"""
-    results = search_vn(title, count=1)
+    results = search_vn(title, count=1, cancel_event=cancel_event)
     return results[0] if results else None
 
 
@@ -251,21 +262,24 @@ def search_first_vn(title: str) -> Optional[dict]:
 search = search_vn
 
 
-def download_cover(cover_url: str, dest_path: str) -> bool:
+def download_cover(cover_url: str, dest_path: str, cancel_event=None) -> bool:
     """下载封面图到指定路径
 
     Args:
         cover_url: VNDB CDN URL（如 https://t.vndb.org/cv/12345/12345.jpg）
         dest_path: 本地保存路径（含扩展名）
+        cancel_event: threading.Event，置位时不再下载（可选）
 
     Returns:
-        True 下载成功，False 失败（网络错误或写入失败）
+        True 下载成功，False 失败/取消（网络错误或写入失败）
     """
     if not cover_url or not dest_path:
         return False
+    if cancel_event is not None and cancel_event.is_set():
+        return False
 
     try:
-        data = _http_get(cover_url)
+        data = _http_get(cover_url, cancel_event=cancel_event)
     except VndbError as e:
         logger.warning("下载封面失败: %s, %s", cover_url, e)
         return False

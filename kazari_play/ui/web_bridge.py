@@ -775,7 +775,7 @@ class WebBridge:
         if cancelled:
             self.notify(f"扫描已取消，新增 {total_added} 个{skip_msg}")
         elif all_new:
-            self.notify(f"扫描完成，新增 {total_added} 个{skip_msg}，开始 VNDB 匹配…")
+            self.notify(f"扫描完成，新增 {total_added} 个{skip_msg}，开始元数据匹配…")
             self._run_vndb_match(all_new, self._vndb_cancel)
         else:
             self.notify(f"扫描完成，无新游戏{skip_msg}")
@@ -787,16 +787,16 @@ class WebBridge:
         if games:
             self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
             # 通知前端启动批量进度条轮询（扫描后自动匹配同样可见）
-            self._ui.invalidate("batch_progress", {"running": True, "title": "VNDB 匹配中"})
+            self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
             matched, skipped, failed = self.manager.match_vndb_for_games(
                 games, force=False, progress_cb=self._vndb_progress, cancel_event=cancel_event)
             self.reloadCovers()   # 封面可能已更新，清缓存并强制前端重载
             if cancel_event is not None and cancel_event.is_set():
-                self.notify(f"VNDB 匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
+                self.notify(f"元数据匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
             else:
                 self.notify(
-                    f"VNDB 匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
+                    f"元数据匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
         except Exception as e:
             logger.error("VNDB 批量匹配异常: %s", e)
         finally:
@@ -812,7 +812,7 @@ class WebBridge:
                                           self._batch_ctx.get("total", 1))
         self._vndb_counter += 1
         if self._vndb_counter % 3 == 0:
-            self.notify(f"VNDB 匹配中：{title[:24]}")
+            self.notify(f"元数据匹配中：{title[:24]}")
 
     def getBatchProgress(self) -> str:
         """返回当前批量任务进度 JSON（无任务返回 running=false）"""
@@ -841,14 +841,14 @@ class WebBridge:
     def matchVndb(self, game_id: str) -> str:
         if not self._start_task(self._do_match, (game_id,)):
             return json.dumps({'ok': False, 'msg': '已有扫描或匹配任务正在运行'}, ensure_ascii=False)
-        return json.dumps({"ok": True, "msg": "开始匹配 VNDB..."})
+        return json.dumps({"ok": True, "msg": "开始匹配元数据..."})
 
     def _do_match(self, game_id: str):
         try:
             status, msg = self.manager.match_vndb_metadata(game_id, force=True)
             logger.info("VNDB 匹配 %s: %s %s", game_id, status, msg)
             self.reloadCover(game_id)   # 单张封面可能已更新，只定向重载该卡
-            self.notify(f"VNDB 匹配完成：{msg}")
+            self.notify(f"元数据匹配完成：{msg}")
         except Exception as e:
             logger.error("VNDB 匹配异常: %s", e)
         self.refresh_delta([game_id])

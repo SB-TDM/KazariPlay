@@ -45,9 +45,10 @@
          transition:opacity .25s,transform .25s var(--bounce);pointer-events:none;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(2px);}
 
-  /* 批量任务进度条（VNDB 批量匹配等耗时操作） */
+  /* 批量任务进度条（元数据匹配等耗时操作）
+     z-index 低于 .overlay(100)：任务进行中打开模态时，进度条不遮挡模态内容与按钮 */
   .batch-progress{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
-                  z-index:300;width:min(420px,80vw);background:var(--bg-panel);
+                  z-index:90;width:min(420px,80vw);background:var(--bg-panel);
                   border:1.5px solid var(--border-soft);border-radius:var(--radius-lg);
                   padding:12px 16px;box-shadow:0 10px 26px var(--glow-med);
                   opacity:0;pointer-events:none;transition:opacity .25s var(--soft),transform .25s var(--soft);}

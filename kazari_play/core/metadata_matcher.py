@@ -67,20 +67,23 @@ def _cover_dest_path(game_id: str, cover_url: str) -> str:
     return os.path.join(covers_dir, f"{game_id}_vndb{ext}")
 
 
-def match_single(game: Game, force: bool = False) -> Tuple[str, str]:
+def match_single(game: Game, force: bool = False, cancel_event=None) -> Tuple[str, str]:
     """为单个游戏匹配 VNDB 元数据并保守更新
 
     Args:
         game: 要匹配的游戏（会被原地修改）
         force: True 时即使已有 vndb_id 也重新匹配
+        cancel_event: threading.Event，置位时尽快终止（关键词回退 / 封面均检查）
 
     Returns:
         (status, message)
-        status ∈ {"skip", "match", "fail"}
+        status ∈ {"skip", "match", "fail", "cancelled"}
         message 是人类可读的说明
     """
     if not game:
         return "fail", "游戏对象为空"
+    if cancel_event is not None and cancel_event.is_set():
+        return "cancelled", "已取消"
 
     # 已有 vndb_id 则跳过（除非 force）
     if game.vndb_id and not force:
@@ -105,15 +108,22 @@ def match_single(game: Game, force: bool = False) -> Tuple[str, str]:
     result = None
     tried_queries = []
     for i, q in enumerate(queries_to_try):
+        # 取消：不再尝试下一个关键词
+        if cancel_event is not None and cancel_event.is_set():
+            return "cancelled", "已取消"
         tried_queries.append(q)
         logger.info("VNDB 搜索策略 %d: '%s'", i + 1, q)
         try:
-            result = vndb_client.search_first_vn(q)
+            result = vndb_client.search_first_vn(q, cancel_event=cancel_event)
         except Exception as e:
             logger.error("VNDB 搜索异常: q='%s', %s", q, e)
             continue
         if result:
             break
+
+    # 搜索途中被取消（结果为空且事件置位）→ 判为取消，不当作“未找到”
+    if (not result) and cancel_event is not None and cancel_event.is_set():
+        return "cancelled", "已取消"
 
     if not result:
         logger.info("VNDB 未找到匹配: 尝试过 %s", tried_queries)
@@ -160,7 +170,7 @@ def match_single(game: Game, force: bool = False) -> Tuple[str, str]:
     # 封面（VNDB image.url 下载到本地，已有封面则不覆盖）
     if not game.cover_path and result["cover_url"]:
         dest = _cover_dest_path(game.id, result["cover_url"])
-        if vndb_client.download_cover(result["cover_url"], dest):
+        if vndb_client.download_cover(result["cover_url"], dest, cancel_event=cancel_event):
             game.cover_path = dest
             updated_fields.append("cover_path")
         else:
@@ -207,7 +217,7 @@ def match_batch(
             except Exception:
                 pass
 
-        status, msg = match_single(game, force=force)
+        status, msg = match_single(game, force=force, cancel_event=cancel_event)
 
         if progress_cb:
             try:
@@ -215,6 +225,10 @@ def match_batch(
             except Exception:
                 pass
 
+        if status == "cancelled":
+            # 取消不计入成功/跳过/失败，且不再处理后续游戏
+            logger.info("VNDB 批量匹配在取消处停止")
+            break
         if status == "match":
             matched += 1
         elif status == "skip":
