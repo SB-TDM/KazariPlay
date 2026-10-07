@@ -39,6 +39,7 @@
 
 | 文档 | 状态 |
 |---|---|
+| [UI_OPTIMIZATION_DISCUSSION.md](UI_OPTIMIZATION_DISCUSSION.md) | 原版全量 UI 优化评审与讨论草案；含证据、建议、验收和未决项，待讨论，未批准实施 |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
