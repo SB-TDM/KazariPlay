@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-06 P0/P1/P2 本地修复收尾
+> 文档状态：2026-10-07 develop 试用反馈归档；三项 pending，待其他 agent 修复
 >
 > 本页区分当前有效文档、历史记录和未实施方案。当前代码与运行行为以代码、测试结果和“当前有效”文档为准。
 
@@ -16,6 +16,7 @@
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
+| [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界，尚未修复 |
 | [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](VERSIONING.md) | 三段式编号、两版预发布标识、唯一版本来源和历史编号映射 |
 | [PACKAGING.md](PACKAGING.md) | develop 文件夹试用包的构建、隔离数据、冻结验收与合并边界 |
