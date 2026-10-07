@@ -12,6 +12,8 @@ pip install -r requirements.txt
 npm --prefix kazari_play/ui/web_assets ci
 npm --prefix kazari_play/ui/web_assets run build
 python kazari_play/main.py        # 在对应工作区根目录运行
+# develop 试用包（新目录；不写入现有用户数据）
+python scripts/package_develop.py --output trial-build-1.4.0-beta.1
 ```
 
 前端改动（改 `ts/` 后必须编译）：
@@ -60,4 +62,5 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏/忽略项回填
 - 当前本地版本 `1.4.0-beta.1`（基于 V1.3 的原版可靠性验收）；历史版本见 `RELEASE_NOTES.md`
+- `scripts/package_develop.py` 生成隔离的 onedir 试用包，运行时数据在包旁 `data/`；不覆盖现有构建目录，打包前需先完成 Overlay x64/x86 构建。
 - 分支职责见 `docs/BRANCH_WORKFLOW.md`；不将实验分支整分支合入原版，不混用两版生成物，不删除用户数据或旧实验字段。

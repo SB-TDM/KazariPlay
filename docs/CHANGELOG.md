@@ -10,6 +10,13 @@
 - 原版公共 P1 的 20 个文件更改已在本地 `develop` 集成，实验专属修复不整分支合入原版；本轮不推送、不更新稳定 `main`。
 - 两版类型检查/构建、Python 语法、前端组装与各 18 项 P1 回归通过；源码 GUI 标题/关于页/布局、Win32 句柄查找及最大化/还原通过，原版无翻译边界和实验离线冒烟仍通过。
 
+## develop 试用包（2026-10-07）
+
+- 新增 `scripts/package_develop.py`、`scripts/develop.spec` 和 portable runtime hook，生成隔离 PyInstaller onedir 试用包；包旁 `data/` 保存测试数据库、配置、日志和截图，不读取现有用户数据。
+- 冻结包内含前端、资源、原版 x64/x86 截图 Overlay；冻结 WebView 自检通过版本/关于页、原版无翻译边界、UI 新增/编辑/删除、SQLite、受控游戏启动/监控/关闭、WGC/Pillow 截图、缩略图、重命名/删除、Overlay 管道与零退出。
+- 试用包为本地 `develop` 的 Windows x64 onedir，构建信息记录真实源码提交和依赖版本，源码/冻结测试均使用隔离库；包旁 data 为空时首次运行创建，不附带测试游戏或数据库。
+- 原有 `KazariPlay_V1.0_build` 完整保留；未推送、未发布、未合入 `main/master`。真实游戏、多显示器、独占全屏、网络元数据和另一台干净机器仍需用户试用；本机 Pillow/pywin32 与 requirements 固定版本不同，实际版本见 BUILD_INFO.json 和 [打包说明](PACKAGING.md)。
+
 ## 实验产物启用状态同步（2026-10-06）
 
 - 实验 `3cc0d76` 默认启用 runtime 双架构产物，`00dc19f` 修复字幕 COM 重复释放；旧产物哈希保护、双架构构建/显示/退出、管道和源码 GUI 离线验收通过。

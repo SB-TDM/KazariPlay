@@ -18,6 +18,7 @@
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
 | [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](VERSIONING.md) | 三段式编号、两版预发布标识、唯一版本来源和历史编号映射 |
+| [PACKAGING.md](PACKAGING.md) | develop 文件夹试用包的构建、隔离数据、冻结验收与合并边界 |
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 

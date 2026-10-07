@@ -20,7 +20,7 @@
 
 各 worktree 的 [kazari_play/version.py](../kazari_play/version.py) 是运行时版本与产品线的唯一来源：`VERSION`、`PRODUCT_LINE`，显示版本和标题从它们派生。入口、启动日志、HTML 标题栏和关于页直接使用，包导出 `kazari_play.__version__` 同样来自该文件；Win32 句柄查找共享标题。
 
-README、规则入口和发行说明是文档快照；前端私有工具包的 package/lock 版本作为构建元数据同步。`tests/verify_frontend.py` 校验版本占位符已替换和显示一致。后续增加打包版本资源时从该模块读取，不另写运行时版本常量。
+README、规则入口和发行说明是文档快照；前端私有工具包的 package/lock 版本作为构建元数据同步。`tests/verify_frontend.py` 校验版本占位符已替换和显示一致。develop 试用 spec 从该模块生成 Windows EXE 的 FileVersion/ProductVersion，不另写版本常量，构建边界见 [打包说明](PACKAGING.md)。
 
 ## 历史编号映射
 

@@ -96,4 +96,6 @@ P0 增量验证：9 项写入/取消测试、10 项进程测试、前端字符�
 
 P1 增量验证：两版 18 项数据/任务回归、Node 截图/进度隔离和源码 GUI 重新定位/同名截图通过；原版 x64/x86 toast、真实管道重连/架构切换/句柄计数和 C++ 挂起 I/O 停止通过。实验在临时目录完整构建 x64/x86，序号和真实 worker 的阻塞结果测试、临时 EXE 生命周期通过；原有实验 `bin/bin32` 未覆盖，普通启动不会自动使用临时产物。仍需真实游戏、AI 服务、独占全屏及多显示器验收。
 
+develop 试用包已通过本地 PyInstaller onedir 构建与冻结包离线自检：`scripts/package_develop.py --output <新目录>`。包旁 `data/` 隔离数据库、配置、日志和截图；包内含原版前端/资源及 x64/x86 截图 Overlay，运行时不读取现有 `%APPDATA%/KazariPlay`。自检覆盖冻结 WebView、版本/关于页、SQLite 新增/编辑/删除、WGC/Pillow 截图、缩略图、重命名/删除、包内 Overlay 管道与零退出；不覆盖现有构建目录。实际 PyInstaller 警告中的可选平台模块未在 Windows 路径使用。
+
 2026-10-06 实验专属 P2 已本地完成，原版仅同步记录，详情见 [开发待办](DEVELOPMENT_BACKLOG.md)。实验 x64/x86 真实请求受控替身与日志隐私回归通过，随后默认运行目录启用为 `overlay/runtime/x64|x86`，bat/CMake 双架构构建、源码 GUI HTTPS 拒绝、toast/字幕预览像素和正常退出通过；字幕 COM 重复释放修复及计数回归通过。旧 EXE/DLL/OBJ 保留，显式 exe_path 仍优先；原版构建与路径不改变。P0/P1/P2 和启用提交尚未推送，稳定 `main` 未更新；真实游戏/TLS/AI 服务及实际打包仍未验收。

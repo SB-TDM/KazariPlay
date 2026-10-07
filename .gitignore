@@ -8,6 +8,7 @@ kazari_play/data/
 
 # 测试缓存
 .pytest_cache/
+trial-build-*/
 
 # 截图与编译产物
 screenshots/

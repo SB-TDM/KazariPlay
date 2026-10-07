@@ -55,9 +55,9 @@ def _setup_handlers(logger: logging.Logger):
     # （sandbox 可能允许创建 FileHandler 但写入时拦截）
     import os
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    log_paths_to_try = [
-        os.path.join(project_root, "debug.log"),  # 优先项目目录（最可靠）
-    ]
+    log_paths_to_try = []
+    if not os.environ.get("KAZARIPLAY_DATA_DIR", "").strip():
+        log_paths_to_try.append(os.path.join(project_root, "debug.log"))
     try:
         log_dir = get_default_log_dir()
         log_paths_to_try.append(os.path.join(log_dir, "app.log"))

@@ -52,9 +52,13 @@ def get_screenshots_dir() -> str:
     定位到项目根（KazariPlay_V1.0/），即 path_utils.py 上级的上级的上级：
         kazari_play/utils/path_utils.py -> KazariPlay_V1.0/
     """
-    project_root = os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))
-    shots_dir = os.path.join(project_root, "screenshots")
+    data_root = os.environ.get("KAZARIPLAY_DATA_DIR", "").strip()
+    if data_root:
+        shots_dir = os.path.join(os.path.abspath(data_root), "screenshots")
+    else:
+        project_root = os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))))
+        shots_dir = os.path.join(project_root, "screenshots")
     os.makedirs(shots_dir, exist_ok=True)
     return shots_dir
 
@@ -75,6 +79,15 @@ def get_app_data_dir(app_name: str = "KazariPlay") -> str:
     目录不存在时自动创建。
     """
     global _writable_cache
+    data_root = os.environ.get("KAZARIPLAY_DATA_DIR", "").strip()
+    if data_root:
+        configured = os.path.abspath(data_root)
+        if _writable_cache == configured:
+            return configured
+        if not _is_writable(configured):
+            raise OSError("Configured data directory is not writable: " + configured)
+        _writable_cache = configured
+        return configured
     # 有缓存直接返回
     if _writable_cache is not None:
         return _writable_cache
@@ -109,6 +122,9 @@ def migrate_data_if_needed() -> bool:
         True 表示执行了迁移或无需迁移，False 表示迁移失败
     """
     global _writable_cache
+    if os.environ.get("KAZARIPLAY_DATA_DIR", "").strip():
+        get_app_data_dir()
+        return True
     if _writable_cache is None:
         get_app_data_dir()  # 触发检测
 

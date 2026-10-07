@@ -42,6 +42,14 @@ npm --prefix kazari_play/ui/web_assets run build
 python kazari_play/main.py     # 在对应工作区根目录下
 ```
 
+生成本地 develop 试用包（不会覆盖已有输出，也不读取真实用户库）：
+
+```powershell
+python scripts/package_develop.py --output trial-build-1.4.0-beta.1
+```
+
+完成后运行 `trial-build-1.4.0-beta.1/dist/KazariPlay/run_develop.cmd`，试用包的数据库、配置、日志和截图均隔离在包旁 `data/`。
+
 ## 构建 C++ Overlay（可选）
 
 游戏内截图提示由独立进程 `overlay/bin/overlay.exe` 提供，首次运行前需编译（需要 MSVC Build Tools，含 C++ 工作负载）：
