@@ -144,6 +144,9 @@ class GameScanner:
                 if found:
                     folder_exes[root] = found
                     folder_files[root] = files
+                    # 整棵树规则：该目录已含游戏 exe → 视为游戏根，
+                    # 其全部子孙目录属于同一游戏，不再单独识别（剪枝）
+                    dirs.clear()
                 _tick()
         else:
             if cancel_event is None or not cancel_event.is_set():
