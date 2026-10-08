@@ -2,6 +2,13 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 扫描整棵树规则与元数据匹配性能优化（2026-10-08）
+
+- **扫描整棵树规则**（`game_scanner.py`，`f5b2046`）：从扫描根向下，第一个含有效 exe 的目录视为游戏根；识别后剪枝其子树，同一游戏树下只识别一个游戏。父目录无 exe 时不剪枝，合集仍各自识别。eden\*（含 `eden PLUS MOSAIC` 特典子目录）识别为 1 个。
+- **封面下载与匹配解耦 + 短超时不重试**（`vndb_client`/`metadata_matcher`/`game_manager`/`web_bridge`，`3e0356c`）：`match_single/match_batch` 新增 `cover_cb`，封面改由 `web_bridge` 4 线程池后台下载（`_COVER_TIMEOUT=8s`、0 重试），完成写库并定向 `reloadCover`；匹配不再等待封面。实测 35 游戏匹配约 97s（此前含封面数分钟）。详见 [封面优化](COVER_DOWNLOAD_OPTIMIZATION.md)。
+- **单游戏匹配复用批量进度条 + 取消**：右键「元数据匹配」现显示进度条；批量模式下进度面板上移，避免遮挡底部批量工具栏。
+- 验证：`verify_frontend`、P0(9)、P1(18)、扫描器单测、无翻译边界(4) 通过。
+
 ## 1.4.0-beta.1 版本标识统一（2026-10-06）
 
 - 原版开发线使用 `1.4.0-beta.1`，实验线使用 `1.4.0-experimental.1`；新版本来源 `kazari_play/version.py` 统一包版本、入口、日志、窗口标题、标题栏和关于页，Win32 句柄查找共享标题。

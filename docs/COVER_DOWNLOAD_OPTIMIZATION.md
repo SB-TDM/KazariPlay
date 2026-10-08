@@ -1,8 +1,17 @@
-# 元数据匹配与封面下载性能优化（方案草案）
+# 元数据匹配与封面下载性能优化
 
-> 状态：草案 / pending，尚未实施。2026-10-07 本地实测并记录；不改动现有匹配与下载链路。
+> 状态：**已实施**（2026-10-08，commit `3e0356c`）。方案 1+3 已落地并回归通过。
 >
 > 适用：无翻译原版 `develop`；公共优化，验收后选择性同步实验版。
+
+## 实施记录（2026-10-08）
+
+- `vndb_client`：`download_cover` 默认**短超时 8s + 0 重试**（新增 `_COVER_TIMEOUT`）；`_http_get` 补 `TimeoutError/OSError` 捕获；`_request_with_retry` 支持自定义重试次数。
+- `metadata_matcher`：`match_single/match_batch` 新增 `cover_cb`，有回调时封面异步、不下载。
+- `game_manager`：`match_vndb_metadata` / `match_vndb_all` / `match_vndb_for_games` 透传 `cover_cb`。
+- `web_bridge`：4 线程封面池（`_queue_cover` + `_download_cover_bg`），下载成功写库 `cover_path` 并定向 `reloadCover`；匹配完成用 `refresh()` 刷元数据。
+- 单游戏匹配（右键菜单）复用批量同款进度条 + 取消；批量模式下进度面板上移错开底部批量工具栏。
+- 实测：35 游戏 `match_batch` 匹配约 **97s**（此前含封面数分钟）；回归 P0(9)/P1(18) 通过。
 
 ## 实测结论（2026-10-07）
 
