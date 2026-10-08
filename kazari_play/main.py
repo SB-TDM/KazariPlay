@@ -84,6 +84,7 @@ _PARTIAL_MANIFEST = [
     "form.html",        # 编辑 / 添加表单
     "settings.html",    # 设置窗口
     "relocate.html",    # 批量重新定位预览对话框
+    "meta_apply.html",  # 元数据候选字段选择对话框
     "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）
 ]
 

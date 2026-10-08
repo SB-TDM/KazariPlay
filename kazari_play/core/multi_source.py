@@ -13,11 +13,15 @@
     source / source_id / title / alt_title / cover_url / description /
     developer / released / rating(0-5) / length_minutes / tags / source_icon / source_name
 """
+import concurrent.futures
 from typing import List, Optional
 
 from utils import vndb_client, bangumi_client, ymgal_client
 from utils.config import Config
 from utils.logger import get_logger
+
+# 多源搜索整体超时（秒）：并发发起各源，超过此时间返回已完成的部分，避免界面久等
+_SEARCH_DEADLINE = 30.0
 
 logger = get_logger()
 
@@ -161,13 +165,36 @@ def search_metadata(
 
     keyword = keyword.strip()
     all_candidates: List[dict] = []
-    for source_id in target:
+
+    def _search_one(source_id: str) -> List[dict]:
         client = SOURCES[source_id]["client"]
+        return [_wrap(r, source_id) for r in client.search(keyword, count=limit_per_source)]
+
+    if len(target) <= 1:
+        for source_id in target:
+            try:
+                all_candidates.extend(_search_one(source_id))
+            except Exception as e:  # noqa: BLE001
+                logger.warning("数据源 %s 搜索失败: %s", source_id, e)
+    else:
+        # 并发发起各源；整次搜索总超时，超时即返回已完成的部分（不再等慢源）
+        order = {sid: i for i, sid in enumerate(target)}
+        ex = concurrent.futures.ThreadPoolExecutor(max_workers=len(target))
+        futs = {ex.submit(_search_one, sid): sid for sid in target}
         try:
-            results = client.search(keyword, count=limit_per_source)
-            all_candidates.extend(_wrap(r, source_id) for r in results)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("数据源 %s 搜索失败: %s", source_id, e)
+            for fut in concurrent.futures.as_completed(futs, timeout=_SEARCH_DEADLINE):
+                sid = futs[fut]
+                try:
+                    all_candidates.extend(fut.result())
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("数据源 %s 搜索失败: %s", sid, e)
+        except concurrent.futures.TimeoutError:
+            logger.warning("多源搜索整体超时(%.0fs)，返回已完成结果", _SEARCH_DEADLINE)
+        finally:
+            # wait=False：不等待未完成的慢源，否则会阻塞整个调用、令超时失效
+            ex.shutdown(wait=False)
+        # 并发完成顺序不定，按源配置顺序还原
+        all_candidates.sort(key=lambda c: order.get(c.get("source"), len(order)))
     return _dedupe(all_candidates)
 
 

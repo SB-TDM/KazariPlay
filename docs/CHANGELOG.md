@@ -2,12 +2,16 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
-## 扫描整棵树规则与元数据匹配性能优化（2026-10-08）
+## 扫描整棵树规则与元数据匹配/封面体验优化（2026-10-08）
 
 - **扫描整棵树规则**（`game_scanner.py`，`f5b2046`）：从扫描根向下，第一个含有效 exe 的目录视为游戏根；识别后剪枝其子树，同一游戏树下只识别一个游戏。父目录无 exe 时不剪枝，合集仍各自识别。eden\*（含 `eden PLUS MOSAIC` 特典子目录）识别为 1 个。
-- **封面下载与匹配解耦 + 短超时不重试**（`vndb_client`/`metadata_matcher`/`game_manager`/`web_bridge`，`3e0356c`）：`match_single/match_batch` 新增 `cover_cb`，封面改由 `web_bridge` 4 线程池后台下载（`_COVER_TIMEOUT=8s`、0 重试），完成写库并定向 `reloadCover`；匹配不再等待封面。实测 35 游戏匹配约 97s（此前含封面数分钟）。详见 [封面优化](COVER_DOWNLOAD_OPTIMIZATION.md)。
+- **封面下载与匹配解耦**（`vndb_client`/`metadata_matcher`/`game_manager`/`web_bridge`，`3e0356c`）：`match_single/match_batch` 新增 `cover_cb`，封面改由 `web_bridge` 后台线程池下载（不重试），完成写库并定向 `reloadCover`；匹配不再等待封面。实测 35 游戏匹配约 97s（此前含封面数分钟）。详见 [封面优化](COVER_DOWNLOAD_OPTIMIZATION.md)。
 - **单游戏匹配复用批量进度条 + 取消**：右键「元数据匹配」现显示进度条；批量模式下进度面板上移，避免遮挡底部批量工具栏。
-- 验证：`verify_frontend`、P0(9)、P1(18)、扫描器单测、无翻译边界(4) 通过。
+- **封面下载参数可在设置页配置**（`config.py`/`vndb_client`/`web_bridge`/`settings.html`/`settings.ts`）：新增「封面下载」设置组——下载超时下拉（默认 **90 秒**，即时生效）、最大并发下拉（默认 **4**，重启生效）。此前固定 8s 对 t.vndb.org（实测单张 15~35s）过短，导致多数封面超时失败；改为可配的 90s 默认。
+- **封面下载可视化**（`sync.py`/`web_bridge`/`state.ts`/`cards.ts`/`cards.css`）：新增 UISync `cover_progress` 域，封面下载中在**可见卡片**封面中心显示环形转圈，结束（成功/失败）收起；**失败不重试、不显示**。
+- **多源搜索整体超时**（`multi_source.py`）：混合搜索**并发**发起各源，整次上限 **30s**，超时返回已完成候选（不再按源顺序累加等待）。
+- **元数据候选字段勾选**（`web_bridge.applyCandidate`/`form.ts`/`partials/meta_apply.html`）：编辑界面选中候选后弹字段选择框（标题/开发商/发售日/评分/简介/时长/封面），**空白字段默认勾（将添加）、已有值默认不勾（覆盖需手动）**，可全选/取消全选，只应用勾选字段。
+- 验证：`npm run build`、`verify_frontend`、P0(9)、P1(18)、扫描器单测、无翻译边界(4)、`py_compile` 通过。
 
 ## 1.4.0-beta.1 版本标识统一（2026-10-06）
 

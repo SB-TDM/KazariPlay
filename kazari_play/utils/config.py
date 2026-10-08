@@ -43,6 +43,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "single": "vndb",
         "mixed": ["vndb", "bangumi"],
     },
+    # 封面下载（VNDB 封面 CDN 慢，超时/并发可调；并发改动重启生效）
+    "cover_download": {
+        "timeout": 90,          # 单张封面下载超时（秒）
+        "max_concurrent": 4,    # 同时下载的封面数上限
+    },
 }
 
 

@@ -100,7 +100,7 @@ interface PyWebViewApi {
   searchMetadata(keyword: string, sources_json?: string): Promise<string>;
   getMetadataSources(): Promise<string>;
   saveMetadataSources(sources_json: string): Promise<unknown>;
-  applyCandidate(game_id: string, candidate_json: string): Promise<unknown>;
+  applyCandidate(game_id: string, candidate_json: string, fields_json?: string): Promise<unknown>;
 
   // ---- 通用后端事件 ----
   refresh(): Promise<unknown>;

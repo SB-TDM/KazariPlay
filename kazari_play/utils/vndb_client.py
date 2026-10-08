@@ -40,8 +40,9 @@ _USER_AGENT = "KazariPlay/1.0 (https://github.com/KazariPlay)"
 
 # 请求超时（秒）
 _REQUEST_TIMEOUT = 15
-# 封面下载超时（秒）：比 API 搜索短，避免 CDN 慢时长时间阻塞
-_COVER_TIMEOUT = 8
+# 封面下载超时（秒）：t.vndb.org CDN 实测单张可达 15~35s，需给足余量；
+# 下载已异步化、不阻塞匹配，故放宽到 90s
+_COVER_TIMEOUT = 90
 # 网络请求重试：超时/临时网络错误时重试次数与间隔
 _MAX_RETRIES = 2
 _RETRY_BACKOFF = 2  # 每次重试额外等待秒数（1s、3s、5s）
@@ -270,7 +271,7 @@ search = search_vn
 
 
 def download_cover(cover_url: str, dest_path: str, cancel_event=None,
-                   timeout: float = _COVER_TIMEOUT, retries: int = 0) -> bool:
+                   timeout: float = None, retries: int = 0) -> bool:
     """下载封面图到指定路径
 
     Args:
@@ -287,6 +288,13 @@ def download_cover(cover_url: str, dest_path: str, cancel_event=None,
         return False
     if cancel_event is not None and cancel_event.is_set():
         return False
+    if timeout is None:
+        # 从设置读取封面下载超时（改设置即时生效；缺省回退常量）
+        try:
+            from utils.config import Config
+            timeout = float(Config().get("cover_download.timeout", _COVER_TIMEOUT) or _COVER_TIMEOUT)
+        except Exception:
+            timeout = _COVER_TIMEOUT
 
     try:
         data = _http_get(cover_url, cancel_event=cancel_event,

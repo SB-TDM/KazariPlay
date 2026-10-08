@@ -322,8 +322,9 @@ class WebBridge:
         self._task_lock = threading.Lock()
         self._task_thread = None
         # 封面下载线程池：与匹配解耦，短超时不重试（见 COVER_DOWNLOAD_OPTIMIZATION）
+        _cover_workers = max(1, int(self._cfg.get("cover_download.max_concurrent", 4) or 4))
         self._cover_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=4, thread_name_prefix="cover")
+            max_workers=_cover_workers, thread_name_prefix="cover")
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -1192,32 +1193,48 @@ class WebBridge:
         from core import multi_source
         multi_source.set_mixed_sources(json.loads(sources_json))
 
-    def applyCandidate(self, game_id: str, candidate_json: str):
+    def applyCandidate(self, game_id: str, candidate_json: str, fields_json: str = ""):
+        """应用多源候选元数据。
+
+        fields_json：勾选要应用的字段 JSON 数组（如 ["title","cover"]）；
+          仅这些字段被覆盖。为空字符串时退回旧行为（仅填充空白字段）。
+        """
         from core import multi_source
         cand = json.loads(candidate_json)
         g = self.manager.get_game(game_id)
         if not g or not cand:
             return
+        selected = None
+        if fields_json and fields_json.strip():
+            try:
+                selected = set(json.loads(fields_json))
+            except Exception:
+                selected = None
+
+        def want(field: str) -> bool:
+            # 旧调用（未传 fields）：仅填空白；新调用：只应用被勾选的字段
+            return (field in selected) if selected is not None else not getattr(g, field, None)
+
         changed = False
-        if cand.get("title") and not g.title:
+        if cand.get("title") and want("title"):
             g.title = cand["title"]
             changed = True
-        if cand.get("description") and not g.description:
+        if cand.get("description") and want("description"):
             g.description = cand["description"]
             changed = True
-        if cand.get("developer") and not g.developer:
+        if cand.get("developer") and want("developer"):
             g.developer = cand["developer"]
             changed = True
-        if cand.get("released") and not g.released:
+        if cand.get("released") and want("released"):
             g.released = cand["released"]
             changed = True
-        if cand.get("rating") and not g.rating:
+        if cand.get("rating") and want("rating"):
             g.rating = int(cand["rating"]) if cand["rating"] <= 5 else round(cand["rating"] / 20)
             changed = True
-        if cand.get("length_minutes") and not g.length_minutes:
+        if cand.get("length_minutes") and want("length_minutes"):
             g.length_minutes = int(cand["length_minutes"])
             changed = True
-        if cand.get("cover_url"):
+        if cand.get("cover_url") and (selected is None and not g.cover_path or "cover" in (selected or ())):
             try:
                 covers_dir = os.path.join(get_app_data_dir(), "covers")
                 os.makedirs(covers_dir, exist_ok=True)
@@ -1273,22 +1290,27 @@ class WebBridge:
         """match_single 的封面回调：入队后台下载，不阻塞匹配流程"""
         try:
             self._cover_pool.submit(self._download_cover_bg, game_id, cover_url, dest)
+            # 入队成功后再通知前端显示转圈（避免提交失败时转圈卡住不消失）
+            self._ui.invalidate("cover_progress", {"id": game_id, "state": "downloading"})
         except Exception as e:
             logger.warning("封面入队失败: %s, %s", cover_url, e)
 
     def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
-        """后台下载封面（短超时、不重试），成功后写库并定向刷新该卡"""
+        """后台下载封面（可配超时、不重试），成功后写库并定向刷新该卡"""
         from utils import vndb_client
+        ok = False
         try:
-            if not vndb_client.download_cover(cover_url, dest):
-                return
-            game = self.manager.get_game(game_id)
-            if game and not game.cover_path:
-                game.cover_path = dest
-                self.manager.repository.update_game(game)
-                self.reloadCover(game_id)
+            if vndb_client.download_cover(cover_url, dest):
+                game = self.manager.get_game(game_id)
+                if game and not game.cover_path:
+                    game.cover_path = dest
+                    self.manager.repository.update_game(game)
+                    self.reloadCover(game_id)
+                ok = True
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)
+        # 结束（成功/失败）都收起转圈；失败不显示、不重试
+        self._ui.invalidate("cover_progress", {"id": game_id, "state": "done" if ok else "failed"})
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         # 游戏退出：即时清除"运行中"状态 + 增量刷新该游戏数据（时长/最后游玩）

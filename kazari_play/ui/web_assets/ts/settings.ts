@@ -55,6 +55,9 @@
       ($('setLogLevel') as HTMLSelectElement).value = String(cfg.log_level || 'INFO').toUpperCase();
       ($('setDisguise') as HTMLSelectElement).value = (cfg.disguise_scene as string) || 'excel';
       ($('setShowConsole') as HTMLInputElement).checked = !!cfg.show_console;
+      const cd = (cfg.cover_download || {}) as { timeout?: number; max_concurrent?: number };
+      ($('setCoverTimeout') as HTMLSelectElement).value = String(cd.timeout ?? 90);
+      ($('setCoverConcurrent') as HTMLSelectElement).value = String(cd.max_concurrent ?? 4);
       const hk = cfg.hotkeys || {};
       ($('setHkHide') as HTMLInputElement).value = fmtKey(hk.emergency_hide) || 'Ctrl + F12';
       ($('setHkFull') as HTMLInputElement).value = fmtKey(hk.fullscreen_toggle) || 'F11';
@@ -110,6 +113,10 @@
       log_level: ($('setLogLevel') as HTMLSelectElement).value,
       disguise_scene: ($('setDisguise') as HTMLSelectElement).value,
       show_console: ($('setShowConsole') as HTMLInputElement).checked,
+      cover_download: {
+        timeout: parseInt(($('setCoverTimeout') as HTMLSelectElement).value, 10) || 90,
+        max_concurrent: parseInt(($('setCoverConcurrent') as HTMLSelectElement).value, 10) || 4,
+      },
       theme: pendingTheme || savedTheme,
       hotkeys: {
         emergency_hide: ($('setHkHide') as HTMLInputElement).value,

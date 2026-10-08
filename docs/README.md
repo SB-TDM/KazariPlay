@@ -17,7 +17,8 @@
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
 | [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界，尚未修复 |
-| [COVER_DOWNLOAD_OPTIMIZATION.md](COVER_DOWNLOAD_OPTIMIZATION.md) | 元数据匹配与封面下载性能优化方案（草案，待实施）：封面与匹配解耦 + 短超时不重试 |
+| [COVER_DOWNLOAD_OPTIMIZATION.md](COVER_DOWNLOAD_OPTIMIZATION.md) | 元数据匹配与封面下载性能优化：封面与匹配解耦、短超时不重试、可配置与可视化 |
+| [SESSION_20261008.md](SESSION_20261008.md) | 2026-10-08 本轮改动说明（扫描整棵树 / 封面解耦与体验 / 搜索超时 / 候选字段勾选） |
 | [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](VERSIONING.md) | 三段式编号、两版预发布标识、唯一版本来源和历史编号映射 |
 | [PACKAGING.md](PACKAGING.md) | develop 文件夹试用包的构建、隔离数据、冻结验收与合并边界 |

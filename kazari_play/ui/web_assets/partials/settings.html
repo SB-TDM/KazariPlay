@@ -79,6 +79,28 @@
             <div class="form-row"><div class="desc" style="padding-left:0">勾选参与「混合」元数据搜索的源；「未接入」的源为占位，暂不可用。</div></div>
             <div id="setSrcList"></div>
           </div>
+          <div class="group">
+            <div class="g-title">封面下载</div>
+            <div class="form-row">
+              <div class="label">下载超时</div>
+              <div class="field"><select id="setCoverTimeout">
+                <option value="30">30 秒</option>
+                <option value="60">60 秒</option>
+                <option value="90" selected>90 秒</option>
+                <option value="120">120 秒</option>
+                <option value="300">300 秒</option>
+              </select><span class="desc">VNDB 封面较慢，可调大</span></div>
+            </div>
+            <div class="form-row">
+              <div class="label">最大并发</div>
+              <div class="field"><select id="setCoverConcurrent">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="4" selected>4</option>
+                <option value="6">6</option>
+              </select><span class="desc">并发数改动重启后生效</span></div>
+            </div>
+          </div>
         </div>
         <div class="page" id="set-about" style="display:none">
           <div class="about">

@@ -22,6 +22,9 @@ interface MetadataCandidate {
   developer?: string;
   released?: string;
   rating?: number;
+  description?: string;
+  length_minutes?: number;
+  cover_url?: string;
 }
 
 // 表单行显隐（添加模式只保留启动文件行，其余字段由后端从 exe 自动推导）
@@ -166,12 +169,92 @@ function renderCandidates(cands: MetadataCandidate[]): void {
       <div class="cand-sub">${esc(c.developer || '')}${c.released ? ' · ' + esc(c.released) : ''}${c.rating ? ' · ★' + (+c.rating).toFixed(1) : ''}</div>`;
     d.onclick = () => {
       if (!App.data.editingId) return;
-      bridge.applyCandidate(String(App.data.editingId), JSON.stringify(c));
-      toast('已应用元数据（空字段已填充）');
+      openMetaApply(c);
     };
     box.appendChild(d);
   });
 }
+
+// ---------- 元数据字段选择（交互参考重新定位预览）----------
+interface MetaFieldDef {
+  key: string; label: string;
+  cur: (g: Game) => string;
+  next: (c: MetadataCandidate) => string;
+  hasCand: (c: MetadataCandidate) => boolean;
+}
+interface MetaFieldRow { key: string; label: string; cur: string; next: string; }
+
+let metaApplyCand: MetadataCandidate | null = null;
+let metaApplyRows: MetaFieldRow[] = [];
+
+const META_FIELDS: MetaFieldDef[] = [
+  { key: 'title', label: '标题', cur: g => g.title || '', next: c => String(c.title || ''), hasCand: c => !!c.title },
+  { key: 'developer', label: '开发商', cur: g => g.dev || '', next: c => String(c.developer || ''), hasCand: c => !!c.developer },
+  { key: 'released', label: '发售日', cur: g => g.released || '', next: c => String(c.released || ''), hasCand: c => !!c.released },
+  { key: 'rating', label: '评分', cur: g => (g.rating ? String(g.rating) : ''), next: c => (c.rating ? String(c.rating) : ''), hasCand: c => !!c.rating },
+  { key: 'description', label: '简介', cur: g => g.description || '', next: c => String(c.description || ''), hasCand: c => !!c.description },
+  { key: 'length_minutes', label: '时长(分)', cur: () => '', next: c => (c.length_minutes ? String(c.length_minutes) : ''), hasCand: c => !!c.length_minutes },
+  { key: 'cover', label: '封面', cur: g => (g.has_cover ? '已有' : '无'), next: c => (c.cover_url ? '下载' : ''), hasCand: c => !!c.cover_url },
+];
+
+function metaApplyBoxes(): HTMLInputElement[] {
+  return [...document.querySelectorAll<HTMLInputElement>('#metaApplyList .meta-field-check')];
+}
+function updateMetaSelBtn(): void {
+  const boxes = metaApplyBoxes();
+  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
+  document.getElementById('metaApplySelBtn')!.textContent = allOn ? '取消全选' : '全选';
+}
+function closeMetaApply(): void {
+  document.getElementById('metaApplyOverlay')!.classList.remove('show');
+}
+
+function openMetaApply(c: MetadataCandidate): void {
+  const gid = String(App.data.editingId);
+  const g = (App.data.games || []).find(x => String(x.id) === gid);
+  if (!g) { toast('找不到当前游戏'); return; }
+  metaApplyCand = c;
+  metaApplyRows = META_FIELDS.filter(f => f.hasCand(c)).map(f => ({
+    key: f.key, label: f.label, cur: f.cur(g), next: f.next(c),
+  }));
+  if (metaApplyRows.length === 0) { toast('该候选没有可用字段'); return; }
+  document.getElementById('metaApplyList')!.innerHTML = metaApplyRows.map((r, i) => {
+    const checked = r.cur ? '' : 'checked';   // 空白字段默认勾（添加）；已有值默认不勾（覆盖需手动）
+    const st = r.cur ? '将覆盖' : '将添加';
+    return `<div class="relocate-row">
+      <div class="rl-head">
+        <input type="checkbox" class="meta-field-check" data-idx="${i}" ${checked} aria-label="选择">
+        <div class="rl-title">${esc(r.label)}</div>
+        <div class="rl-status">${st}</div>
+      </div>
+      <div class="rl-path">${esc(r.cur || '空')} → ${esc(r.next)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('metaApplySub')!.textContent =
+    `${c.title || ''} · ${c.source_name || ''}`;
+  metaApplyBoxes().forEach(cb => cb.addEventListener('change', updateMetaSelBtn));
+  updateMetaSelBtn();
+  document.getElementById('metaApplyOverlay')!.classList.add('show');
+}
+
+document.getElementById('metaApplySelBtn')!.onclick = () => {
+  const boxes = metaApplyBoxes();
+  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
+  boxes.forEach(b => { b.checked = !allOn; });
+  updateMetaSelBtn();
+};
+document.getElementById('metaApplyClose')!.onclick = closeMetaApply;
+document.getElementById('metaApplyCancel')!.onclick = closeMetaApply;
+document.getElementById('metaApplyOk')!.onclick = () => {
+  const keys = metaApplyBoxes().filter(b => b.checked)
+    .map(b => metaApplyRows[Number(b.dataset.idx)].key);
+  if (keys.length === 0) { toast('没有勾选要应用的字段'); return; }
+  if (metaApplyCand && App.data.editingId) {
+    bridge.applyCandidate(String(App.data.editingId), JSON.stringify(metaApplyCand), JSON.stringify(keys));
+    toast('已应用所选字段');
+  }
+  closeMetaApply();
+};
 
 // ---------- 表单事件绑定 ----------
 document.getElementById('btnPickExe')!.onclick = () => {
