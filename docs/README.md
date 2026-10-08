@@ -25,6 +25,23 @@
 | [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 
+## 架构与模块
+
+面向开发者的代码结构说明，按板块拆分为 `docs/backend/*`、`docs/frontend/*`（与 `main`/`develop` 原版对应）：
+
+| 文档 | 用途 |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 总体架构：分层、核心对象、主要数据流、生命周期、前端内联机制 |
+| [backend/README.md](backend/README.md) | 后端总览与模块地图（core/database/ui/utils） |
+| [backend/core.md](backend/core.md) | core 九模块逐一：对象、方法、关键逻辑与依赖 |
+| [backend/database.md](backend/database.md) | DB schema、迁移机制与三个 repository |
+| [backend/ui-bridge.md](backend/ui-bridge.md) | WebBridge（js_api）与 UISync（刷新总线、事件域） |
+| [backend/utils.md](backend/utils.md) | 13 个工具模块（路径/配置/网络客户端/标题归一化/热键等） |
+| [frontend/README.md](frontend/README.md) | 前端架构：ts 源码、清单内联、全局模型、bridge、渲染约定 |
+| [frontend/modules.md](frontend/modules.md) | 16 个 ts 模块逐一：定位、依赖、定义 |
+| [overlay.md](overlay.md) | C++ overlay：管道协议、分层窗口、动画与 Python 对接 |
+| [testing.md](testing.md) | 测试分类、运行方式与改动验证建议 |
+
 ## 历史记录
 
 以下文档保留开发背景、修复过程和交接信息，不应覆盖当前代码或当前 README 的结论：
