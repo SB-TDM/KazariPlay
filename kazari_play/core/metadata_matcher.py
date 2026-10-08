@@ -67,13 +67,15 @@ def _cover_dest_path(game_id: str, cover_url: str) -> str:
     return os.path.join(covers_dir, f"{game_id}_vndb{ext}")
 
 
-def match_single(game: Game, force: bool = False, cancel_event=None) -> Tuple[str, str]:
+def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=None) -> Tuple[str, str]:
     """为单个游戏匹配 VNDB 元数据并保守更新
 
     Args:
         game: 要匹配的游戏（会被原地修改）
         force: True 时即使已有 vndb_id 也重新匹配
-        cancel_event: threading.Event，置位时尽快终止（关键词回退 / 封面均检查）
+        cancel_event: threading.Event，置位时尽快终止（关键词回退均检查）
+        cover_cb: 封面回调 (game_id, cover_url, dest)；提供时封面异步下载、
+                  不阻塞匹配；为 None 时回退同步下载
 
     Returns:
         (status, message)
@@ -167,16 +169,20 @@ def match_single(game: Game, force: bool = False, cancel_event=None) -> Tuple[st
         game.length_minutes = result["length_minutes"]
         updated_fields.append("length_minutes")
 
-    # 封面（VNDB image.url 下载到本地，已有封面则不覆盖）
+    # 封面：优先交给 cover_cb 异步下载（不阻塞匹配）；无 cover_cb 时回退同步下载
+    cover_queued = False
     if not game.cover_path and result["cover_url"]:
         dest = _cover_dest_path(game.id, result["cover_url"])
-        if vndb_client.download_cover(result["cover_url"], dest, cancel_event=cancel_event):
+        if cover_cb is not None:
+            cover_cb(game.id, result["cover_url"], dest)
+            cover_queued = True
+        elif vndb_client.download_cover(result["cover_url"], dest, cancel_event=cancel_event):
             game.cover_path = dest
             updated_fields.append("cover_path")
         else:
             logger.warning("封面下载失败，跳过: %s", result["cover_url"])
 
-    if not updated_fields:
+    if not updated_fields and not cover_queued:
         return "skip", "所有字段已存在，未更新"
 
     msg = f"已更新 {len(updated_fields)} 项: {', '.join(updated_fields)}"
@@ -190,6 +196,7 @@ def match_batch(
     force: bool = False,
     progress_cb: Optional[ProgressCallback] = None,
     cancel_event=None,
+    cover_cb=None,
 ) -> Tuple[int, int, int]:
     """批量匹配 VNDB 元数据
 
@@ -198,6 +205,7 @@ def match_batch(
         force: True 时强制重新匹配已有 vndb_id 的游戏
         progress_cb: 进度回调（每个游戏调用一次）
         cancel_event: threading.Event，置位时提前结束（可选）
+        cover_cb: 封面回调 (game_id, cover_url, dest)，转交 match_single 异步下载
 
     Returns:
         (matched, skipped, failed) 三元组
@@ -217,7 +225,7 @@ def match_batch(
             except Exception:
                 pass
 
-        status, msg = match_single(game, force=force, cancel_event=cancel_event)
+        status, msg = match_single(game, force=force, cancel_event=cancel_event, cover_cb=cover_cb)
 
         if progress_cb:
             try:

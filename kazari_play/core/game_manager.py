@@ -367,21 +367,25 @@ class GameManager:
 
     # ---------- VNDB 元数据匹配 ----------
 
-    def match_vndb_metadata(self, game_id: str, force: bool = False) -> Tuple[str, str]:
+    def match_vndb_metadata(self, game_id: str, force: bool = False, cover_cb=None,
+                            cancel_event=None) -> Tuple[str, str]:
         """为指定游戏匹配 VNDB 元数据并写回数据库
 
         Args:
             game_id: 游戏 ID
             force: True 时强制重新匹配（即使已有 vndb_id）
+            cover_cb: 封面回调 (game_id, cover_url, dest)，封面异步下载
+            cancel_event: threading.Event，置位时尽快终止（可选）
 
         Returns:
-            (status, message) status ∈ {"skip", "match", "fail"}
+            (status, message) status ∈ {"skip", "match", "fail", "cancelled"}
         """
         from core import metadata_matcher
         game = self.repository.get_by_id(game_id)
         if not game:
             return "fail", "游戏不存在"
-        status, msg = metadata_matcher.match_single(game, force=force)
+        status, msg = metadata_matcher.match_single(
+            game, force=force, cover_cb=cover_cb, cancel_event=cancel_event)
         # 无论是否更新都写回数据库（vndb_id 已标记时也保存，避免重复匹配）
         if status in ("match", "skip") and game.vndb_id:
             self.repository.update_game(game)
@@ -391,12 +395,14 @@ class GameManager:
         self,
         force: bool = False,
         progress_cb: Optional[Callable[[str, str, str, str], None]] = None,
+        cover_cb=None,
     ) -> Tuple[int, int, int]:
         """批量匹配所有游戏的 VNDB 元数据
 
         Args:
             force: True 时强制重新匹配已有 vndb_id 的游戏
             progress_cb: 进度回调 callback(game_id, title, status, msg)
+            cover_cb: 封面回调 (game_id, cover_url, dest)，封面异步下载
 
         Returns:
             (matched, skipped, failed)
@@ -408,7 +414,7 @@ class GameManager:
 
         # 先在内存中批量匹配（避免每次都查库）
         matched, skipped, failed = metadata_matcher.match_batch(
-            games, force=force, progress_cb=progress_cb
+            games, force=force, progress_cb=progress_cb, cover_cb=cover_cb
         )
         # 统一写回数据库（已匹配或已标记 vndb_id 的）
         for game in games:
@@ -425,6 +431,7 @@ class GameManager:
         force: bool = False,
         progress_cb: Optional[Callable[[str, str, str, str], None]] = None,
         cancel_event=None,
+        cover_cb=None,
     ) -> Tuple[int, int, int]:
         """为指定游戏列表匹配 VNDB 元数据（不匹配全库，扫描后精准匹配用）
 
@@ -433,6 +440,7 @@ class GameManager:
             force: True 时强制重新匹配已有 vndb_id 的游戏
             progress_cb: 进度回调 callback(game_id, title, status, msg)
             cancel_event: threading.Event，置位时提前结束（可选）
+            cover_cb: 封面回调 (game_id, cover_url, dest)，封面异步下载
 
         Returns:
             (matched, skipped, failed)
@@ -441,7 +449,7 @@ class GameManager:
         if not games:
             return 0, 0, 0
         matched, skipped, failed = metadata_matcher.match_batch(
-            games, force=force, progress_cb=progress_cb, cancel_event=cancel_event
+            games, force=force, progress_cb=progress_cb, cancel_event=cancel_event, cover_cb=cover_cb
         )
         # 统一写回数据库（已匹配或已标记 vndb_id 的）
         for game in games:

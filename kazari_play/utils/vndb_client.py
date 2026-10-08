@@ -40,6 +40,8 @@ _USER_AGENT = "KazariPlay/1.0 (https://github.com/KazariPlay)"
 
 # 请求超时（秒）
 _REQUEST_TIMEOUT = 15
+# 封面下载超时（秒）：比 API 搜索短，避免 CDN 慢时长时间阻塞
+_COVER_TIMEOUT = 8
 # 网络请求重试：超时/临时网络错误时重试次数与间隔
 _MAX_RETRIES = 2
 _RETRY_BACKOFF = 2  # 每次重试额外等待秒数（1s、3s、5s）
@@ -60,23 +62,25 @@ def _should_retry(exc: Exception) -> bool:
     return False
 
 
-def _request_with_retry(send: callable, cancel_event=None) -> bytes:
+def _request_with_retry(send: callable, cancel_event=None, retries=None) -> bytes:
     """带重试的 HTTP 请求：send 为返回 bytes 的可调用对象
 
-    对超时/临时网络错误重试 _MAX_RETRIES 次，每次递增间隔。
+    对超时/临时网络错误重试（默认 _MAX_RETRIES 次，可用 retries 覆盖；
+    封面下载传 0 表示不重试），每次递增间隔。
     HTTPError（4xx/5xx）不重试（VNDB 明确的拒绝），直接抛出。
 
     cancel_event 置位时：不再发起新请求；退避等待用可唤醒的 wait，
     取消后立即抛出，不空等。已在途的请求仍按其超时返回（不强制中断）。
     """
+    max_retries = _MAX_RETRIES if retries is None else max(0, retries)
     last_exc = None
-    for attempt in range(_MAX_RETRIES + 1):
+    for attempt in range(max_retries + 1):
         if cancel_event is not None and cancel_event.is_set():
             raise VndbError("已取消")
         try:
             return send()
         except VndbError as e:
-            if not _should_retry(e) or attempt >= _MAX_RETRIES:
+            if not _should_retry(e) or attempt >= max_retries:
                 raise
             last_exc = e
             wait_s = _RETRY_BACKOFF * (attempt + 1)
@@ -122,8 +126,8 @@ def _http_post_json(url: str, data: dict, cancel_event=None) -> dict:
     return json.loads(raw.decode("utf-8"))
 
 
-def _http_get(url: str, cancel_event=None) -> bytes:
-    """GET 二进制内容（用于下载封面），带超时重试"""
+def _http_get(url: str, cancel_event=None, timeout=None, retries=None) -> bytes:
+    """GET 二进制内容（用于下载封面），超时/重试可配"""
     req = urllib.request.Request(
         url,
         method="GET",
@@ -135,14 +139,17 @@ def _http_get(url: str, cancel_event=None) -> bytes:
 
     def send():
         try:
-            with get_opener().open(req, timeout=_REQUEST_TIMEOUT) as resp:
+            with get_opener().open(req, timeout=timeout or _REQUEST_TIMEOUT) as resp:
                 return resp.read()
         except urllib.error.HTTPError as e:
             raise VndbError(f"下载封面 HTTP {e.code}") from None
         except urllib.error.URLError as e:
             raise VndbError(f"下载封面网络错误: {e.reason}") from None
+        except (TimeoutError, OSError) as e:
+            # socket 读超时/连接错误（之前未捕获会直接抛出）
+            raise VndbError(f"下载封面超时/连接错误: {e}") from None
 
-    return _request_with_retry(send, cancel_event=cancel_event)
+    return _request_with_retry(send, cancel_event=cancel_event, retries=retries)
 
 
 def _clean_html(text: str) -> str:
@@ -262,13 +269,16 @@ def search_first_vn(title: str, cancel_event=None) -> Optional[dict]:
 search = search_vn
 
 
-def download_cover(cover_url: str, dest_path: str, cancel_event=None) -> bool:
+def download_cover(cover_url: str, dest_path: str, cancel_event=None,
+                   timeout: float = _COVER_TIMEOUT, retries: int = 0) -> bool:
     """下载封面图到指定路径
 
     Args:
         cover_url: VNDB CDN URL（如 https://t.vndb.org/cv/12345/12345.jpg）
         dest_path: 本地保存路径（含扩展名）
         cancel_event: threading.Event，置位时不再下载（可选）
+        timeout: 下载超时秒数（默认 _COVER_TIMEOUT，比 API 搜索短）
+        retries: 网络失败重试次数（默认 0：封面失败即跳过，不拖累匹配）
 
     Returns:
         True 下载成功，False 失败/取消（网络错误或写入失败）
@@ -279,7 +289,8 @@ def download_cover(cover_url: str, dest_path: str, cancel_event=None) -> bool:
         return False
 
     try:
-        data = _http_get(cover_url, cancel_event=cancel_event)
+        data = _http_get(cover_url, cancel_event=cancel_event,
+                         timeout=timeout, retries=retries)
     except VndbError as e:
         logger.warning("下载封面失败: %s, %s", cover_url, e)
         return False

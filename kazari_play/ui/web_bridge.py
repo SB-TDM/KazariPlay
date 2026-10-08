@@ -7,6 +7,7 @@
 - 窗口控制（最小化/最大化/拖拽）也由此桥接
 """
 import base64
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -320,6 +321,9 @@ class WebBridge:
         self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
         self._task_lock = threading.Lock()
         self._task_thread = None
+        # 封面下载线程池：与匹配解耦，短超时不重试（见 COVER_DOWNLOAD_OPTIMIZATION）
+        self._cover_pool = concurrent.futures.ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="cover")
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -790,8 +794,9 @@ class WebBridge:
             self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
             matched, skipped, failed = self.manager.match_vndb_for_games(
-                games, force=False, progress_cb=self._vndb_progress, cancel_event=cancel_event)
-            self.reloadCovers()   # 封面可能已更新，清缓存并强制前端重载
+                games, force=False, progress_cb=self._vndb_progress,
+                cancel_event=cancel_event, cover_cb=self._queue_cover)
+            self.refresh()   # 元数据（标题等）已更新，刷新卡片；封面异步完成后定向刷新
             if cancel_event is not None and cancel_event.is_set():
                 self.notify(f"元数据匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
             else:
@@ -844,13 +849,26 @@ class WebBridge:
         return json.dumps({"ok": True, "msg": "开始匹配元数据..."})
 
     def _do_match(self, game_id: str):
+        # 单游戏匹配复用批量同款进度条（标题 + 取消），与批量体验一致
+        self._vndb_cancel.clear()
+        self._batch_ctx = {"type": "vndb", "total": 1, "done": 0, "running": True}
+        self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
-            status, msg = self.manager.match_vndb_metadata(game_id, force=True)
+            status, msg = self.manager.match_vndb_metadata(
+                game_id, force=True, cover_cb=self._queue_cover,
+                cancel_event=self._vndb_cancel)
             logger.info("VNDB 匹配 %s: %s %s", game_id, status, msg)
-            self.reloadCover(game_id)   # 单张封面可能已更新，只定向重载该卡
-            self.notify(f"元数据匹配完成：{msg}")
+            self._batch_ctx["done"] = 1
+            if status == "cancelled":
+                self.notify(f"元数据匹配已取消：{msg}")
+            else:
+                self.notify(f"元数据匹配完成：{msg}")
         except Exception as e:
             logger.error("VNDB 匹配异常: %s", e)
+        finally:
+            if self._batch_ctx is not None:
+                self._batch_ctx["running"] = False
+            self._ui.invalidate("batch_progress", {"running": False})
         self.refresh_delta([game_id])
 
     def matchVndbBatch(self, ids_json: str) -> str:
@@ -1249,6 +1267,28 @@ class WebBridge:
         if g:
             _cover_cache_invalidate(g.cover_path)
         self._ui.invalidate("cover", str(game_id))
+
+    # ---------- 封面异步下载（与匹配解耦，见 docs/COVER_DOWNLOAD_OPTIMIZATION.md）----------
+    def _queue_cover(self, game_id: str, cover_url: str, dest: str):
+        """match_single 的封面回调：入队后台下载，不阻塞匹配流程"""
+        try:
+            self._cover_pool.submit(self._download_cover_bg, game_id, cover_url, dest)
+        except Exception as e:
+            logger.warning("封面入队失败: %s, %s", cover_url, e)
+
+    def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
+        """后台下载封面（短超时、不重试），成功后写库并定向刷新该卡"""
+        from utils import vndb_client
+        try:
+            if not vndb_client.download_cover(cover_url, dest):
+                return
+            game = self.manager.get_game(game_id)
+            if game and not game.cover_path:
+                game.cover_path = dest
+                self.manager.repository.update_game(game)
+                self.reloadCover(game_id)
+        except Exception as e:
+            logger.warning("封面后台下载失败: %s, %s", cover_url, e)
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         # 游戏退出：即时清除"运行中"状态 + 增量刷新该游戏数据（时长/最后游玩）
