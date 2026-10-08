@@ -197,14 +197,8 @@ const META_FIELDS: MetaFieldDef[] = [
   { key: 'cover', label: '封面', cur: g => (g.has_cover ? '已有' : '无'), next: c => (c.cover_url ? '下载' : ''), hasCand: c => !!c.cover_url },
 ];
 
-function metaApplyBoxes(): HTMLInputElement[] {
-  return [...document.querySelectorAll<HTMLInputElement>('#metaApplyList .meta-field-check')];
-}
-function updateMetaSelBtn(): void {
-  const boxes = metaApplyBoxes();
-  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
-  document.getElementById('metaApplySelBtn')!.textContent = allOn ? '取消全选' : '全选';
-}
+// 勾选列表 + 全选切换（复用 core.makeCheckAll）
+const metaApplySel = makeCheckAll('#metaApplyList', '.meta-field-check', 'metaApplySelBtn');
 function closeMetaApply(): void {
   document.getElementById('metaApplyOverlay')!.classList.remove('show');
 }
@@ -232,21 +226,15 @@ function openMetaApply(c: MetadataCandidate): void {
   }).join('');
   document.getElementById('metaApplySub')!.textContent =
     `${c.title || ''} · ${c.source_name || ''}`;
-  metaApplyBoxes().forEach(cb => cb.addEventListener('change', updateMetaSelBtn));
-  updateMetaSelBtn();
+  metaApplySel.boxes().forEach(cb => cb.addEventListener('change', metaApplySel.update));
+  metaApplySel.update();
   document.getElementById('metaApplyOverlay')!.classList.add('show');
 }
 
-document.getElementById('metaApplySelBtn')!.onclick = () => {
-  const boxes = metaApplyBoxes();
-  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
-  boxes.forEach(b => { b.checked = !allOn; });
-  updateMetaSelBtn();
-};
 document.getElementById('metaApplyClose')!.onclick = closeMetaApply;
 document.getElementById('metaApplyCancel')!.onclick = closeMetaApply;
 document.getElementById('metaApplyOk')!.onclick = () => {
-  const keys = metaApplyBoxes().filter(b => b.checked)
+  const keys = metaApplySel.boxes().filter(b => b.checked)
     .map(b => metaApplyRows[Number(b.dataset.idx)].key);
   if (keys.length === 0) { toast('没有勾选要应用的字段'); return; }
   if (metaApplyCand && App.data.editingId) {

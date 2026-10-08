@@ -119,22 +119,22 @@ class DataFlowTests(unittest.TestCase):
         self.assertEqual(self.manager.batch_delete([a.id, a.id, b.id]), 2)
         self.assertEqual(self.manager.get_count(), 0)
         self.assertEqual(self.manager.get_games_in_collection(collection["id"]), [])
+        # 忽略清单已移除：删除后重新扫描会把游戏重新加回
         added, _, skipped = self.manager.scan_and_add(str(self.root))
-        self.assertEqual((added, skipped), (0, 2))
+        self.assertEqual((added, skipped), (2, 0))
 
-    def test_remove_transaction_failure_leaves_games_unignored(self):
+    def test_remove_transaction_failure_rolls_back(self):
         game = self.fixture()
         self.assertTrue(self.manager.repository.db.execute(
             "CREATE TRIGGER prevent_remove BEFORE DELETE ON games "
             "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END"))
         self.assertEqual(self.manager.batch_delete([game.id]), 0)
         self.assertIsNotNone(self.manager.get_game(game.id))
-        self.assertFalse(self.manager.repository.is_ignored(game.identity, game.exe_path))
 
-    def test_single_remove_has_same_ignore_semantics(self):
+    def test_single_remove_deletes_game(self):
         game = self.fixture()
         self.assertTrue(self.manager.delete_game(game.id))
-        self.assertTrue(self.manager.repository.is_ignored(game.identity, game.exe_path))
+        self.assertIsNone(self.manager.get_game(game.id))
 
     def test_manual_batch_cancel_stops_next_item_and_resets_for_retry(self):
         games = [self.fixture("Game A"), self.fixture("Game B")]

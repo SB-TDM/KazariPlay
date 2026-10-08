@@ -261,13 +261,20 @@ function openCardMenu(g: Game, x: number, y: number): void {
   ], x, y, 170);
 }
 
-// 封面下载状态（后端 UISync cover_progress 域）：
-// 只对已渲染（可见）卡片显示环形转圈；不可见卡片忽略。失败不显示、不重试。
-function updateCoverProgress(p: { id?: string | number; state?: string }): void {
-  if (!p || p.id === undefined || p.id === null) return;
-  const card = document.querySelector<HTMLElement>(`.card[data-id="${p.id}"]`);
-  if (!card) return;
-  const cover = card.querySelector<HTMLElement>('.cover');
-  if (!cover) return;
-  cover.classList.toggle('cover-loading', p.state === 'downloading');
+// 封面下载进度（后端 UISync cover_progress 域，payload 为「下载中游戏 → 进度」快照）：
+// 只对已渲染（可见）卡片显示环形进度；不可见卡片忽略。失败不显示、不重试。
+function updateCoverProgress(states: Record<string, number>): void {
+  const map = states || {};
+  Object.keys(map).forEach(id => {
+    const cover = document.querySelector<HTMLElement>(`.card[data-id="${id}"] .cover`);
+    if (!cover) return;
+    cover.classList.add('cover-progress');
+    cover.style.setProperty('--cover-pct', String(Math.round((map[id] || 0) * 100)));
+  });
+  // 移除已不在状态里的卡片（下载完成或失败）
+  document.querySelectorAll<HTMLElement>('.card .cover.cover-progress').forEach(cover => {
+    const card = cover.closest('.card') as HTMLElement | null;
+    const id = card && card.dataset.id;
+    if (!id || !(id in map)) cover.classList.remove('cover-progress');
+  });
 }

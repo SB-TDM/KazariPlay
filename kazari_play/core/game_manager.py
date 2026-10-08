@@ -53,13 +53,6 @@ class GameManager:
                 ident = self.scanner._make_identity(g.engine, folder_name)
                 if g.identity != ident:
                     self.repository.set_identity(g.id, ident)
-            for row in self.repository.db.query("SELECT rowid, identity, exe_path FROM ignored_games") or []:
-                if row[1] and row[2]:
-                    engine = row[1].split("|", 1)[0]
-                    name = os.path.basename(os.path.dirname(os.path.normpath(row[2])))
-                    ident = self.scanner._make_identity(engine, name)
-                    if ident != row[1]:
-                        self.repository.db.execute("UPDATE ignored_games SET identity=? WHERE rowid=?", (ident, row[0]))
         except Exception as e:
             logger.error("重算游戏身份键失败: %s", e)
 
@@ -118,10 +111,6 @@ class GameManager:
         new_games = []
         skipped = 0
         for game in games:
-            # 判重⓪：用户主动删除过的游戏（忽略清单）→ 不再加回
-            if self.repository.is_ignored(game.identity, game.exe_path):
-                skipped += 1
-                continue
             # 判重①：exe 路径相同
             if self.repository.get_by_path(game.exe_path):
                 skipped += 1
@@ -143,7 +132,7 @@ class GameManager:
     def delete_game(self, game_id: str) -> bool:
         """删除游戏。若该游戏正在运行，先关闭。
 
-        删除后记入忽略清单：文件仍在磁盘时，启动自动扫描不会把它重新加回。
+        仅删除数据库记录与关联；磁盘文件保留。之后重新扫描仍可加回。
         """
         return self.batch_delete([game_id]) == 1
 

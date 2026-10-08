@@ -127,8 +127,8 @@ def _http_post_json(url: str, data: dict, cancel_event=None) -> dict:
     return json.loads(raw.decode("utf-8"))
 
 
-def _http_get(url: str, cancel_event=None, timeout=None, retries=None) -> bytes:
-    """GET 二进制内容（用于下载封面），超时/重试可配"""
+def _http_get(url: str, cancel_event=None, timeout=None, retries=None, progress_cb=None) -> bytes:
+    """GET 二进制内容（用于下载封面），超时/重试可配，支持下载进度回调"""
     req = urllib.request.Request(
         url,
         method="GET",
@@ -141,7 +141,27 @@ def _http_get(url: str, cancel_event=None, timeout=None, retries=None) -> bytes:
     def send():
         try:
             with get_opener().open(req, timeout=timeout or _REQUEST_TIMEOUT) as resp:
-                return resp.read()
+                total = 0
+                try:
+                    total = int(resp.headers.get("Content-Length") or 0)
+                except Exception:
+                    total = 0
+                if progress_cb is None or total <= 0:
+                    return resp.read()
+                # 分块读取并上报进度（0.0~1.0）
+                chunks = []
+                read = 0
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                    read += len(chunk)
+                    try:
+                        progress_cb(read / total)
+                    except Exception:
+                        pass
+                return b"".join(chunks)
         except urllib.error.HTTPError as e:
             raise VndbError(f"下载封面 HTTP {e.code}") from None
         except urllib.error.URLError as e:
@@ -271,7 +291,7 @@ search = search_vn
 
 
 def download_cover(cover_url: str, dest_path: str, cancel_event=None,
-                   timeout: float = None, retries: int = 0) -> bool:
+                   timeout: float = None, retries: int = 0, progress_cb=None) -> bool:
     """下载封面图到指定路径
 
     Args:
@@ -298,7 +318,7 @@ def download_cover(cover_url: str, dest_path: str, cancel_event=None,
 
     try:
         data = _http_get(cover_url, cancel_event=cancel_event,
-                         timeout=timeout, retries=retries)
+                         timeout=timeout, retries=retries, progress_cb=progress_cb)
     except VndbError as e:
         logger.warning("下载封面失败: %s, %s", cover_url, e)
         return False

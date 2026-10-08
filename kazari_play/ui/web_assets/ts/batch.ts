@@ -221,8 +221,8 @@ function renderRelocatePreview(items: RelocateItem[]): void {
     </div>`;
   }).join('');
   document.querySelectorAll('#relocateList .relocate-check').forEach(cb =>
-    cb.addEventListener('change', updateRelocateSelBtn));
-  updateRelocateSelBtn();
+    cb.addEventListener('change', relocateSel.update));
+  relocateSel.update();
   document.getElementById('relocateOverlay')!.classList.add('show');
 }
 
@@ -235,25 +235,13 @@ document.getElementById('btnBRelocate')!.onclick = () => {
     renderRelocatePreview(r.items || []);
   });
 };
-function relocateBoxes(): HTMLInputElement[] {
-  return [...document.querySelectorAll<HTMLInputElement>('#relocateList .relocate-check:not(:disabled)')];
-}
-function updateRelocateSelBtn(): void {
-  const boxes = relocateBoxes();
-  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
-  document.getElementById('relocateSelBtn')!.textContent = allOn ? '取消全选' : '全选';
-}
+// 勾选列表 + 全选切换（复用 core.makeCheckAll）
+const relocateSel = makeCheckAll('#relocateList', '.relocate-check:not(:disabled)', 'relocateSelBtn');
 document.getElementById('relocateClose')!.onclick = closeRelocate;
 document.getElementById('relocateCancel')!.onclick = closeRelocate;
-document.getElementById('relocateSelBtn')!.onclick = () => {
-  const boxes = relocateBoxes();
-  const allOn = boxes.length > 0 && boxes.every(b => b.checked);
-  boxes.forEach(b => { b.checked = !allOn; });
-  updateRelocateSelBtn();
-};
 document.getElementById('relocateOk')!.onclick = () => {
   const mapping: { id: string; new_exe: string }[] = [];
-  document.querySelectorAll<HTMLInputElement>('#relocateList .relocate-check:checked').forEach(cb => {
+  relocateSel.boxes().filter(b => b.checked).forEach(cb => {
     const it = relocateItems[Number(cb.dataset.idx)];
     if (it && it.status === 'matched') mapping.push({ id: it.id, new_exe: it.new_exe });
   });

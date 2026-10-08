@@ -80,36 +80,6 @@ class GameRepository:
         """仅更新身份键（迁移回填用）"""
         return self.db.execute("UPDATE games SET identity = ? WHERE id = ?", (identity, game_id))
 
-    # ---------- 已删除游戏的忽略清单 ----------
-    def add_ignored(self, identity: str, exe_path: str, title: str = "") -> bool:
-        """记录一个被用户删除的游戏（扫描时跳过，避免启动自动扫描重新加回）"""
-        from datetime import datetime
-        return self.db.execute(
-            "INSERT INTO ignored_games (identity, exe_path, title, removed_at) VALUES (?, ?, ?, ?)",
-            (identity or "", exe_path or "", title or "", datetime.now().isoformat()))
-
-    def is_ignored(self, identity: str, exe_path: str) -> bool:
-        """该游戏是否在忽略清单中（identity 或 exe_path 命中即忽略）"""
-        if identity:
-            if self.db.query(
-                    "SELECT 1 FROM ignored_games WHERE identity = ? AND identity != '' LIMIT 1",
-                    (identity,)):
-                return True
-        if exe_path:
-            if self.db.query(
-                    "SELECT 1 FROM ignored_games WHERE exe_path = ? LIMIT 1", (exe_path,)):
-                return True
-        return False
-
-    def remove_ignored(self, identity: str, exe_path: str) -> bool:
-        """从忽略清单移除（用户手动重新添加该游戏时调用）"""
-        if identity:
-            self.db.execute(
-                "DELETE FROM ignored_games WHERE identity = ? AND identity != ''", (identity,))
-        if exe_path:
-            self.db.execute("DELETE FROM ignored_games WHERE exe_path = ?", (exe_path,))
-        return True
-
     def get_all(self) -> List[Game]:
         """获取所有游戏"""
         rows = self.db.query("SELECT * FROM games ORDER BY title")
@@ -135,17 +105,13 @@ class GameRepository:
         return [self._row_to_game(row) for row in rows]
     
     def delete(self, game_id: str) -> bool:
-        """移除游戏并记入忽略清单，与批量删除使用同一事务。"""
+        """移除游戏（与批量删除使用同一事务）。"""
         return self.delete_many([game_id])
 
     def delete_many(self, game_ids: List[str]) -> bool:
-        from datetime import datetime
-        removed_at = datetime.now().isoformat()
         statements = []
         for game_id in dict.fromkeys(game_ids):
             statements.extend([
-                ("INSERT INTO ignored_games (identity, exe_path, title, removed_at) "
-                 "SELECT identity, exe_path, title, ? FROM games WHERE id = ?", (removed_at, game_id)),
                 ("DELETE FROM game_tags WHERE game_id = ?", (game_id,)),
                 ("DELETE FROM game_collection_link WHERE game_id = ?", (game_id,)),
                 ("DELETE FROM games WHERE id = ?", (game_id,)),

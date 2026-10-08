@@ -137,5 +137,5 @@ var __app = {
   setRunning: function (id: string): void { setRunning(id); },
   updateScanProgress: function (p: object): void { updateScanProgress(p); },
   updateBatchProgress: function (p: object): void { updateBatchProgress(p); },
-  updateCoverProgress: function (p: object): void { updateCoverProgress(p); },
+  updateCoverProgress: function (p: object): void { updateCoverProgress(p as Record<string, number>); },
 };

@@ -68,3 +68,29 @@ function loadCoverTo(gameId: string, el: HTMLElement | null, prefix: string): vo
     el.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
   });
 }
+
+// 勾选列表 + 「全选/取消全选」切换按钮的通用绑定
+// （重新定位预览、元数据字段勾选共用；checkSelector 可用 :not(:disabled) 排除不可选项）
+function makeCheckAll(listSelector: string, checkSelector: string, btnId: string): {
+  boxes: () => HTMLInputElement[];
+  update: () => void;
+} {
+  const boxes = (): HTMLInputElement[] =>
+    [...document.querySelectorAll<HTMLInputElement>(`${listSelector} ${checkSelector}`)];
+  const update = (): void => {
+    const bs = boxes();
+    const allOn = bs.length > 0 && bs.every(b => b.checked);
+    const btn = document.getElementById(btnId);
+    if (btn) btn.textContent = allOn ? '取消全选' : '全选';
+  };
+  const btn = document.getElementById(btnId);
+  if (btn) {
+    btn.onclick = () => {
+      const bs = boxes();
+      const allOn = bs.length > 0 && bs.every(b => b.checked);
+      bs.forEach(b => { b.checked = !allOn; });
+      update();
+    };
+  }
+  return { boxes, update };
+}

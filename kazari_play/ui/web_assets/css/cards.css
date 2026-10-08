@@ -23,11 +23,12 @@
      避免 DOM 变化触发的渲染重算导致动画重播（否则"启动/操作游戏后全部封面变淡"）。 */
   .card .cover.loaded{animation:coverFade .35s ease;}
   @keyframes coverFade{from{opacity:.25}to{opacity:1}}
-  /* 封面下载中：中心环形转圈（仅可见卡片，由后端 cover_progress 控制；失败不显示） */
-  .card .cover.cover-loading::after{content:"";position:absolute;top:50%;left:50%;width:24px;height:24px;
-    margin:-12px 0 0 -12px;border:3px solid rgba(255,255,255,.55);border-top-color:var(--pink);
-    border-radius:50%;animation:coverSpin .8s linear infinite;}
-  @keyframes coverSpin{to{transform:rotate(360deg);}}
+  /* 封面下载中：中心环形进度（灰底环 + 粉色按下载百分比填充；仅可见卡片，失败不显示） */
+  .card .cover.cover-progress::after{content:"";position:absolute;top:50%;left:50%;width:42px;height:42px;
+    margin:-21px 0 0 -21px;border-radius:50%;
+    background:conic-gradient(var(--pink) calc(var(--cover-pct,0) * 1%), rgba(255,255,255,.45) 0);
+    -webkit-mask:radial-gradient(circle,transparent 0 13px,#000 14px);
+            mask:radial-gradient(circle,transparent 0 13px,#000 14px);}
   /* 悬停：封面跟随框同向上浮 + 轻微放大（与 .card:hover 的 translateY 同向，视觉连贯） */
   .card:hover .cover{transform:translateY(-1px) scale(1.03);}
   .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}

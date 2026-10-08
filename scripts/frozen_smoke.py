@@ -96,8 +96,7 @@ def install():
                 bridge.deleteGame(game.id)
                 wait("App.data.games.length===0")
                 assert bridge.manager.get_count() == 0
-                assert bridge.manager.repository.is_ignored(game.identity, game.exe_path)
-                report["checks"].append("frozen UI delete and ignore transaction")
+                report["checks"].append("frozen UI delete")
                 report["ok"] = True
             except Exception as exc:
                 import traceback

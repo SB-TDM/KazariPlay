@@ -144,18 +144,9 @@ class DatabaseManager:
         self._create_collections_tables(conn)
         self._migrate_to_collections(conn)
 
-        # 已删除游戏的忽略清单：记录用户主动删除的游戏，扫描时跳过，
-        # 避免启动自动扫描把"文件仍在磁盘"的已删游戏重新加回。
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS ignored_games (
-                identity   TEXT DEFAULT '',
-                exe_path   TEXT DEFAULT '',
-                title      TEXT DEFAULT '',
-                removed_at TEXT DEFAULT ''
-            )
-        """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ignored_identity ON ignored_games(identity)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ignored_exe ON ignored_games(exe_path)")
+        # 忽略清单机制已移除（改为「卡片在时按 identity 判重」，不再记录已删游戏）。
+        # 清理旧库遗留的 ignored_games 表。
+        conn.execute("DROP TABLE IF EXISTS ignored_games")
 
     def _create_collections_tables(self, conn):
         """创建 collections + game_collection_link（收藏夹树形 + 游戏多对多关联）"""

@@ -45,14 +45,14 @@ class ReliabilityTests(base.DataFlowTests):
             (folder / 'game.exe').write_bytes(b'fixture')
         self.assertEqual(self.manager.scan_and_add(str(self.root))[0], 2)
 
-    def test_ignored_identity_backfill_does_not_hide_other_chapter(self):
+    def test_identity_backfill_uses_folder_name(self):
         game = self.fixture('Series Chapter 1')
-        self.manager.delete_game(game.id)
-        self.manager.repository.db.execute('UPDATE ignored_games SET identity=?', ('rpg_maker|series',))
+        # 篡改 identity 后 _backfill_identity 应按文件夹名重算回正确值
+        self.manager.repository.db.execute(
+            'UPDATE games SET identity=? WHERE id=?', ('rpg_maker|bogus', game.id))
         self.manager._backfill_identity()
-        ident = self.manager.scanner._make_identity(game.engine, 'Series Chapter 2')
-        self.assertFalse(self.manager.repository.is_ignored(ident, 'other.exe'))
-        self.assertTrue(self.manager.repository.is_ignored(game.identity, game.exe_path))
+        expect = self.manager.scanner._make_identity(game.engine, 'Series Chapter 1')
+        self.assertEqual(self.manager.get_game(game.id).identity, expect)
 
     def test_relocation_preview_reports_multiple_candidates(self):
         game = self.fixture()

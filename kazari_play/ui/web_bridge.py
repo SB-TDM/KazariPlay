@@ -325,6 +325,8 @@ class WebBridge:
         _cover_workers = max(1, int(self._cfg.get("cover_download.max_concurrent", 4) or 4))
         self._cover_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=_cover_workers, thread_name_prefix="cover")
+        self._cover_states = {}          # game_id -> 封面下载进度 0.0~1.0（下载中的）
+        self._cover_state_lock = threading.Lock()
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -475,11 +477,9 @@ class WebBridge:
                      description=data.get("description", ""), rating=int(data.get("rating", 0) or 0))
             g.identity = self.manager.scanner._make_identity(
                 g.engine, os.path.basename(os.path.normpath(g.folder)))
-            # 用户主动重新添加：撤销该游戏的忽略标记，之后扫描不再跳过
             g.category_id = int(data.get("cat_id", 0) or 0)
             if not self.manager.add_game(g):
                 return json.dumps({"ok": False, "msg": "添加失败，请检查启动路径是否重复"}, ensure_ascii=False)
-            self.manager.repository.remove_ignored(g.identity, g.exe_path)
             # 手动添加后自动触发元数据匹配（后台线程，避免阻塞 GUI）
             if not self._start_task(self._run_vndb_match, ([g],)):
                 self.notify('游戏已添加；当前任务结束后可手动匹配元数据')
@@ -797,7 +797,9 @@ class WebBridge:
             matched, skipped, failed = self.manager.match_vndb_for_games(
                 games, force=False, progress_cb=self._vndb_progress,
                 cancel_event=cancel_event, cover_cb=self._queue_cover)
-            self.refresh()   # 元数据（标题等）已更新，刷新卡片；封面异步完成后定向刷新
+            # 只增量更新本次匹配的卡片（避免全量重建导致所有封面重新加载/淡入闪烁）；
+            # 封面由异步下载完成后各自 reloadCover
+            self.refresh_delta([g.id for g in games])
             if cancel_event is not None and cancel_event.is_set():
                 self.notify(f"元数据匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
             else:
@@ -1290,27 +1292,40 @@ class WebBridge:
         """match_single 的封面回调：入队后台下载，不阻塞匹配流程"""
         try:
             self._cover_pool.submit(self._download_cover_bg, game_id, cover_url, dest)
-            # 入队成功后再通知前端显示转圈（避免提交失败时转圈卡住不消失）
-            self._ui.invalidate("cover_progress", {"id": game_id, "state": "downloading"})
         except Exception as e:
             logger.warning("封面入队失败: %s, %s", cover_url, e)
 
+    def _set_cover_progress(self, game_id: str, pct):
+        """更新某游戏封面下载进度并推送（pct=None 表示结束、移除）。
+
+        UISync 按「域」去重，故 payload 用「当前全部下载中状态」快照（dict），
+        避免多游戏各自的进度互相覆盖。
+        """
+        with self._cover_state_lock:
+            if pct is None:
+                self._cover_states.pop(game_id, None)
+            else:
+                self._cover_states[game_id] = round(float(pct), 4)
+            snapshot = dict(self._cover_states)
+        self._ui.invalidate("cover_progress", snapshot)
+
     def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
-        """后台下载封面（可配超时、不重试），成功后写库并定向刷新该卡"""
+        """后台下载封面（可配超时、不重试），上报进度；成功写库并定向刷新该卡"""
         from utils import vndb_client
-        ok = False
+        self._set_cover_progress(game_id, 0.0)
         try:
-            if vndb_client.download_cover(cover_url, dest):
+            def _pc(pct, _gid=game_id):
+                self._set_cover_progress(_gid, pct)
+            if vndb_client.download_cover(cover_url, dest, progress_cb=_pc):
                 game = self.manager.get_game(game_id)
                 if game and not game.cover_path:
                     game.cover_path = dest
                     self.manager.repository.update_game(game)
                     self.reloadCover(game_id)
-                ok = True
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)
-        # 结束（成功/失败）都收起转圈；失败不显示、不重试
-        self._ui.invalidate("cover_progress", {"id": game_id, "state": "done" if ok else "failed"})
+        # 结束（成功/失败）都移除进度；失败不重试、不显示
+        self._set_cover_progress(game_id, None)
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         # 游戏退出：即时清除"运行中"状态 + 增量刷新该游戏数据（时长/最后游玩）
