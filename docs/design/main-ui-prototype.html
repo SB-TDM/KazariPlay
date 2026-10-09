@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KazariPlay 收藏夹导航原型</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #fff9f7;
+      --canvas-deep: #fff1f4;
+      --surface: rgba(255, 255, 255, .86);
+      --surface-solid: #fff;
+      --surface-soft: #fff4f5;
+      --rail: #fff0f3;
+      --line: #f7d9e1;
+      --line-strong: #f2b9ca;
+      --ink: #4a4358;
+      --muted: #978da2;
+      --faint: #c4b9c4;
+      --pink: #f47f9e;
+      --pink-deep: #de5d83;
+      --mint: #5bbf9e;
+      --yellow: #eaa62e;
+      --shadow-sm: 0 5px 18px rgba(195, 105, 132, .09);
+      --shadow-md: 0 16px 38px rgba(170, 92, 123, .15);
+      --radius-sm: 10px;
+      --radius-md: 15px;
+      --radius-lg: 21px;
+      --card-w: 154px;
+      --card-h: 210px;
+      --rail-width: 72px;
+      --drawer-width: 248px;
+      --top-height: 78px;
+      --font: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+      --grad-pink: linear-gradient(135deg, #ffb3c1, #ff8fab);
+      --glow-soft: rgba(255, 143, 171, .18);
+      --glow-strong: rgba(255, 111, 145, .42);
+      --bounce: cubic-bezier(.34, 1.56, .64, 1);
+      --soft: cubic-bezier(.22, .9, .36, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      background: var(--canvas);
+      color: var(--ink);
+      font-family: var(--font);
+      font-size: 14px;
+    }
+    button, input { font: inherit; }
+    button { border: 0; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(244, 127, 158, .35);
+      outline-offset: 2px;
+    }
+    .icon { width: 18px; height: 18px; display: block; flex: none; }
+    .icon-sm { width: 15px; height: 15px; }
+
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-columns: var(--rail-width) minmax(0, 1fr);
+      grid-template-rows: 48px minmax(0, 1fr);
+      height: 100vh;
+      min-width: 0;
+      background:
+        linear-gradient(120deg, rgba(255, 226, 232, .32), transparent 37%),
+        var(--canvas);
+    }
+    .titlebar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      padding: 0 16px 0 17px;
+      background: rgba(255, 246, 242, .92);
+      border-bottom: 1px solid var(--line);
+      user-select: none;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 230px; }
+    .brand img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; box-shadow: 0 3px 9px rgba(206, 113, 140, .2); }
+    .brand strong { color: var(--pink-deep); font-size: 16px; letter-spacing: .2px; }
+    .version { color: var(--muted); font-size: 12px; }
+    .window-actions { display: flex; gap: 4px; margin-left: auto; }
+    .window-btn {
+      width: 30px; height: 28px; display: grid; place-items: center;
+      color: var(--muted); background: transparent; border-radius: 8px; cursor: pointer;
+    }
+    .window-btn:hover { background: var(--surface-soft); color: var(--pink-deep); }
+    .window-btn.close:hover { background: #f9d7df; color: #bd4869; }
+
+    .rail {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px 10px 14px;
+      background: rgba(255, 239, 243, .88);
+      border-right: 1px solid var(--line);
+    }
+    .rail-nav { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+    .rail-spacer { flex: 1; }
+    .rail-btn {
+      width: 46px; height: 44px; display: grid; place-items: center;
+      color: #a69bad; background: transparent; border-radius: 14px; cursor: pointer;
+      transition: background .18s ease, color .18s ease, transform .18s ease;
+    }
+    .rail-btn:hover { color: var(--pink-deep); background: rgba(255, 255, 255, .72); transform: translateY(-1px); }
+    .rail-btn.active { color: #fff; background: var(--pink); box-shadow: 0 7px 15px rgba(244, 127, 158, .28); }
+    .rail-divider { width: 32px; height: 1px; margin: 9px 0; background: var(--line); }
+    .rail-btn[aria-pressed="true"] { color: var(--pink-deep); background: #fff; }
+    .rail-btn.active[aria-pressed="true"] { color: #fff; background: var(--pink); }
+
+    /* 侧边栏底部三个功能按钮：沿用原版 .side-icon-btn 设计 */
+    .footer-btn { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;
+      background: transparent; border: none; border-radius: 14px; color: #a69bad; cursor: pointer;
+      transition: background .2s ease, color .2s ease, transform .18s var(--bounce); }
+    .footer-btn:hover { background: rgba(255, 255, 255, .72); color: var(--pink-deep); transform: none; }
+    .footer-btn.active { color: #fff; background: var(--grad-pink); box-shadow: 0 3px 10px rgba(255, 111, 145, .28); }
+    body.dark .footer-btn:hover { background: var(--surface-soft); }
+    body.dark .footer-btn { color: var(--muted); }
+
+    /* 收藏夹面板：半透明浮层，覆盖在卡片上方，不占布局列 */
+    .drawer {
+      position: absolute;
+      left: var(--rail-width);
+      top: 48px;
+      bottom: 0;
+      z-index: 60;
+      width: var(--drawer-width);
+      padding: 22px 13px 18px;
+      display: flex;
+      flex-direction: column;
+      background: rgba(255, 251, 250, .72);
+      -webkit-backdrop-filter: blur(16px) saturate(1.5);
+      backdrop-filter: blur(16px) saturate(1.5);
+      border-right: 1px solid var(--line);
+      box-shadow: 16px 0 40px rgba(120, 70, 110, .13);
+      overflow: hidden;
+      transition: transform .28s var(--soft), opacity .28s var(--soft);
+    }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 15px; }
+    .drawer-head h2 { margin: 0; font-size: 15px; color: var(--ink); }
+    .drawer-head p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .icon-btn {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      color: var(--muted); background: transparent; border-radius: 9px; cursor: pointer;
+    }
+    .icon-btn:hover { color: var(--pink-deep); background: var(--surface-soft); }
+    .drawer-section { margin-bottom: 22px; }
+    .section-label {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 8px 7px; color: var(--faint); font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    }
+    .section-label button { color: var(--pink-deep); background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
+    .nav-list { display: grid; gap: 3px; }
+    .nav-row, .collection-row {
+      display: flex; align-items: center; width: 100%; min-height: 39px;
+      padding: 0 9px; color: var(--muted); background: transparent; border-radius: 11px;
+      cursor: pointer; text-align: left; transition: background .16s ease, color .16s ease;
+    }
+    .nav-row:hover, .collection-row:hover { color: var(--pink-deep); background: var(--surface-soft); }
+    .nav-row.active, .collection-row.active { color: var(--pink-deep); background: #ffe5eb; font-weight: 700; }
+    .nav-row .icon, .collection-row .icon { margin-right: 10px; }
+    .nav-row .label, .collection-row .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .count { margin-left: auto; color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .nav-row.active .count, .collection-row.active .count { color: var(--pink-deep); }
+    .collection-group { margin-bottom: 4px; }
+    .group-row { display: flex; align-items: center; gap: 2px; padding: 0 2px; }
+    .group-toggle { width: 27px; height: 35px; display: grid; place-items: center; color: var(--faint); background: transparent; cursor: pointer; border-radius: 8px; }
+    .group-toggle:hover { background: var(--surface-soft); color: var(--pink-deep); }
+    .group-name { flex: 1; padding: 0 7px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+    .collection-children { display: grid; gap: 3px; padding-left: 24px; }
+    .collection-row { min-height: 36px; padding-left: 11px; }
+    .collection-row .folder-dot { width: 8px; height: 8px; margin-right: 10px; border-radius: 3px; background: var(--mint); }
+    .collection-row:nth-child(2) .folder-dot { background: #b18cf0; }
+    .collection-row:nth-child(3) .folder-dot { background: #efb458; }
+
+    .workspace { grid-column: 2; grid-row: 2; position: relative; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* 右下角悬浮圆按钮：沿用原版 FAB 设计（刷新在添加之上） */
+    .fab { position: absolute; right: 26px; bottom: 26px; z-index: 20; width: 54px; height: 54px; border-radius: 50%;
+      background: var(--grad-pink); color: #fff; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 20px var(--glow-strong); cursor: pointer; font-size: 27px; border: none; padding: 0;
+      transition: transform .25s var(--bounce), box-shadow .25s; }
+    .fab:hover { transform: scale(1.12) rotate(90deg); box-shadow: 0 12px 26px var(--glow-strong); }
+    .fab-refresh { right: 26px; bottom: 92px; }
+    .fab-refresh svg { width: 24px; height: 24px; }
+    .fabmenu { position: absolute; right: 30px; bottom: 92px; z-index: 21; background: var(--surface-solid);
+      border: 1.5px solid var(--line); border-radius: var(--radius-md); padding: 6px; display: none;
+      min-width: 200px; box-shadow: var(--shadow-md); }
+    .fabmenu.show { display: block; }
+    .fabmenu .item { display: block; width: 100%; text-align: left; padding: 9px 14px; border-radius: 10px; font-size: 13px; color: var(--ink); background: transparent; cursor: pointer; transition: background .2s; }
+    .fabmenu .item:hover { background: var(--surface-soft); color: var(--pink-deep); }
+    .toolbar {
+      position: relative; z-index: 65;
+      min-height: var(--top-height); display: flex; align-items: center; gap: 16px;
+      padding: 14px 25px; background: rgba(255, 255, 255, .68); border-bottom: 1px solid var(--line);
+    }
+    .view-heading { min-width: 170px; }
+    .view-heading h1 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink); font-size: 18px; letter-spacing: .01em; }
+    .view-heading h1 .view-icon { color: var(--pink-deep); }
+    .view-heading p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+    .search {
+      flex: 1; max-width: 480px; min-width: 180px; height: 38px; display: flex; align-items: center; gap: 9px;
+      padding: 0 13px; color: var(--faint); background: rgba(255, 255, 255, .82); border: 1px solid var(--line); border-radius: 12px;
+      box-shadow: inset 0 1px 3px rgba(190, 99, 126, .05);
+    }
+    .search:focus-within { border-color: var(--line-strong); box-shadow: 0 0 0 3px rgba(244, 127, 158, .1); }
+    .search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; }
+    .search input::placeholder { color: #b8aeb9; }
+    .toolbar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .tool-btn {
+      height: 36px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px;
+      color: var(--muted); background: rgba(255, 255, 255, .82); border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    }
+    .tool-btn:hover { color: var(--pink-deep); border-color: var(--line-strong); background: #fff; }
+    .tool-btn.primary { color: #fff; background: var(--pink); border-color: var(--pink); box-shadow: 0 5px 12px rgba(244, 127, 158, .2); }
+    .tool-btn.primary:hover { color: #fff; background: var(--pink-deep); }
+    .tool-btn .chevron { width: 14px; height: 14px; }
+
+    .content { flex: 1; min-height: 0; overflow-y: auto; padding: 25px 25px 36px; }
+    .content::-webkit-scrollbar, .drawer::-webkit-scrollbar { width: 10px; }
+    .content::-webkit-scrollbar-thumb, .drawer::-webkit-scrollbar-thumb { background: #f0ccd6; border: 3px solid transparent; background-clip: padding-box; border-radius: 99px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, var(--card-w)); gap: 16px; justify-content: start; align-items: start; }
+    .card {
+      width: var(--card-w); height: var(--card-h); position: relative; overflow: hidden; cursor: pointer;
+      background: var(--surface-solid); border: 1.5px solid var(--line); border-radius: var(--radius-lg);
+      box-shadow: 0 4px 12px var(--glow-soft);
+      transition: transform .28s var(--bounce), box-shadow .28s var(--soft), border-color .28s var(--soft);
+    }
+    .card:hover { transform: translateY(-5px); border-color: var(--pink); box-shadow: 0 10px 22px var(--glow-strong); }
+    .card .cover {
+      height: calc(100% - 31px); position: relative; background-size: cover; background-position: center;
+      transform-origin: center bottom; transition: transform .28s var(--bounce);
+    }
+    .card:hover .cover { transform: translateY(-1px) scale(1.03); }
+    .card .favorite {
+      position: absolute; z-index: 3; top: 6px; right: 9px; width: 27px; height: 27px; display: grid; place-items: center;
+      color: #fff; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.45); border-radius: 9px; cursor: pointer; backdrop-filter: blur(5px);
+    }
+    .card .favorite:hover, .card .favorite.is-favorite { background: var(--pink); border-color: transparent; }
+    .card .playing {
+      position: absolute; z-index: 3; top: 6px; left: 8px; height: 20px; padding: 0 10px; border-radius: 50px;
+      background: var(--mint); color: #fff; font-size: 11px; display: flex; align-items: center; font-weight: 600; box-shadow: 0 2px 6px rgba(74,140,120,.4);
+    }
+    .card .meta {
+      height: 31px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 0 10px; font-size: 12px; color: var(--muted); background: var(--surface-solid); white-space: nowrap; overflow: hidden;
+    }
+    .card .meta .name { overflow: hidden; text-overflow: ellipsis; }
+    .card .meta .rating { color: var(--yellow); flex: none; font-variant-numeric: tabular-nums; }
+    .empty { display: none; padding: 80px 20px; color: var(--muted); text-align: center; }
+    .empty.show { display: block; }
+    .empty strong { display: block; margin-bottom: 8px; color: var(--ink); font-size: 18px; }
+
+    .toast { position: fixed; right: 24px; bottom: 24px; padding: 11px 15px; color: #fff; background: rgba(74, 67, 88, .93); border-radius: 11px; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(8px); pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .drawer.collapsed { transform: translateX(calc(-1 * var(--drawer-width) - 12px)); opacity: 0; pointer-events: none; }
+
+    /* 卡片内容区遮罩：展开收藏夹时覆盖卡片，点击关闭侧栏且不触发卡片 */
+    .content-scrim {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 58; pointer-events: none;
+      background: rgba(255, 246, 249, .55);
+      opacity: 0; visibility: hidden; transition: opacity .28s var(--soft), visibility 0s linear .28s;
+    }
+    .content-scrim.show { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .28s var(--soft); }
+    body.dark .content-scrim { background: rgba(24, 19, 32, .5); }
+    .batch-mode .card { outline: 2px solid transparent; }
+    .batch-mode .card.selected { outline-color: var(--pink); }
+    .batch-indicator { display: none; color: var(--pink-deep); font-size: 12px; font-weight: 700; }
+    .batch-mode .batch-indicator { display: inline; }
+
+    @media (max-width: 1120px) {
+      .app { --drawer-width: 220px; }
+      .toolbar { gap: 10px; padding-left: 18px; padding-right: 18px; }
+      .content { padding-left: 18px; padding-right: 18px; }
+      .view-heading { min-width: 145px; }
+      .tool-btn span { display: none; }
+      .tool-btn { width: 36px; padding: 0; justify-content: center; }
+    }
+    * { letter-spacing: 0 !important; }
+    .version { font-size: 11px; }
+    .window-actions { display: none; }
+    .drawer { display: flex; flex-direction: column; padding-top: 21px; }
+    .drawer-head { flex: none; }
+    .drawer-head p { display: none; }
+    .drawer-section:first-of-type { display: none; }
+    .drawer-section { overflow-y: auto; margin-bottom: 0; }
+    .drawer-section .section-label { display: none; }
+    .group-toggle .group-chevron { transform: rotate(90deg); }
+    .folder-dot { flex-shrink: 0; }
+    .group-row > .count { padding-right: 10px; }
+    .view-heading { min-width: 150px; }
+    .view-heading h1 { white-space: nowrap; font-size: 16px; }
+    .view-icon { display: flex; }
+    .toolbar { min-height: 70px; gap: 20px; }
+    .tool-btn { white-space: nowrap; font-size: 12px; }
+    .tool-btn.primary { background: var(--pink-deep); border-color: var(--pink-deep); }
+    .grid { gap: 14px; }
+    .card .favorite { color: #5e5169; background: rgba(255,255,255,.88); border: 0; }
+    .card .favorite.is-favorite { color: #b87812; background: #fffae9; }
+    .card .favorite.is-favorite svg { fill: currentColor; }
+    .card.selected .cover::after { content: '✓'; position: absolute; left: 10px; bottom: 10px; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--pink-deep); }
+    .batch-bar { display: none; align-items: center; gap: 12px; padding: 11px 25px; border-bottom: 1px solid var(--line); background: var(--surface-solid); }
+    .batch-mode .batch-bar { display: flex; }
+    .batch-bar .tool-btn { width: auto; padding: 0 12px; }
+    select { font: inherit; color: var(--ink); background: var(--surface-solid); border: 1px solid var(--line); padding: 8px 10px; border-radius: 8px; max-width: 160px; }
+    .sort-wrap { position: relative; }
+    .sort-menu { position: absolute; top: 44px; right: 0; z-index: 20; display: grid; padding: 6px; width: 150px; background: var(--surface-solid); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-md); }
+    .sort-menu[hidden] { display: none; }
+    .sort-menu button { text-align: left; background: transparent; padding: 10px; border-radius: 6px; color: var(--ink); cursor: pointer; }
+    .sort-menu button:hover { background: var(--surface-soft); }
+    /* 底部抽屉基础设施：沿用原版 sheets.css */
+    .overlay { position: fixed; inset: 0; z-index: 100; background: rgba(74,57,84,.45);
+      display: none; align-items: flex-end; justify-content: center; overflow: hidden;
+      overscroll-behavior: contain; opacity: 0; visibility: hidden;
+      transition: opacity .28s var(--soft), visibility 0s linear .28s; }
+    .overlay.show { display: flex; opacity: 1; visibility: visible; transition: opacity .28s var(--soft); }
+    .overlay.show .dialog { animation: sheetUp .34s var(--soft); }
+    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .dialog { position: relative; width: 100%; margin: 0 auto; background: var(--surface-solid);
+      border-radius: 20px 20px 0 0; border: 1.5px solid var(--line); border-bottom: none;
+      box-shadow: 0 -14px 44px rgba(120,70,110,.32); display: flex; flex-direction: column;
+      overflow: hidden; max-height: 90vh; }
+    .dialog::before { content: ""; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+      width: 40px; height: 4px; border-radius: 2px; background: #e6d5dd; z-index: 3; }
+    .close-btn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--surface-soft);
+      color: var(--muted); font-size: 15px; cursor: pointer; font-family: var(--font);
+      transition: transform .2s var(--bounce), background .2s, color .2s; }
+    .close-btn:hover { background: #ffb3bd; color: #fff; transform: rotate(90deg); }
+    .pill-btn { height: 34px; padding: 0 18px; border-radius: 50px; border: 1.5px solid var(--line); background: var(--surface-solid);
+      color: var(--muted); font-size: 13px; font-family: var(--font); cursor: pointer; white-space: nowrap;
+      transition: transform .22s var(--bounce), color .22s, border-color .22s, box-shadow .22s; }
+    .pill-btn:hover { transform: translateY(-2px); color: var(--pink-deep); border-color: var(--pink); box-shadow: 0 4px 10px var(--glow-soft); }
+    .pill-btn.primary { border: none; color: #fff; background: var(--grad-pink); box-shadow: 0 4px 12px var(--glow-strong); }
+    .pill-btn.primary:hover { color: #fff; }
+    .pill-btn.fav.on { color: var(--yellow); border-color: var(--yellow); }
+    .chip { height: 24px; padding: 0 12px; border-radius: 50px; font-size: 12px; display: inline-flex; align-items: center;
+      gap: 5px; background: var(--surface-soft); color: var(--pink-deep); }
+
+    /* 详情底部抽屉：沿用原版 detail.css */
+    .dialog.detail { width: 920px; max-width: 94vw; height: min(68vh, 640px); flex-direction: row; padding-top: 20px; }
+    .detail-cover { flex: none; width: 240px; aspect-ratio: 154/179; align-self: flex-start; background-size: cover;
+      background-position: center; background-color: var(--surface-soft); border-radius: var(--radius-lg); margin: 2px 0 0 18px; }
+    .detail-body { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 14px 22px 20px;
+      overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+    .detail-head { display: flex; align-items: flex-start; gap: 10px; }
+    .detail-head h2 { flex: 1; min-width: 0; overflow-wrap: break-word; font-size: 20px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+    .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 16px; margin-top: 12px; }
+    .info-item { font-size: 12.5px; color: var(--muted); }
+    .info-item b { color: var(--ink); font-weight: 600; margin-right: 4px; }
+    .detail-actions { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+    .detail-desc { margin-top: 12px; overflow-y: auto; max-height: 96px; font-size: 13px; line-height: 1.7;
+      color: var(--muted); padding-right: 6px; scrollbar-gutter: stable; flex: none; }
+    .collections-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 14px; }
+
+    /* 表单抽屉：新建收藏夹 / 添加作品 */
+    .dialog.form { max-width: 520px; padding: 26px 22px 20px; overflow-y: auto; }
+    .dialog.form h2 { font-size: 18px; margin: 0 0 22px; color: var(--ink); }
+    .dialog.form label { display: grid; gap: 8px; margin-bottom: 16px; font-size: 13px; color: var(--muted); }
+    .dialog.form input { width: 100%; padding: 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+    @media (max-width: 640px) { .dialog.detail { flex-direction: column; } .detail-cover { width: 100%; height: 200px; margin: 0; border-radius: 0; } }
+    body.dark { color-scheme: dark; --canvas: #211e25; --surface-solid: #2c2731; --surface-soft: #362b35; --line: #443540; --line-strong: #765268; --ink: #f2e7ee; --muted: #b7a7b8; --faint: #a696a8; --pink-deep: #ef9fb8; --grad-pink: linear-gradient(135deg, #8a4f72, #ef86ad); --glow-strong: rgba(239, 134, 173, .32); }
+    body.dark .app { background: var(--canvas); }
+    body.dark .rail, body.dark .titlebar, body.dark .toolbar, body.dark .tool-btn, body.dark .search { background: var(--surface-solid); }
+    body.dark .drawer { background: rgba(33, 30, 37, .76); }
+    body.dark .collection-row.active { background: #4c3444; }
+    body.dark .tool-btn.primary { background: #b6597a; color: #fff; }
+    body.dark .rail-btn.active { background: #b6597a; }
+    @media (max-width: 1300px) { .search { max-width: none; } .toolbar { gap: 12px; } }
+    @media (max-width: 1120px) { #sortBtn svg:last-child { display: none; } }
+    @media (max-width: 920px) { .toolbar { flex-wrap: wrap; } .search { order: 3; flex-basis: 100%; max-width: none; } .toolbar-actions { margin-left: auto; } }
+    @media (max-width: 650px) {
+      .app { --rail-width: 56px; --drawer-width: 228px; grid-template-columns: 56px minmax(0, 1fr); }
+      .brand { min-width: 0; gap: 8px; } .brand strong { font-size: 15px; } .version { display: none; }
+      .rail { padding: 12px 5px; } .rail-btn { width: 42px; }
+      .drawer { width: 228px; }
+      .toolbar { padding: 14px; gap: 10px; } .view-heading { min-width: 0; } .view-heading h1 { font-size: 14px; gap: 5px; } .view-heading p { font-size: 11px; }
+      .view-icon { display: none; } .toolbar-actions { gap: 5px; }
+      .grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; } .content { padding: 16px 12px 24px; }
+      .card { width: 100%; height: auto; aspect-ratio: 154 / 210; }
+      .card .meta { font-size: 11px; } .card .meta .rating { color: var(--muted); }
+      .batch-bar { flex-wrap: wrap; padding: 10px 12px; font-size: 12px; gap: 8px; }
+      .batch-indicator { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="titlebar">
+      <div class="brand">
+        <img src="logo.png" alt="">
+        <strong>KazariPlay</strong>
+        <span class="version">v1.4.0-beta.1（原版）</span>
+      </div>
+      <div class="window-actions" aria-label="窗口操作">
+        <button class="window-btn" type="button" title="最小化" aria-label="最小化">−</button>
+        <button class="window-btn" type="button" title="最大化" aria-label="最大化">□</button>
+        <button class="window-btn close" type="button" title="关闭" aria-label="关闭">×</button>
+      </div>
+    </header>
+
+    <aside class="rail" aria-label="主导航">
+      <nav class="rail-nav">
+        <button class="rail-btn" type="button" data-rail="home" title="主页" aria-label="主页">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z"/></svg>
+        </button>
+        <button class="rail-btn active" type="button" data-rail="library" title="游戏库" aria-label="游戏库" aria-pressed="true">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></svg>
+        </button>
+        <button class="rail-btn" type="button" data-rail="favorite" title="我的最爱" aria-label="我的最爱">
+          <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="m12 20.3-1.45-1.32C5.4 14.3 2 11.22 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09A5.94 5.94 0 0 1 16.5 2C19.58 2 22 4.42 22 7.5c0 3.72-3.4 6.8-8.55 11.48L12 20.3Z"/></svg>
+        </button>
+        <button class="rail-btn" type="button" id="drawerToggle" title="收藏夹" aria-label="展开或收起收藏夹">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2h7A2.5 2.5 0 0 1 21 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-10Z"/><path d="M3.5 9h17"/></svg>
+        </button>
+      </nav>
+      <div class="rail-spacer"></div>
+      <nav class="rail-nav">
+        <button class="footer-btn" type="button" id="profileBtn" aria-label="个人主页（暂未开放）" title="个人主页（暂未开放）">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/><circle cx="12" cy="12" r="10"/></svg>
+        </button>
+        <button class="footer-btn" type="button" title="切换为深色模式" aria-label="切换为深色模式" id="themeToggle">
+          <svg class="icon" id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <button class="footer-btn" type="button" title="设置" aria-label="设置" id="settingsBtn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </nav>
+    </aside>
+
+    <aside class="drawer" id="drawer">
+      <div class="drawer-head">
+        <div>
+          <h2>收藏夹</h2>
+        </div>
+        <button class="icon-btn" type="button" id="createFolder" title="新建收藏夹" aria-label="新建收藏夹">＋</button>
+        <button class="icon-btn" type="button" id="collapseDrawer" title="收起收藏夹面板" aria-label="收起收藏夹面板">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+
+      <section class="drawer-section">
+        <div class="section-label">导航</div>
+        <div class="nav-list">
+          <button class="nav-row active" type="button" data-view="all" data-label="全部作品">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+            <span class="label">全部作品</span><span class="count">24</span>
+          </button>
+          <button class="nav-row" type="button" data-view="favorite" data-label="我的最爱">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="m12 20.3-1.45-1.32C5.4 14.3 2 11.22 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09A5.94 5.94 0 0 1 16.5 2C19.58 2 22 4.42 22 7.5c0 3.72-3.4 6.8-8.55 11.48L12 20.3Z"/></svg>
+            <span class="label">我的最爱</span><span class="count" id="favoriteCount">6</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="drawer-section">
+        <div class="section-label"><span>收藏夹</span><button type="button" id="addCollection" title="新建收藏夹">＋ 新建</button></div>
+        <div class="collection-group">
+          <div class="group-row">
+            <button class="group-toggle" type="button" data-group="status" aria-label="展开或收起状态收藏夹">
+              <svg class="icon-sm group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <span class="group-name">状态</span><span class="count">3 个</span>
+          </div>
+          <div class="collection-children" data-children="status">
+            <button class="collection-row" type="button" data-view="collection:正在玩" data-label="正在玩">
+              <span class="folder-dot"></span><span class="label">正在玩</span><span class="count">3</span>
+            </button>
+            <button class="collection-row" type="button" data-view="collection:待通关" data-label="待通关">
+              <span class="folder-dot"></span><span class="label">待通关</span><span class="count">8</span>
+            </button>
+            <button class="collection-row" type="button" data-view="collection:已通关" data-label="已通关">
+              <span class="folder-dot"></span><span class="label">已通关</span><span class="count">6</span>
+            </button>
+          </div>
+        </div>
+        <div class="collection-group">
+          <div class="group-row">
+            <button class="group-toggle" type="button" data-group="genre" aria-label="展开或收起题材收藏夹">
+              <svg class="icon-sm group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <span class="group-name">题材</span><span class="count">2 个</span>
+          </div>
+          <div class="collection-children" data-children="genre">
+            <button class="collection-row" type="button" data-view="collection:RPG" data-label="RPG">
+              <span class="folder-dot"></span><span class="label">RPG</span><span class="count">4</span>
+            </button>
+            <button class="collection-row" type="button" data-view="collection:纯爱" data-label="纯爱">
+              <span class="folder-dot"></span><span class="label">纯爱</span><span class="count">7</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+    <main class="workspace">
+      <div class="toolbar">
+        <div class="view-heading">
+          <h1><span class="view-icon" id="viewIcon">▦</span><span id="viewTitle">全部作品</span><span class="batch-indicator">· 批量选择</span></h1>
+          <p><span id="viewCount">24</span> 部作品<span id="viewHint" hidden></span></p>
+        </div>
+        <label class="search" aria-label="搜索当前视图">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4.5 4.5"/></svg>
+          <input id="searchInput" type="search" placeholder="搜索作品、开发商或标签" autocomplete="off">
+        </label>
+        <div class="toolbar-actions">
+          <button class="tool-btn" type="button" id="batchBtn" title="批量选择">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 2.5 2.5L16 9"/></svg><span>批量选择</span>
+          </button>
+          <div class="sort-wrap"><button class="tool-btn" type="button" id="sortBtn" title="排序" aria-expanded="false">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5v14M5 8l3-3 3 3M16 19V5m-3 3 3-3 3 3"/></svg><span>添加时间</span><svg class="icon-sm chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+          </button><div class="sort-menu" id="sortMenu" hidden><button data-sort="added">添加时间</button><button data-sort="title">作品名称</button><button data-sort="rating">评分优先</button></div></div>
+        </div>
+      </div>
+
+      <div class="batch-bar"><span id="selectedCount">已选择 0 部</span><button class="tool-btn" id="selectAll">全选</button><select id="batchFolder" aria-label="目标收藏夹"></select><button class="tool-btn" id="assignFolder">加入收藏夹</button></div>
+
+      <section class="content" aria-live="polite">
+        <div class="grid" id="gameGrid"></div>
+        <div class="empty" id="emptyState"><strong>没有找到匹配的作品</strong><span>试试其他关键词，或切换到其他收藏夹。</span></div>
+      </section>
+
+      <div class="content-scrim" id="contentScrim" aria-hidden="true"></div>
+
+      <button type="button" class="fab fab-refresh" id="fabRefresh" title="刷新游戏列表" aria-label="刷新游戏列表">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <button type="button" class="fab" id="fab" aria-label="添加游戏">+</button>
+      <div class="fabmenu" id="fabMenu" role="menu">
+        <button type="button" class="item" id="fabAdd">手动添加单个 exe</button>
+        <button type="button" class="item" id="fabScan">批量扫描游戏文件夹</button>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <div class="overlay" id="detailSheet">
+    <div class="dialog detail">
+      <div class="detail-cover" id="detailCover"></div>
+      <div class="detail-body">
+        <div class="detail-head"><h2 id="detailTitle"></h2><button class="close-btn" type="button" id="detailClose" aria-label="关闭详情">×</button></div>
+        <div class="info-grid" id="detailInfo"></div>
+        <div class="detail-actions">
+          <button class="pill-btn primary" type="button" id="detailStart">开始游戏</button>
+          <button class="pill-btn" type="button" id="detailEdit">编辑</button>
+          <button class="pill-btn fav" type="button" id="detailFavorite">☆ 收藏</button>
+        </div>
+        <div class="detail-desc" id="detailDesc"></div>
+        <div class="collections-row" id="detailCollections"></div>
+      </div>
+    </div>
+  </div>
+  <div class="overlay" id="folderSheet">
+    <form class="dialog form" id="folderForm"><h2>新建收藏夹</h2><label>名称<input id="folderName" required maxlength="30" autocomplete="off"></label><div class="dialog-actions"><button type="button" class="pill-btn" data-close="folderSheet">取消</button><button class="pill-btn primary" type="submit">创建</button></div></form>
+  </div>
+  <div class="overlay" id="gameSheet">
+    <form class="dialog form" id="gameForm"><h2>添加作品</h2><label>作品名称<input id="gameName" required maxlength="80"></label><label>开发商<input id="gameDeveloper" maxlength="50"></label><div class="dialog-actions"><button type="button" class="pill-btn" data-close="gameSheet">取消</button><button class="pill-btn primary" type="submit">添加</button></div></form>
+  </div>
+
+  <script>
+    const games = [
+      { title: '千恋＊万花', dev: 'ゆずソフト', letter: '千', tone: 'mint', rating: 4, favorite: true, playing: true, collections: ['正在玩', '纯爱'] },
+      { title: 'ATRI -My Dear Moments-', dev: 'Frontwing', letter: 'A', tone: 'lilac', rating: 4, favorite: false, collections: ['待通关', '纯爱'] },
+      { title: 'サクラノ詩', dev: '枕', letter: 'サ', tone: 'mint', rating: 3, favorite: false, collections: ['待通关'] },
+      { title: 'Summer Pockets', dev: 'Key', letter: 'S', tone: 'coral', rating: 5, favorite: true, collections: ['已通关', '纯爱'] },
+      { title: '9-nine- 九次九日九重色', dev: 'ぱれっと', letter: '9', tone: 'blue', rating: 5, favorite: false, collections: ['待通关', 'RPG'] },
+      { title: 'Riddle Joker', dev: 'ゆずソフト', letter: 'R', tone: 'lilac', rating: 4, favorite: true, collections: ['正在玩', 'RPG'] },
+      { title: '徒花異譚', dev: 'Liar-soft', letter: '徒', tone: 'rose', rating: 2, favorite: false, collections: ['已通关'] },
+      { title: 'White Album 2', dev: 'Leaf', letter: 'W', tone: 'lilac', rating: 4, favorite: true, collections: ['纯爱', '待通关'] },
+      { title: '月の彼方で逢いましょう', dev: 'tone work\'s', letter: '月', tone: 'mint', rating: 4, favorite: false, collections: ['待通关'] },
+      { title: 'Making＊Lovers', dev: 'SMEE', letter: 'M', tone: 'sun', rating: 5, favorite: true, collections: ['已通关', '纯爱'] },
+      { title: 'Fate/stay night', dev: 'TYPE-MOON', letter: 'F', tone: 'coral', rating: 4, favorite: false, collections: ['RPG'] },
+      { title: 'CLANNAD', dev: 'Key', letter: 'C', tone: 'blue', rating: 4, favorite: false, collections: ['已通关', '纯爱'] },
+      { title: '君と彼女と彼女の恋。', dev: 'Nitroplus', letter: '君', tone: 'rose', rating: 4, favorite: true, collections: ['纯爱'] },
+      { title: '星織ユメミライ', dev: 'tone work\'s', letter: '星', tone: 'lilac', rating: 5, favorite: false, collections: ['待通关'] },
+      { title: '金色ラブリッチェ', dev: 'SAGA PLANETS', letter: '金', tone: 'mint', rating: 5, favorite: false, collections: ['正在玩', '纯爱'] },
+      { title: 'フローラル・フローラブ', dev: 'SAGA PLANETS', letter: 'フ', tone: 'coral', rating: 3, favorite: false, collections: ['待通关'] },
+      { title: 'D.C.II 〜ダ・カーポII〜', dev: 'CIRCUS', letter: 'D', tone: 'coral', rating: 4, favorite: false, collections: ['已通关'] },
+      { title: 'リトルバスターズ！', dev: 'Key', letter: 'リ', tone: 'blue', rating: 4, favorite: false, collections: ['纯爱'] },
+      { title: 'はつゆきさくら', dev: 'SAGA PLANETS', letter: 'は', tone: 'rose', rating: 5, favorite: false, collections: ['待通关'] },
+      { title: 'カタハネ', dev: 'tarte', letter: 'カ', tone: 'lilac', rating: 3, favorite: false, collections: ['已通关'] },
+      { title: 'Ever17', dev: 'KID', letter: 'E', tone: 'mint', rating: 4, favorite: true, collections: ['RPG'] },
+      { title: 'STEINS;GATE', dev: 'Nitroplus', letter: 'S', tone: 'sun', rating: 5, favorite: false, collections: ['已通关', 'RPG'] },
+      { title: 'Chaos;Child', dev: 'Nitroplus', letter: 'C', tone: 'blue', rating: 4, favorite: false, collections: ['RPG'] },
+      { title: 'この大空に、翼をひろげて', dev: 'PULLTOP', letter: 'こ', tone: 'coral', rating: 5, favorite: false, collections: ['待通关', '纯爱'] }
+    ];
+
+    const iconPaths = {
+      star: '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>',
+      house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+      library: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/>',
+      folder: '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+      plus: '<path d="M5 12h14M12 5v14"/>',
+      left: '<path d="m15 18-6-6 6-6"/>',
+      down: '<path d="m6 9 6 6 6-6"/>',
+      search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+      check: '<path d="m3 17 2 2 4-4m-6-8 2 2 4-4M13 6h8M13 12h8M13 18h8"/>',
+      sort: '<path d="m3 16 4 4 4-4M7 20V4M11 4h10M11 8h7M11 12h4"/>',
+      refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5"/>',
+      sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-15.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2M20 12h2m-13.66 5.66-1.41 1.41m14.14-14.14-1.41 1.41"/>'
+    };
+    function icon(name, small = true) {
+      return `<svg class="${small ? 'icon-sm' : 'icon'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name]}</svg>`;
+    }
+    const iconTargets = {
+      '[data-rail="home"] svg': 'house', '[data-rail="library"] svg': 'library', '[data-rail="favorite"] svg': 'star',
+      '#drawerToggle svg': 'folder', '#collapseDrawer svg': 'left', '.search svg': 'search', '#batchBtn svg': 'check',
+      '#sortBtn svg:first-child': 'sort', '#sortBtn .chevron': 'down'
+    };
+    Object.entries(iconTargets).forEach(([selector, name]) => {
+      const node = document.querySelector(selector);
+      const template = document.createElement('template');
+      template.innerHTML = icon(name, !node.classList.contains('icon'));
+      node.replaceWith(template.content.firstChild);
+    });
+    document.getElementById('createFolder').innerHTML = icon('plus');
+
+    // 底部抽屉开关（详情 / 新建收藏夹 / 添加作品）
+    function openSheet(id) { document.getElementById(id).classList.add('show'); }
+    function closeSheet(id) { document.getElementById(id).classList.remove('show'); }
+    function topSheet() { return [...document.querySelectorAll('.overlay.show')].pop(); }
+
+    const palette = { mint: ['#b9eadb', '#409c83'], lilac: ['#d9ceff', '#8c68c3'], coral: ['#ffd0c8', '#c37265'], blue: ['#c6e5fa', '#5b8fb2'], sun: ['#ffe4ae', '#b88238'], rose: ['#ffc8d8', '#bc6284'] };
+    function makePoster(game, index) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 460; canvas.height = 540;
+      const ctx = canvas.getContext('2d');
+      const [paper, ink] = palette[game.tone];
+      ctx.fillStyle = paper; ctx.fillRect(0, 0, 460, 540);
+      ctx.fillStyle = '#ffffff45'; ctx.fillRect(32, 32, 396, 476);
+      ctx.strokeStyle = ink + '40'; ctx.lineWidth = 1; ctx.strokeRect(48, 48, 364, 444);
+      ctx.fillStyle = ink; ctx.textAlign = 'center';
+      ctx.font = 'bold 132px "Microsoft YaHei UI", sans-serif'; ctx.fillText(game.letter, 230, 302, 300);
+      ctx.font = '12px "Segoe UI", sans-serif'; ctx.fillText('K A Z A R I P L A Y', 230, 100);
+      ctx.font = '14px "Segoe UI", sans-serif'; ctx.fillText(String(index + 1).padStart(2, '0') + ' / VISUAL NOVEL', 230, 447);
+      ctx.fillStyle = ink + '60'; ctx.fillRect(203, 379, 54, 2);
+      return canvas.toDataURL('image/png');
+    }
+    games.forEach((game, index) => { game.poster = makePoster(game, index); game.id = index; });
+    const folders = ['正在玩', '待通关', '已通关', 'RPG', '纯爱'];
+    let sortMode = 'added';
+    let detailGame = null;
+    let currentView = 'all';
+    let currentLabel = '全部作品';
+    let batchMode = false;
+    let selected = new Set();
+    let toastTimer;
+
+    const grid = document.getElementById('gameGrid');
+    const empty = document.getElementById('emptyState');
+    const searchInput = document.getElementById('searchInput');
+    const viewTitle = document.getElementById('viewTitle');
+    const viewCount = document.getElementById('viewCount');
+    const viewHint = document.getElementById('viewHint');
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1900);
+    }
+
+    function filteredGames() {
+      const term = searchInput.value.trim().toLowerCase();
+      const result = games.filter(game => {
+        const inView = currentView === 'all'
+          || (currentView === 'favorite' && game.favorite)
+          || (currentView.startsWith('collection:') && game.collections.includes(currentView.slice(11)));
+        const matches = !term || [game.title, game.dev, ...game.collections].join(' ').toLowerCase().includes(term);
+        return inView && matches;
+      });
+      if (sortMode === 'title') result.sort((a, b) => a.title.localeCompare(b.title, 'zh-CN'));
+      if (sortMode === 'rating') result.sort((a, b) => b.rating - a.rating);
+      return result;
+    }
+
+    function render() {
+      const visible = filteredGames();
+      viewTitle.textContent = currentLabel;
+      const total = games.filter(game => currentView === 'all' || (currentView === 'favorite' && game.favorite) || (currentView.startsWith('collection:') && game.collections.includes(currentView.slice(11)))).length;
+      viewCount.textContent = searchInput.value.trim() ? `${visible.length} / ${total}` : total;
+      document.getElementById('viewIcon').innerHTML = icon(currentView === 'favorite' ? 'star' : currentView === 'all' ? 'library' : 'folder');
+      document.getElementById('selectedCount').textContent = `已选择 ${selected.size} 部`;
+      document.getElementById('assignFolder').disabled = selected.size === 0;
+      viewHint.textContent = currentView === 'all' ? '全部游戏' : currentView === 'favorite' ? '已标记为最爱的作品' : '当前收藏夹';
+      document.getElementById('favoriteCount').textContent = games.filter(game => game.favorite).length;
+      document.querySelectorAll('.collection-row').forEach(row => {
+        row.querySelector('.count').textContent = games.filter(game => game.collections.includes(row.dataset.label)).length;
+      });
+      grid.innerHTML = '';
+      empty.classList.toggle('show', visible.length === 0);
+      visible.forEach((game, index) => {
+        const card = document.createElement('article');
+        card.className = 'card' + (selected.has(game.title) ? ' selected' : '');
+        card.dataset.title = game.title;
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', game.title);
+        if (batchMode) card.setAttribute('aria-pressed', selected.has(game.title));
+        card.innerHTML = `
+          <div class="cover" style="background-image:url('${game.poster}')">
+            ${game.playing ? '<span class="playing">正在玩</span>' : ''}
+            <button class="favorite ${game.favorite ? 'is-favorite' : ''}" type="button" title="${game.favorite ? '取消我的最爱' : '加入我的最爱'}" aria-label="${game.favorite ? '取消我的最爱' : '加入我的最爱'}">
+              ${icon('star')}
+            </button>
+          </div>
+          <div class="meta"><span class="name"></span><span class="rating" aria-label="${game.rating} 星">${game.rating.toFixed(1)}</span></div>`;
+        card.querySelector('.name').textContent = game.title;
+        card.querySelector('.name').title = game.title;
+        card.addEventListener('click', event => {
+          if (event.target.closest('.favorite')) return;
+          if (batchMode) {
+            selected.has(game.title) ? selected.delete(game.title) : selected.add(game.title);
+            render();
+            return;
+          }
+          detailGame = game;
+          updateDetail();
+          openSheet('detailSheet');
+        });
+        card.addEventListener('keydown', event => {
+          if (event.target === card && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); card.click(); }
+        });
+        card.querySelector('.favorite').addEventListener('click', event => {
+          event.stopPropagation();
+          game.favorite = !game.favorite;
+          render();
+          showToast(game.favorite ? '已加入我的最爱' : '已取消我的最爱');
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    function setView(view, label) {
+      currentView = view;
+      currentLabel = label;
+      searchInput.value = '';
+      selected.clear();
+      document.querySelectorAll('[data-rail]').forEach(button => {
+        const active = button.dataset.rail === (view === 'favorite' ? 'favorite' : view === 'all' ? 'library' : '');
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active);
+      });
+      document.getElementById('drawerToggle').classList.toggle('active', view.startsWith('collection:'));
+      document.querySelectorAll('[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view));
+      render();
+    }
+
+    document.querySelectorAll('[data-view]').forEach(item => item.addEventListener('click', () => setView(item.dataset.view, item.dataset.label)));
+    searchInput.addEventListener('input', render);
+
+    const drawerEl = document.getElementById('drawer');
+    const scrimEl = document.getElementById('contentScrim');
+    function setDrawer(open) {
+      drawerEl.classList.toggle('collapsed', !open);
+      scrimEl.classList.toggle('show', open);
+      document.getElementById('drawerToggle').setAttribute('aria-expanded', open);
+    }
+    document.getElementById('drawerToggle').addEventListener('click', () => setDrawer(drawerEl.classList.contains('collapsed')));
+    document.getElementById('collapseDrawer').addEventListener('click', () => setDrawer(false));
+    scrimEl.addEventListener('click', () => setDrawer(false));
+    document.querySelectorAll('.group-toggle').forEach(toggle => toggle.addEventListener('click', () => {
+      const children = document.querySelector(`[data-children="${toggle.dataset.group}"]`);
+      const closed = children.style.display === 'none';
+      children.style.display = closed ? 'grid' : 'none';
+      toggle.querySelector('.group-chevron').style.transform = closed ? 'rotate(90deg)' : 'rotate(0)';
+      toggle.setAttribute('aria-expanded', closed);
+    }));
+    document.getElementById('addCollection').addEventListener('click', () => openSheet('folderSheet'));
+    document.getElementById('createFolder').addEventListener('click', () => openSheet('folderSheet'));
+    document.getElementById('fabRefresh').addEventListener('click', () => { render(); showToast('列表已刷新'); });
+    document.getElementById('fab').addEventListener('click', event => {
+      event.stopPropagation();
+      document.getElementById('fabMenu').classList.toggle('show');
+    });
+    document.getElementById('fabAdd').addEventListener('click', () => { closeFabMenu(); openSheet('gameSheet'); });
+    document.getElementById('fabScan').addEventListener('click', () => { closeFabMenu(); showToast('扫描游戏文件夹'); });
+    function closeFabMenu() { document.getElementById('fabMenu').classList.remove('show'); }
+    document.getElementById('batchBtn').addEventListener('click', event => {
+      batchMode = !batchMode;
+      document.body.classList.toggle('batch-mode', batchMode);
+      event.currentTarget.classList.toggle('primary', batchMode);
+      event.currentTarget.querySelector('span').textContent = batchMode ? '退出选择' : '批量选择';
+      event.currentTarget.setAttribute('aria-pressed', batchMode);
+      event.currentTarget.title = batchMode ? '退出选择' : '批量选择';
+      if (!batchMode) selected.clear();
+      render();
+    });
+    document.getElementById('sortBtn').addEventListener('click', () => {
+      const menu = document.getElementById('sortMenu');
+      menu.hidden = !menu.hidden;
+      document.getElementById('sortBtn').setAttribute('aria-expanded', !menu.hidden);
+    });
+    document.querySelectorAll('[data-sort]').forEach(button => button.addEventListener('click', () => {
+      sortMode = button.dataset.sort;
+      document.getElementById('sortBtn').querySelector('span').textContent = button.textContent;
+      document.getElementById('sortBtn').title = '排序：' + button.textContent;
+      document.getElementById('sortMenu').hidden = true;
+      document.getElementById('sortBtn').setAttribute('aria-expanded', 'false');
+      render();
+    }));
+    document.querySelectorAll('[data-rail]').forEach(button => button.addEventListener('click', () => {
+      if (button.dataset.rail === 'favorite') setView('favorite', '我的最爱');
+      if (['library', 'home'].includes(button.dataset.rail)) setView('all', '全部作品');
+    }));
+    const themeIcons = {
+      light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+      dark: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'
+    };
+    function setTheme(dark) {
+      document.body.classList.toggle('dark', dark);
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+      document.getElementById('themeIcon').innerHTML = themeIcons[dark ? 'dark' : 'light'];
+      const button = document.getElementById('themeToggle');
+      button.setAttribute('aria-pressed', dark);
+      const label = dark ? '切换为浅色模式' : '切换为深色模式';
+      button.title = label; button.setAttribute('aria-label', label);
+    }
+    document.getElementById('themeToggle').addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
+    function updateDetail() {
+      document.getElementById('detailTitle').textContent = detailGame.title;
+      document.getElementById('detailCover').style.backgroundImage = `url('${detailGame.poster}')`;
+      const info = document.getElementById('detailInfo');
+      info.replaceChildren();
+      [['开发商', detailGame.dev], ['评分', detailGame.rating.toFixed(1)], ['收藏夹', detailGame.collections.join('、') || '未归类']].forEach(([key, value]) => {
+        const item = document.createElement('div');
+        item.className = 'info-item';
+        const b = document.createElement('b'); b.textContent = key;
+        item.append(b, document.createTextNode(value));
+        info.appendChild(item);
+      });
+      document.getElementById('detailDesc').textContent = '这是一段用于界面预览的示例简介，用来观察详情抽屉内长文本的换行与滚动表现。';
+      const names = detailGame.collections.length ? detailGame.collections : ['未归类'];
+      document.getElementById('detailCollections').replaceChildren(...names.map(name => {
+        const chip = document.createElement('span'); chip.className = 'chip'; chip.textContent = name; return chip;
+      }));
+      const fav = document.getElementById('detailFavorite');
+      fav.textContent = detailGame.favorite ? '★ 已收藏' : '☆ 收藏';
+      fav.classList.toggle('on', detailGame.favorite);
+    }
+    document.getElementById('detailFavorite').addEventListener('click', () => { detailGame.favorite = !detailGame.favorite; updateDetail(); render(); });
+    document.getElementById('detailClose').addEventListener('click', () => closeSheet('detailSheet'));
+    document.getElementById('detailStart').addEventListener('click', () => showToast('开始游戏：' + detailGame.title));
+    document.getElementById('detailEdit').addEventListener('click', () => showToast('编辑：' + detailGame.title));
+    document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => closeSheet(button.dataset.close)));
+    document.querySelectorAll('.overlay').forEach(overlay => overlay.addEventListener('click', event => { if (event.target === overlay) closeSheet(overlay.id); }));
+    setTheme(false);
+    function updateFolderOptions() {
+      const select = document.getElementById('batchFolder');
+      select.replaceChildren(...folders.map(name => new Option(name, name)));
+    }
+    document.getElementById('folderForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const input = document.getElementById('folderName');
+      const name = input.value.trim();
+      if (!name) { input.setCustomValidity('请输入收藏夹名称'); input.reportValidity(); return; }
+      if (folders.includes(name)) { input.setCustomValidity('收藏夹名称已存在'); input.reportValidity(); return; }
+      folders.push(name);
+      const row = document.createElement('button');
+      row.type = 'button'; row.className = 'collection-row'; row.dataset.view = 'collection:' + name; row.dataset.label = name;
+      row.innerHTML = '<span class="folder-dot"></span><span class="label"></span><span class="count">0</span>';
+      row.querySelector('.label').textContent = name;
+      row.addEventListener('click', () => setView(row.dataset.view, name));
+      document.querySelector('[data-children="status"]').appendChild(row);
+      document.querySelector('[data-group="status"]').closest('.group-row').querySelector('.count').textContent = document.querySelector('[data-children="status"]').children.length + ' 个';
+      document.querySelector('[data-children="status"]').style.display = 'grid';
+      closeSheet('folderSheet'); input.value = ''; updateFolderOptions(); setView(row.dataset.view, name);
+    });
+    document.getElementById('folderName').addEventListener('input', event => event.target.setCustomValidity(''));
+    document.getElementById('gameForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const title = document.getElementById('gameName').value.trim();
+      if (!title) return;
+      const game = { title, dev: document.getElementById('gameDeveloper').value.trim() || '未知', letter: title.slice(0, 1), tone: 'rose', rating: 0, favorite: false, collections: currentView.startsWith('collection:') ? [currentView.slice(11)] : [] };
+      game.poster = makePoster(game, games.length); game.id = games.length; games.unshift(game);
+      closeSheet('gameSheet'); event.target.reset(); setView('all', '全部作品'); showToast('已添加作品');
+    });
+    document.getElementById('selectAll').addEventListener('click', () => {
+      const visible = filteredGames();
+      if (visible.every(game => selected.has(game.title))) visible.forEach(game => selected.delete(game.title));
+      else visible.forEach(game => selected.add(game.title));
+      render();
+    });
+    document.getElementById('assignFolder').addEventListener('click', () => {
+      const name = document.getElementById('batchFolder').value;
+      games.filter(game => selected.has(game.title)).forEach(game => { if (!game.collections.includes(name)) game.collections.push(name); });
+      selected.clear(); render(); showToast('已加入「' + name + '」');
+    });
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.sort-wrap')) {
+        document.getElementById('sortMenu').hidden = true;
+        document.getElementById('sortBtn').setAttribute('aria-expanded', 'false');
+      }
+      if (!event.target.closest('#fab')) closeFabMenu();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      document.getElementById('sortMenu').hidden = true;
+      const sheet = topSheet();
+      if (sheet) { closeSheet(sheet.id); return; }
+      closeFabMenu();
+      if (batchMode) document.getElementById('batchBtn').click();
+    });
+    document.querySelectorAll('.group-toggle').forEach(button => button.setAttribute('aria-expanded', 'true'));
+    document.getElementById('drawerToggle').setAttribute('aria-expanded', 'true');
+    setDrawer(window.innerWidth > 650);
+    function syncDrawerTop() {
+      const titlebarH = document.querySelector('.titlebar').offsetHeight;
+      const toolbarH = document.querySelector('.toolbar').offsetHeight;
+      document.getElementById('drawer').style.top = (titlebarH + toolbarH) + 'px';
+      document.getElementById('contentScrim').style.top = toolbarH + 'px';
+    }
+    syncDrawerTop();
+    window.addEventListener('resize', syncDrawerTop);
+    window.addEventListener('load', syncDrawerTop);
+    if (window.ResizeObserver) new ResizeObserver(syncDrawerTop).observe(document.querySelector('.toolbar'));
+    updateFolderOptions();
+    render();
+  </script>
+</body>
+</html>
