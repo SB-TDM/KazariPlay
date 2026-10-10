@@ -53,7 +53,7 @@
 
   /* 主区域 */
   .main{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;}
-  .scroll{flex:1;overflow-y:auto;padding:24px 28px 90px;scrollbar-gutter:stable;}
+  .scroll{flex:1;overflow-y:auto;padding:24px 16px 90px;scrollbar-gutter:stable;}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,var(--card-w));
         gap:14px;justify-content:center;
         contain:layout;}

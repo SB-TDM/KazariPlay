@@ -39,7 +39,8 @@ function bindResize(): void {
   document.querySelectorAll<HTMLElement>('.resizer').forEach(h => {
     h.addEventListener('mousedown', (e: MouseEvent) => {
       e.preventDefault();
-      rs = { dir: h.dataset.dir!, sx: e.clientX, sy: e.clientY };
+      // 用屏幕坐标：上/左拉伸会同时移动窗口原点，client 坐标会被窗口自身位移反噬导致抖动
+      rs = { dir: h.dataset.dir!, sx: e.screenX, sy: e.screenY };
       bridge.windowResizeStart(h.dataset.dir!);
     });
   });
@@ -50,7 +51,7 @@ function bindResize(): void {
     requestAnimationFrame(() => {
       raf = false;
       if (!rs) return;
-      const dx = e.clientX - rs.sx, dy = e.clientY - rs.sy;
+      const dx = e.screenX - rs.sx, dy = e.screenY - rs.sy;
       bridge.windowResize(rs.dir, dx, dy);
     });
   });
