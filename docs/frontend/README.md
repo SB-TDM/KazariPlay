@@ -47,7 +47,7 @@ state → core → ui → window → games → cards → detail → screenshots
 ## 全局模型
 
 - **`App`（state.ts）**：`App.data`（`games/currentGame/editingId/runningId`）+ `App.ui.state`（`nav/kw/sort/batch/selected/collectionId/collectionGroupId/openGroupId/collectionTree`）。各模块统一经 `App.xxx` 读写。
-- **`bridge`（core.ts，必须全局）**：`Proxy` 转发 `window.pywebview.api.*`，返回 Promise；最后一个函数参数视作回调（兼容旧 `bridge.xxx(args, cb)` 风格）。`index.html` 内联 `onclick` 直接引用它，故不能包进 IIFE。
+- **`bridge`（core.ts，必须全局）**：`Proxy` 转发 `window.pywebview.api.*`，返回 Promise；最后一个函数参数视作回调（兼容旧 `bridge.xxx(args, cb)` 风格，回调第二参 `failed=true` 表示调用失败，与空数据区分）。`index.html` 内联 `onclick` 直接引用它，故不能包进 IIFE。
 - **`__app`（state.ts）**：后端 `UISync` 推送的入口 `window.__app.*`，全部用**函数包装**（属性值在 state.ts 执行时即求值，直接引用会 ReferenceError）。域 → 方法映射见后端 [ui-bridge.md](../backend/ui-bridge.md#syncts--uisync-更新总线)。
 
 ```ts
@@ -77,5 +77,5 @@ pywebview 先注入 `window.pywebview`（`api` 为**空对象**），导航完�
 
 - 用户输入进 `innerHTML` 前必须 `esc()`（`core.ts`）。
 - 通用交互统一走 `ui.ts`：`showSheet/closeSheet/closeTopSheet`、`showConfirmDialog`、`showInputDialog`、`openPicker`、`showContextMenu`；通用勾选全选用 `makeCheckAll`。
-- 模态用 CSS `.overlay`（统一 `z-index`，靠 DOM 顺序层叠）；目标是 `Esc` 只关闭最上层。当前关闭优先级及新抽屉键盘路径仍有缺口，见前端修复参考 FR-05。
+- 模态用 CSS `.overlay`（统一 `z-index`，靠 DOM 顺序层叠）；`Esc` 统一走 `closeTopSheet`（按层叠顺序只关闭最上层），无弹层时依次处理收藏夹抽屉与批量模式。收藏夹抽屉展开期间，遮罩下卡片/FAB/批量栏以 `inert` 禁用键盘路径。
 - 只改 `ts/`，改完必须 `npm run build`；新增模块登记 `main.py::_JS_MANIFEST`。

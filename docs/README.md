@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-11 已归档 `feature/main-ui-redesign` 前端审查与修复参考，12 项问题待修复；2026-10-07 develop 试用反馈按原记录单独维护。
+> 文档状态：2026-10-11 已归档 `feature/main-ui-redesign` 前端审查与修复参考；修复批次 `db17bfc` 完成代码与离线回归，待源码 GUI/DPI 验收；2026-10-07 develop 试用反馈按原记录单独维护。
 >
 > 本页区分当前有效文档、历史记录和未实施方案。当前代码与运行行为以代码、测试结果和“当前有效”文档为准。
 
@@ -16,7 +16,7 @@
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
-| [FRONTEND_REVIEW_REPAIR_PLAN_20261011.md](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md) | 主界面特性分支前端修复统一台账：`3e3f672` 基线、FR-01～FR-12 复现/根因/验收、原版对照、结构评价与分阶段建议；仅归档，尚未修复 |
+| [FRONTEND_REVIEW_REPAIR_PLAN_20261011.md](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md) | 主界面特性分支前端修复统一台账：`3e3f672` 基线、FR-01～FR-12 复现/根因/验收、原版对照、结构评价与分阶段建议；修复批次 `db17bfc` 已实施，离线回归通过，待源码 GUI/DPI 验收 |
 | [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) | 主界面设计与保护约束；主界面代码已实施，完整验收未完成；后续确认和修复状态以当前修复台账为准 |
 | [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界，尚未修复 |
 | [COVER_DOWNLOAD_OPTIMIZATION.md](COVER_DOWNLOAD_OPTIMIZATION.md) | 元数据匹配与封面下载性能优化：封面与匹配解耦、短超时不重试、可配置与可视化 |

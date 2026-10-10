@@ -21,11 +21,12 @@
 **定位**：pywebview 桥兼容层 + 全站通用小工具。
 **依赖**：state.ts（运行期）。
 
-- `bridge`：`Proxy` 转发 `window.pywebview.api.*` → Promise；末位函数参数视作回调（`bridge.xxx(args, cb)`）；`dataChanged` 返回空 `{connect()}`（无信号，改轮询）；api 未就绪时回调 `'[]'`。**必须全局**（内联 onclick 引用）。
+- `bridge`：`Proxy` 转发 `window.pywebview.api.*` → Promise；末位函数参数视作回调（`bridge.xxx(args, cb)`），回调签名 `(result, failed?)`：调用未到达/同步异常/Promise 拒绝时 `failed=true`，与“空列表 / 对象不存在”区分；业务回调自身异常不再触发第二次回调。`dataChanged` 返回空 `{connect()}`（无信号，改轮询）。**必须全局**（内联 onclick 引用）。
 - `esc(s)`：HTML 转义（用户输入进 innerHTML 前必须）。
 - `toast(msg)`：顶部胶囊，1.8s。
 - `launchGame(id)` / `stars(r)`（★☆）/ `chipColor(tag)`（哈希 → 5 色糖果板）。
-- `loadCoverTo(gameId, el, prefix)`：`prefix='img'` 设 src，否则设 backgroundImage + 渐变兜底。
+- `beginCoverRequest(el)` / `isCoverRequestCurrent(el, seq)`：封面请求代际标记；迟到响应只有在仍是元素最新请求时才允许写入（覆盖同 ID、A→B→A 与懒加载/重载交错）。
+- `loadCoverTo(gameId, el, prefix)`：`prefix='img'` 设 src，否则设 backgroundImage + 渐变兜底；写入前做请求代际校验。
 - `makeCheckAll(listSel, checkSel, btnId)`：勾选列表 + 全选/取消全选按钮通用绑定（relocate / metaApply 共用），返回 `{boxes, update}`。
 
 ---
@@ -34,7 +35,8 @@
 
 **定位**：所有模态与上下文菜单的统一实现。
 **依赖**：core.ts。
-**定义**：`showSheet/closeSheet(id,instant)/closeTopSheet/formOverlayVisible`、`showConfirmDialog(opts)/confirmOk`、`showInputDialog(opts)/inputOk`、`openPicker(title,items,onPick)`、`showContextMenu(entries,x,y,width)`（返回元素，全局点击自动移除）。
+**定义**：`showSheet/closeSheet(id,instant)/closeTopSheet(boolean)`、`showConfirmDialog(opts)/confirmOk`、`showInputDialog(opts)/inputOk`、`openPicker(title,items,onPick)`、`showContextMenu(entries,x,y,width)`（返回元素，全局点击自动移除）。
+**Esc 语义**：`closeTopSheet` 按 overlay 注入顺序（即层叠顺序，后出现者在上）倒序关闭第一个可见弹层；输入/确认清理对应回调，设置窗口走 `Settings.close`；无可见弹层返回 false（调用方继续处理抽屉/批量）。
 **被依赖**：games/cards/collections/batch/detail/screenshots。
 
 ---
@@ -52,9 +54,9 @@
 **定位**：游戏数据流与整体渲染调度 + 运行状态。
 **依赖**：state / core / cards / collections / batch / detail。
 **定义**
-- 刷新：`refreshAll(force)`（`getGames`+`getCollectionsTree`+`getRunning`；`_gamesChanged` 判定后才 `renderAll`）、`applyGamesDelta(ids)`（增量：逐个 `getGame` 更新本地数组，删除场景过滤，只 `renderCards`）、`_gamesChanged`（比较影响显示的字段，**排除**派生的 `last_text/play_time_text`，避免每分钟误全量重渲染）、`syncCurrentGame`
-- 封面：`reloadCovers`（全部卡）、`reloadCover(id)`（单卡定向）、`applyCoverSize(size)`（`COVER_SIZES` small/medium/large → CSS 变量 `--card-w/h`）
-- 渲染：`renderAll`（保持滚动位置）、`filterGames`（nav/kw/collectionId/sort）、`renderEmpty`（收藏空/筛选空/库空三态）、`markRunning`、`setRunning`、`toggleSelect`、`setActiveCard`
+- 刷新：`refreshAll(force, done?)`（`getGames`+`getCollectionsTree`+`getRunning`；桥失败保留现有数据且不触发 `done`；游戏列表 `_gamesChanged` 判定后才 `renderAll`，树回包同步 `updateNavInfo/renderCards/renderEmpty`）、`applyGamesDelta(ids)`（增量：逐个 `getGame` 更新本地数组；桥失败不视为删除，只有后端返回空对象才移除）、`_gamesChanged`（比较影响显示的字段，**排除**派生的 `last_text/play_time_text`，避免每分钟误全量重渲染）、`syncCurrentGame`
+- 封面：`reloadCovers`（全部卡）、`reloadCover(id)`（单卡定向）、`applyCoverSize(size)`（`COVER_SIZES` small/medium/large → CSS 变量 `--card-w/h`，随后 `refreshWindow()` 重算窗口化）
+- 渲染：`renderAll`（保持滚动位置）、`filterGames`（nav/kw/collectionId/sort；时间排序对所有视图统一生效）、`renderEmpty`（收藏空/筛选空/库空三态）、`markRunning`、`setRunning`、`toggleSelect`、`setActiveCard`
 
 ---
 
@@ -64,8 +66,9 @@
 **依赖**：state / core / ui / games / detail / collections / form。
 **定义**：`buildCard(g)`、`renderCards(list)`（DOM diff + 窗口化）、`openCardMenu(g,x,y)`、`updateCoverProgress(states)`（环形进度）、`replayCoverFade`、`_playCoverFade`。
 **关键逻辑**
-- 窗口化：`_winStart/_winEnd` + 上下 spacer（`_ensureSpacers/_updateSpacers`）+ 滚动 rAF（`_bindWindowScroll`）；`_renderedIds` 做 diff，复用未变卡片（连同已加载封面）。
-- 懒加载：`coverObserver`（IntersectionObserver）滚动到附近才 `getCover`；`cover_version` 判断重载。
+- 窗口化：`_winStart/_winEnd` + 上下 spacer（`_ensureSpacers/_updateSpacers`）+ 滚动 rAF（`_bindWindowScroll`）+ 容器尺寸 `ResizeObserver`（`_bindWindowResize`）；统一入口 `_recomputeWindow`，外部度量变化用 `refreshWindow()`。`_renderedIds` 做 diff，复用未变卡片（连同已加载封面）。
+- 懒加载：`coverObserver`（IntersectionObserver）滚动到附近才 `getCover`，响应按 `beginCoverRequest` 代际校验；`cover_version` 判断重载并作废在途旧响应。
+- 事件：卡片点击/键盘/右键只绑定 id，动作执行时经 `_currentGame(id)` 解析最新对象（节点复用不携带旧快照）；`openCardMenu(gameId, x, y)` 同样按 id 取对象，目标已移除则不操作。
 - 动画：`coverFade` 播放一次后置 `animation:none`，避免重排重播。
 
 ---
@@ -129,8 +132,8 @@
 
 **定位**：设置窗口逻辑；暴露 `window.Settings`。
 **依赖**：core（bridge/toast）。
-**结构**：`(function(){ ... })()`，导出 `window.Settings = { open, close, pickTheme, applyTheme }`。
-**定义**：`applyTheme(t)`（加 `.theme-switch` 全局禁用 transition 防重排痕迹，设 `dataset.theme`）、`markThemeCard`、`fmtKey`、`open/close`、`loadConfig`（`getConfig` 填表）、`loadMetaSources`、`pickTheme`（即时预览）、`save()`（`saveConfigs`，含 `updateScreenshotHotkey`）、`takenHotkeys`/`bindHotkey`（热键捕获，冲突检测）、`setReset`。
+**结构**：`(function(){ ... })()`，导出 `window.Settings = { open, close, pickTheme, applyTheme, initTheme }`。
+**定义**：`applyTheme(t)`（加 `.theme-switch` 全局禁用 transition 防重排痕迹，设 `dataset.theme`）、`initTheme(t)`（启动初始主题；用户已显式选择则不覆盖）、`markThemeCard`、`fmtKey`、`open/close`（各自的会话代际使在途保存失效）、`loadConfig`（`getConfig` 填表；代际校验 + `themePicked` 保护，迟到回包不覆盖新选择）、`loadMetaSources`、`pickTheme`（即时预览并标记 themePicked）、`save()`（点击时定格完整快照与会话代际；`saveConfigs`/热键重注册/元数据源均用快照值；失败保留窗口与输入，重复提交由按钮禁用与请求代际约束）、`takenHotkeys`/`bindHotkey`（单一活动捕获目标，失焦/关闭/保存统一 `stopHotkeyCapture` 并恢复原值）、`setReset`。
 
 ---
 
