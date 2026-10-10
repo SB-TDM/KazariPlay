@@ -18,16 +18,19 @@
   .shot-meta{display:flex;align-items:center;justify-content:space-between;padding:4px 8px;}
   .shot-time{font-size:11px;color:var(--text-sub);}
   /* 截图大图预览：占满整个主窗口（遮罩全屏），图片 object-fit 自适应居中 */
-  #shotPreviewOverlay{padding:0;}
+  /* 预览固定深色表面，用独立反色 token，避免亮色主题下深字落在深面上 */
+  #shotPreviewOverlay{padding:0;--preview-bg:rgba(20,16,26,.92);--preview-fg:#f6f2fa;--preview-fg-sub:#cfc6da;}
   #shotPreviewOverlay .dialog.shot-preview{width:100%;height:100%;max-width:none;max-height:none;
     margin:0;padding:0;border:none;border-radius:0;display:flex;flex-direction:column;
-    background:rgba(20,16,26,.92);}
-  #shotPreviewOverlay .dlg-title{padding:14px 20px;flex:none;color:var(--text);
+    background:var(--preview-bg);}
+  #shotPreviewOverlay .dlg-title{padding:14px 20px;flex:none;color:var(--preview-fg);
     display:flex;align-items:center;justify-content:space-between;}
+  #shotPreviewOverlay .close-btn{color:var(--preview-fg-sub);}
+  #shotPreviewOverlay .close-btn:hover{background:#ffb3bd;color:#3a2030;}
   #shotPreviewOverlay .shot-preview-body{position:relative;flex:1;background:transparent;border-radius:0;
     display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .shot-preview-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    gap:10px;color:var(--text-sub);font-size:13px;}
+    gap:10px;color:var(--preview-fg-sub);font-size:13px;}
   .shot-preview-loading::before{content:'';width:20px;height:20px;border:2px solid var(--border-soft);
     border-top-color:var(--pink);border-radius:50%;animation:shotspin .8s linear infinite;}
   @keyframes shotspin{to{transform:rotate(360deg);}}

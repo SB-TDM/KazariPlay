@@ -34,8 +34,12 @@
     let lastTab = 'general';
     try { lastTab = localStorage.getItem('settings_tab') || 'general'; } catch (e) { }
     if (!document.getElementById('set-' + lastTab)) lastTab = 'general';
-    document.querySelectorAll<HTMLElement>('#setNav .nav-item').forEach((x) =>
-      x.classList.toggle('active', x.dataset.tab === lastTab));
+    document.querySelectorAll<HTMLElement>('#setNav .nav-item').forEach((x) => {
+      const on = x.dataset.tab === lastTab;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+      x.tabIndex = on ? 0 : -1;
+    });
     document.querySelectorAll<HTMLElement>('#settingsOverlay .page').forEach((p) =>
       p.style.display = p.id === 'set-' + lastTab ? 'block' : 'none');
   }
@@ -177,16 +181,45 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    $('setNav').addEventListener('click', function (e: MouseEvent) {
-      const item = (e.target as HTMLElement).closest('.nav-item') as HTMLElement | null;
-      if (!item) return;
-      document.querySelectorAll<HTMLElement>('#setNav .nav-item').forEach((x) => x.classList.remove('active'));
+    const setTabs = [...document.querySelectorAll<HTMLElement>('#setNav .nav-item')];
+    setTabs.forEach((t) => {
+      t.setAttribute('role', 'tab');
+      t.setAttribute('aria-controls', 'set-' + t.dataset.tab);
+      const on = t.classList.contains('active');
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+    });
+    function activateTab(item: HTMLElement): void {
+      setTabs.forEach((x) => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); x.tabIndex = -1; });
       item.classList.add('active');
+      item.setAttribute('aria-selected', 'true');
+      item.tabIndex = 0;
       document.querySelectorAll<HTMLElement>('#settingsOverlay .page').forEach((p) =>
         p.style.display = 'none');
       $('set-' + item.dataset.tab).style.display = 'block';
       // 记录当前 tab（阶段 E：下次打开停留在上次位置）
       try { localStorage.setItem('settings_tab', item.dataset.tab!); } catch (err) { }
+    }
+    $('setNav').setAttribute('role', 'tablist');
+    $('setNav').addEventListener('click', function (e: MouseEvent) {
+      const item = (e.target as HTMLElement).closest('.nav-item') as HTMLElement | null;
+      if (!item) return;
+      activateTab(item);
+    });
+    // 方向键在 tab 间移动（WAI-ARIA tab 键盘路径）
+    $('setNav').addEventListener('keydown', function (e: KeyboardEvent) {
+      const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+      if (!keys.includes(e.key)) return;
+      const cur = (e.target as HTMLElement).closest('.nav-item') as HTMLElement | null;
+      if (!cur) return;
+      e.preventDefault();
+      let i = setTabs.indexOf(cur);
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') i = (i - 1 + setTabs.length) % setTabs.length;
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') i = (i + 1) % setTabs.length;
+      else if (e.key === 'Home') i = 0;
+      else i = setTabs.length - 1;
+      activateTab(setTabs[i]);
+      setTabs[i].focus();
     });
 
     $('setClose').onclick = close;
