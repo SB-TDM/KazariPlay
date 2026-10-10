@@ -5,12 +5,17 @@
 
   .row{flex:1;display:flex;min-height:0;}
 
+  /* 副标题栏：当前视图名 + 数量 */
+  .nav-view{display:flex;align-items:baseline;gap:8px;flex:none;min-width:0;max-width:240px;}
+  .view-name{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .view-count{font-size:12px;color:var(--text-sub);white-space:nowrap;}
+
   /* 导航栏 */
   .navbar{height:var(--nav-h);background:var(--navbar-bg);backdrop-filter:blur(6px);
           z-index:50;position:relative;
           display:flex;align-items:center;padding:0 16px;gap:10px;flex:none;
           border-bottom:1px solid var(--border-soft);}
-  .search{position:absolute;left:50%;transform:translateX(-50%);width:min(460px,55%);
+  .search{flex:1 1 320px;max-width:460px;min-width:0;
           display:flex;align-items:center;background:var(--bg-panel);
           border:1.5px solid var(--border-soft);border-radius:50px;height:32px;padding:0 14px;gap:6px;
           box-shadow:inset 0 1px 3px var(--glow-soft);transition:border-color .2s,box-shadow .2s;}

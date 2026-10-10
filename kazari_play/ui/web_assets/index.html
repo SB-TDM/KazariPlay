@@ -35,6 +35,10 @@
     <!-- 主区域 -->
     <div class="main">
       <div class="navbar">
+        <div class="nav-view">
+          <span class="view-name" id="viewName">全部作品</span>
+          <span class="view-count" id="viewCount"></span>
+        </div>
         <div class="search">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c9aeb9" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
           <input id="searchInput" placeholder="搜索游戏、标签、开发商……" autocomplete="off" aria-label="搜索游戏">
@@ -45,7 +49,7 @@
         </div>
         <div class="dropdown" id="filterMenu" role="menu">
           <div class="ttl">排序</div>
-          <button type="button" class="item" role="menuitem" data-sort="时间">按添加时间</button>
+          <button type="button" class="item" role="menuitem" data-sort="时间">按最近游玩</button>
           <button type="button" class="item" role="menuitem" data-sort="名称">按名称</button>
           <button type="button" class="item" role="menuitem" data-sort="评分">按评分</button>
         </div>
