@@ -40,10 +40,14 @@ function toast(msg: string): void {
   toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-// 详情页和卡片菜单共用启动入口。
+// 详情页和卡片菜单共用启动入口。后端返回 {ok:false} 时提示失败，不再静默。
 function launchGame(gameId: string): void {
   if (!bridge) return;
-  bridge.launch(String(gameId));
+  bridge.launch(String(gameId), function (s: unknown) {
+    let r: { ok?: boolean; msg?: string } = {};
+    try { r = JSON.parse(String(s || '{}')); } catch (e) { }
+    if (r && r.ok === false) toast(r.msg || '启动失败');
+  });
 }
 
 // 星级字符串（1-5，0 表示未评分）

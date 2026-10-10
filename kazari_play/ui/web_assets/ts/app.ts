@@ -106,7 +106,7 @@ document.getElementById('fab')!.onclick = function (e: MouseEvent) {
   e.stopPropagation();
   document.getElementById('fabMenu')!.classList.toggle('show');
 };
-document.getElementById('fabRefresh')!.onclick = () => { refreshAll(true); replayCoverFade(); toast('已刷新'); };
+document.getElementById('fabRefresh')!.onclick = () => { refreshAll(true, () => { replayCoverFade(); toast('已刷新'); }); };
 document.getElementById('fabAdd')!.onclick = () => { document.getElementById('fabMenu')!.classList.remove('show'); openAdd(); };
 document.getElementById('fabScan')!.onclick = () => { document.getElementById('fabMenu')!.classList.remove('show'); bridge.scanFolder(); };
 

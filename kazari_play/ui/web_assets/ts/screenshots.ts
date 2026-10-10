@@ -173,14 +173,16 @@ function renameShot(): void {
 
 function openShotFolder(): void {
   if (!shotTarget) return;
-  bridge.openScreenshotFolder(shotTargetGameId, shotTarget.file);
-  toast('已在资源管理器中定位');
+  bridge.openScreenshotFolder(shotTargetGameId, shotTarget.file, function (ok: unknown) {
+    toast(ok ? '已在资源管理器中定位' : '定位失败');
+  });
 }
 
 function copyShot(): void {
   if (!shotTarget) return;
-  bridge.copyScreenshotToClipboard(shotTargetGameId, shotTarget.file);
-  toast('已复制到剪贴板');
+  bridge.copyScreenshotToClipboard(shotTargetGameId, shotTarget.file, function (ok: unknown) {
+    toast(ok ? '已复制到剪贴板' : '复制失败');
+  });
 }
 
 function deleteShot(): void {

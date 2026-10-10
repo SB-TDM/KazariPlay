@@ -52,8 +52,9 @@ function applyCoverSize(size: string): void {
 }
 
 // ---------- 数据刷新 ----------
-function refreshAll(force: boolean): void {
-  if (!bridge) return;
+// done：游戏列表回包后的可选回调，供调用方按真实结果反馈（如 FAB 刷新提示）。
+function refreshAll(force: boolean, done?: () => void): void {
+  if (!bridge) { if (done) done(); return; }
   bridge.getGames(function (s: unknown) {
     const fresh = JSON.parse(String(s)) as Game[];
     // 数据无变化时不重建网格，避免卡片闪烁（事件推送 / 轮询兜底）
@@ -63,6 +64,7 @@ function refreshAll(force: boolean): void {
       // 仅刷新运行状态等轻量字段
       App.data.games = fresh; syncCurrentGame(); markRunning();
     }
+    if (done) done();
   });
   bridge.getCollectionsTree(function (s: unknown) {
     App.ui.state.collectionTree = JSON.parse(String(s || '[]')) as CollectionTreeNode[];
