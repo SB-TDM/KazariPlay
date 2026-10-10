@@ -56,6 +56,8 @@ ctx.setInterval = callback => { timers.push(callback); return timers.length; };
 ctx.clearInterval = () => {};
 ctx.clearTimeout = () => {};
 ctx.bridge.getBatchProgress = callback => progressReplies.push(callback);
+// batch.js 载入时调用 core.makeCheckAll（仅建立全选绑定）；本测试不覆盖该控件，提供最小桩
+ctx.makeCheckAll = () => ({ boxes: () => [], update() {} });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/batch.js'), 'utf8'), ctx);
 ctx.trackBatchProgress('First task');
 timers[0]();

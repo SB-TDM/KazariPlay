@@ -7,6 +7,9 @@
 //       collectionPath / renderDetailTags / updateFavBtn + 详情事件绑定
 // ============================================================
 
+// 详情请求代际：连续打开不同游戏或已关闭时，丢弃迟到响应（参考 screenshots.ts 的 request+gid）
+let detailRequest = 0;
+
 // 打开详情（卡片闭包数据可能是快照，随后异步重取最新数据刷新）
 function openDetail(g: Game): void {
   App.data.currentGame = g;
@@ -20,7 +23,13 @@ function openDetail(g: Game): void {
   updateFavBtn();
   document.getElementById('dlgMoreMenu')!.classList.remove('show');
   showSheet('detailOverlay');
-  bridge.getGame(String(g.id), function (s: unknown) {
+  const gid = String(g.id);
+  const request = ++detailRequest;
+  bridge.getGame(gid, function (s: unknown) {
+    // 期间又打开/关闭了详情，或目标已切换 → 丢弃本次迟到响应
+    if (request !== detailRequest
+      || String(App.data.currentGame?.id) !== gid
+      || !document.getElementById('detailOverlay')!.classList.contains('show')) return;
     try {
       const fresh = JSON.parse(String(s || '{}')) as Game;
       if (!fresh || !fresh.id) return;

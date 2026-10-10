@@ -49,6 +49,7 @@ function openEdit(g: Game): void {
   loadCoverTo(g.id, document.getElementById('fCoverPrev'), 'img');
   (document.getElementById('fSearchKw') as HTMLInputElement).value = g.title || '';
   document.getElementById('fCands')!.style.display = 'none';
+  metaSearchRequest++;   // 作废上一编辑对象的在途候选搜索
   setFormRows(FORM_ROWS.concat(['fExeRow', 'fCoverRow', 'fMetaRow']), []);
   initMetaSources();   // 渲染来源工具栏（首次打开时拉取）
   showSheet('formOverlay');
@@ -61,6 +62,7 @@ function openAdd(): void {
   ['fTitle', 'fEngine', 'fDev', 'fDesc', 'fExe'].forEach(id => (document.getElementById(id) as HTMLInputElement).value = '');
   (document.getElementById('fRating') as HTMLInputElement).value = '0';
   document.getElementById('fCands')!.style.display = 'none';
+  metaSearchRequest++;   // 作废上一对象的在途候选搜索
   setFormRows(['fExeRow'], FORM_ROWS.concat(['fCoverRow', 'fMetaRow']));
   showSheet('formOverlay');
 }
@@ -153,6 +155,9 @@ function currentSearchTargets(): string[] {
 }
 
 // ---------- 多源元数据候选渲染（带来源 favicon）----------
+// 候选搜索请求代际：连续搜索或切换编辑对象时，丢弃迟到结果
+let metaSearchRequest = 0;
+
 function renderCandidates(cands: MetadataCandidate[]): void {
   const box = document.getElementById('fCands')!;
   box.style.display = 'block';
@@ -264,7 +269,9 @@ document.getElementById('btnMetaSearch')!.onclick = () => {
   const kw = (document.getElementById('fSearchKw') as HTMLInputElement).value.trim();
   if (!kw) { toast('请输入搜索关键词'); return; }
   toast('搜索中…');
+  const request = ++metaSearchRequest;
   bridge.searchMetadata(kw, JSON.stringify(currentSearchTargets()), function (s: unknown) {
+    if (request !== metaSearchRequest) return;   // 丢弃被后续搜索/切换超越的迟到结果
     let cands: MetadataCandidate[] = [];
     try { cands = JSON.parse(String(s || '[]')) as MetadataCandidate[]; } catch (e) { }
     renderCandidates(cands);

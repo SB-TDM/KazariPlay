@@ -163,10 +163,16 @@ function delCollection(node: CollectionTreeNode): void {
 }
 
 // ---------- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 ----------
+// 请求代际：连续对不同游戏打开时，丢弃迟到响应（参考 screenshots.ts 的 request+gid）
+let collectionMgrRequest = 0;
+
 function openCollectionManager(): void {
   if (!App.data.currentGame) return;
+  const gid = String(App.data.currentGame.id);
+  const request = ++collectionMgrRequest;
   // 异步拉取最新数据（右键进入时 currentGame 可能是快照），再渲染
-  bridge.getGame(String(App.data.currentGame.id), function (s: unknown) {
+  bridge.getGame(gid, function (s: unknown) {
+    if (request !== collectionMgrRequest || String(App.data.currentGame?.id) !== gid) return;
     try {
       const fresh = JSON.parse(String(s || '{}')) as Game;
       if (fresh && fresh.id) {

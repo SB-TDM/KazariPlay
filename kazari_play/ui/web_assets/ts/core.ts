@@ -62,7 +62,10 @@ function chipColor(tag: string): string {
 // 把封面 data URI 应用到元素（prefix='img' → 设 src；否则设 backgroundImage + 渐变兜底）
 function loadCoverTo(gameId: string, el: HTMLElement | null, prefix: string): void {
   if (!el) return;
-  bridge.getCover(String(gameId), function (uri: unknown) {
+  const gid = String(gameId);
+  el.dataset.coverGid = gid;   // 记录元素当前目标，迟到封面据此丢弃
+  bridge.getCover(gid, function (uri: unknown) {
+    if (el.dataset.coverGid !== gid) return;
     if (!uri) return;
     if (prefix === 'img') { (el as HTMLImageElement).src = String(uri); return; }
     el.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
