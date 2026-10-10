@@ -55,3 +55,17 @@
 | UI-D05 | 单独实测 | 需真实环境 |
 
 > 本记录为 G0 交付，未改动任何生产代码，未提交 `ts/`、`css/`、Python 或 Overlay。
+
+## 6. 实施进展（2026-10-10 更新）
+
+| 编号 | 状态 | 提交 |
+|---|---|---|
+| C03 批量栏越界 | 已修（限宽 + 折行；渲染验证留 S4） | `f87af8a` |
+| C04 对比度 | 正文 `--text-sub` 加深；白字控件改用 `--action-bg`/`--action-mint-bg`（装饰保留浅粉）。像素级复测与 `--text-disabled` 误用清理留 S4 | `aefe893`、`c9d357b` |
+| C08/C09 异步迟到 | 已修（request+gid 代际校验）；陈旧测试修复 + 新增 ordering 测试 | `6d2b191` |
+| C10 真实结果反馈 | 已修可用契约部分（launch/openFolder/copy/refresh）；`applyCandidate`/`saveConfigs` 无返回契约，仍待批 | `60e2742` |
+| C11 取消/任务阶段 | 最小修（取消等待锁定）；TaskProgress 状态机延期 | `64da3a7` |
+| C13 表单/设置 a11y | 部分：表单错误换行 + `aria-invalid`/`aria-describedby`、设置 tab `role`/`aria-selected`/方向键。设置字段 `<div class="label">` 转 `<label for>` 留待办 | `8c60c32` |
+| C16 主题/预览 | 已修（主题文案、截图预览反色 token） | `8c60c32` |
+
+仍未做：S1–S3 主界面实施、S4 完整回归（真实 GUI/DPI/像素对比度）。
