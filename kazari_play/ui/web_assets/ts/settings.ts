@@ -129,17 +129,22 @@
         screenshot: ($('setHkShot') as HTMLInputElement).value,
       },
     };
-    bridge.saveConfigs(JSON.stringify(data));
-    // 元数据源勾选（独立保存，即时生效）
-    const checkedSrc = [...document.querySelectorAll<HTMLElement>('#setSrcList .src-check:checked')]
-      .map(x => x.dataset.id);
-    bridge.saveMetadataSources(JSON.stringify(checkedSrc));
-    // 截图热键立即重注册（先写配置再重注册；注册失败静默，配置仍已保存）
-    bridge.updateScreenshotHotkey(($('setHkShot') as HTMLInputElement).value);
-    if (window.applyCoverSize) window.applyCoverSize(data.cover_size as string);
-    savedTheme = pendingTheme || savedTheme;
-    toast('设置已保存');
-    close();
+    bridge.saveConfigs(JSON.stringify(data), function (s: unknown) {
+      let r: { ok?: boolean; msg?: string } = {};
+      try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+      if (!r || r.ok !== true) { toast(r.msg || '设置保存失败'); return; }   // 失败保留窗口与输入
+      // 元数据源勾选（独立保存，即时生效）
+      const checkedSrc = [...document.querySelectorAll<HTMLElement>('#setSrcList .src-check:checked')]
+        .map(x => x.dataset.id);
+      bridge.saveMetadataSources(JSON.stringify(checkedSrc));
+      // 截图热键立即重注册（配置已保存；注册失败仅提示，不谎报）
+      bridge.updateScreenshotHotkey(($('setHkShot') as HTMLInputElement).value, function (ok: unknown) {
+        toast(ok ? '设置已保存' : '设置已保存（截图热键注册失败）');
+      });
+      if (window.applyCoverSize) window.applyCoverSize(data.cover_size as string);
+      savedTheme = pendingTheme || savedTheme;
+      close();
+    });
   }
 
   // 热键占用检查（阶段 E）：已配置的其它热键集合（不含当前输入框）

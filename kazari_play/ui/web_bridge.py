@@ -369,7 +369,7 @@ class WebBridge:
         data["path"] = self._cfg.path
         return json.dumps(data, ensure_ascii=False)
 
-    def saveConfigs(self, data_json: str):
+    def saveConfigs(self, data_json: str) -> str:
         data = json.loads(data_json)
         for k, v in data.items():
             # 保留本次设置表单未涉及的嵌套字段。
@@ -381,6 +381,7 @@ class WebBridge:
                     v = merged
             self._cfg.set(k, v)
         self._cfg.save()
+        return json.dumps({"ok": True}, ensure_ascii=False)
 
     def resetConfig(self):
         self._cfg.reset()
