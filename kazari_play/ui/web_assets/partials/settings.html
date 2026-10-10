@@ -20,18 +20,18 @@
           <div class="group">
             <div class="g-title">启动</div>
             <div class="form-row" style="margin-top:6px">
-              <div class="label">封面尺寸</div>
+              <label class="label" for="setCoverSize">封面尺寸</label>
               <div class="field"><select id="setCoverSize"><option value="small">小</option><option value="medium" selected>中</option><option value="large">大</option></select></div>
             </div>
           </div>
             <div class="group">
               <div class="g-title">日志</div>
               <div class="form-row">
-                <div class="label">日志级别</div>
+                <label class="label" for="setLogLevel">日志级别</label>
                 <div class="field"><select id="setLogLevel"><option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option></select></div>
               </div>
               <div class="form-row" style="margin-top:6px">
-                <div class="label">显示日志窗口</div>
+                <label class="label" for="setShowConsole">显示日志窗口</label>
                 <div class="field">
                   <label class="switch"><input type="checkbox" id="setShowConsole" aria-label="显示日志窗口"><span class="track"><span class="thumb"></span></span></label>
                   <span class="desc">启动时是否打开命令提示符</span>
@@ -57,17 +57,17 @@
         <div class="page" id="set-hotkey" style="display:none">
           <div class="group">
             <div class="g-title">全局快捷键（点击后按下组合键，保存后立即生效）</div>
-            <div class="form-row"><div class="label">紧急隐藏</div><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly aria-label="紧急隐藏快捷键"></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">全屏切换</div><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly aria-label="全屏切换快捷键"></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">游戏静音</div><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly aria-label="游戏静音快捷键"></div></div>
-            <div class="form-row" style="margin-top:6px"><div class="label">游戏截图</div><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly aria-label="游戏截图快捷键"></div></div>
+            <div class="form-row"><label class="label" for="setHkHide">紧急隐藏</label><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly aria-label="紧急隐藏快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><label class="label" for="setHkFull">全屏切换</label><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly aria-label="全屏切换快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><label class="label" for="setHkMute">游戏静音</label><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly aria-label="游戏静音快捷键"></div></div>
+            <div class="form-row" style="margin-top:6px"><label class="label" for="setHkShot">游戏截图</label><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly aria-label="游戏截图快捷键"></div></div>
           </div>
         </div>
         <div class="page" id="set-disguise" style="display:none">
           <div class="group">
             <div class="g-title">避险伪装</div>
             <div class="form-row">
-              <div class="label">伪装场景</div>
+              <label class="label" for="setDisguise">伪装场景</label>
               <div class="field"><select id="setDisguise"><option value="excel" selected>Excel</option><option value="word">Word</option><option value="browser">浏览器</option></select></div>
             </div>
             <div class="form-row"><div class="desc" style="padding-left:96px">触发紧急隐藏时，窗口伪装为所选场景。</div></div>
@@ -82,7 +82,7 @@
           <div class="group">
             <div class="g-title">封面下载</div>
             <div class="form-row">
-              <div class="label">下载超时</div>
+              <label class="label" for="setCoverTimeout">下载超时</label>
               <div class="field"><select id="setCoverTimeout">
                 <option value="30">30 秒</option>
                 <option value="60">60 秒</option>
@@ -92,7 +92,7 @@
               </select><span class="desc">VNDB 封面较慢，可调大</span></div>
             </div>
             <div class="form-row">
-              <div class="label">最大并发</div>
+              <label class="label" for="setCoverConcurrent">最大并发</label>
               <div class="field"><select id="setCoverConcurrent">
                 <option value="1">1</option>
                 <option value="2">2</option>
