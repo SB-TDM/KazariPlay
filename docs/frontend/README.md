@@ -38,10 +38,10 @@ npm run typecheck     # 只类型检查
 ## 加载顺序（`_JS_MANIFEST`）
 
 ```
-state → core → ui → window → games → cards → detail → screenshots
+state → icons → core → ui → window → games → cards → detail → screenshots
       → collections → manage_games → batch → form → settings → app
 ```
-- `state` 最先（定义全局 `App` 与后端入口 `__app`）；`app` 最后（引导 + 全局事件绑定）。
+- `state` 最先（定义全局 `App` 与后端入口 `__app`）；`icons` 提供全站 SVG 图标常量；`app` 最后（引导 + 全局事件绑定）。
 - 经典脚本共享顶层作用域：`let/const/function` 跨 `<script>` 块可见（等价「按文件拆分的单文件脚本」）。
 
 ## 全局模型

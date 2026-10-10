@@ -40,7 +40,7 @@
 | [backend/ui-bridge.md](backend/ui-bridge.md) | WebBridge（js_api）与 UISync（刷新总线、事件域） |
 | [backend/utils.md](backend/utils.md) | 13 个工具模块（路径/配置/网络客户端/标题归一化/热键等） |
 | [frontend/README.md](frontend/README.md) | 前端架构：ts 源码、清单内联、全局模型、bridge、渲染约定 |
-| [frontend/modules.md](frontend/modules.md) | 16 个 ts 模块逐一：定位、依赖、定义 |
+| [frontend/modules.md](frontend/modules.md) | 15 个 ts 模块逐一：定位、依赖、定义 |
 | [overlay.md](overlay.md) | C++ overlay：管道协议、分层窗口、动画与 Python 对接 |
 | [testing.md](testing.md) | 测试分类、运行方式与改动验证建议 |
 

@@ -16,6 +16,15 @@
 
 ---
 
+## icons.ts — 内联 SVG 图标库
+
+**定位**：全站图标字形的唯一来源（Bootstrap Icons，16×16 视口，`currentColor`）。
+**依赖**：无（先于 core.ts 加载）。
+**定义**：`ICON`（play/folder/collection/edit/refresh/trash/controller/starFill/star/gear/smile/close/more/winMin/winMax/winRestore/chevronLeft/chevronDown/chevronRight/plus）。
+**约定**：`<svg class="ic">` 尺寸随容器 `font-size`（1em）、随主题着色；静态 HTML 图标（标题栏/侧栏/关闭按钮/关于页）内联同一路径；界面不再使用 emoji 或文字字形充当图标。
+
+---
+
 ## core.ts — 桥代理 + 通用工具
 
 **定位**：pywebview 桥兼容层 + 全站通用小工具。
@@ -24,7 +33,7 @@
 - `bridge`：`Proxy` 转发 `window.pywebview.api.*` → Promise；末位函数参数视作回调（`bridge.xxx(args, cb)`），回调签名 `(result, failed?)`：调用未到达/同步异常/Promise 拒绝时 `failed=true`，与“空列表 / 对象不存在”区分；业务回调自身异常不再触发第二次回调。`dataChanged` 返回空 `{connect()}`（无信号，改轮询）。**必须全局**（内联 onclick 引用）。
 - `esc(s)`：HTML 转义（用户输入进 innerHTML 前必须）。
 - `toast(msg)`：顶部胶囊，1.8s。
-- `launchGame(id)` / `stars(r)`（★☆）/ `chipColor(tag)`（哈希 → 5 色糖果板）。
+- `launchGame(id)` / `chipColor(tag)`（哈希 → 5 色糖果板）。
 - `beginCoverRequest(el)` / `isCoverRequestCurrent(el, seq)`：封面请求代际标记；迟到响应只有在仍是元素最新请求时才允许写入（覆盖同 ID、A→B→A 与懒加载/重载交错）。
 - `loadCoverTo(gameId, el, prefix)`：`prefix='img'` 设 src，否则设 backgroundImage + 渐变兜底；写入前做请求代际校验。
 - `makeCheckAll(listSel, checkSel, btnId)`：勾选列表 + 全选/取消全选按钮通用绑定（relocate / metaApply 共用），返回 `{boxes, update}`。
