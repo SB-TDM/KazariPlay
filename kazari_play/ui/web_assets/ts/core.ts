@@ -2,9 +2,14 @@
 // core.ts — bridge 代理 + 通用工具
 // 依赖：state.ts（state 于运行时使用）
 // 定义：bridge / esc / toast / stars / chipColor / loadCoverTo
+//       beginCoverRequest / isCoverRequestCurrent
 // 注意：bridge 被 index.html 内联 onclick（窗口最小化等）直接引用，
 //       必须是全局绑定（顶层 const），不能包进 IIFE。
 // ============================================================
+
+// 桥回调的失败标记：第二参 failed=true 表示"调用没到达后端或后端异常"，
+// 与"空列表 / 对象不存在"区分开；业务回调自身的异常不会再触发第二次回调。
+type BridgeCallback = (result: unknown, failed?: boolean) => void;
 
 // pywebview 桥接兼容层：把 QWebChannel 风格的 bridge.xxx(cb) 转为 pywebview.api.xxx().then(cb)
 // 代理按名转发到 window.pywebview.api，返回 Promise；最后一个函数参数视为回调（兼容旧调用方式）。
@@ -12,13 +17,22 @@ const bridge = new Proxy({} as Record<string, (...args: unknown[]) => Promise<un
   get(t, name: string) {
     if (name === 'dataChanged') return { connect: function (): void {} };  // 无信号，改为轮询
     return function (...args: unknown[]): Promise<unknown> {
-      let cb: ((r: string) => void) | null = null;
-      if (args.length && typeof args[args.length - 1] === 'function') { cb = args.pop() as (r: string) => void; }
+      let cb: BridgeCallback | null = null;
+      if (args.length && typeof args[args.length - 1] === 'function') { cb = args.pop() as BridgeCallback; }
+      const notify = cb ? function (r: unknown, failed?: boolean): void {
+        try { (cb as BridgeCallback)(r, failed); } catch (e) { }
+      } : null;
       const api = window.pywebview && window.pywebview.api;
       const fn = api && (api as unknown as Record<string, unknown>)[name];
-      if (typeof fn !== 'function') { if (cb) cb('[]'); return Promise.resolve('[]'); }
-      const p = (fn as (...a: unknown[]) => Promise<unknown>).apply(api, args);
-      if (cb) { Promise.resolve(p).then(r => cb(r as string)).catch(() => cb('[]')); }
+      if (typeof fn !== 'function') { if (notify) notify('[]', true); return Promise.resolve('[]'); }
+      let p: Promise<unknown>;
+      try {
+        p = (fn as (...a: unknown[]) => Promise<unknown>).apply(api, args);
+      } catch (e) {
+        if (notify) notify('[]', true);
+        return Promise.resolve('[]');
+      }
+      if (notify) { Promise.resolve(p).then(r => notify(r), () => notify('[]', true)); }
       return p;
     };
   },
@@ -40,10 +54,11 @@ function toast(msg: string): void {
   toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
 }
 
-// 详情页和卡片菜单共用启动入口。后端返回 {ok:false} 时提示失败，不再静默。
+// 详情页和卡片菜单共用启动入口。后端返回 {ok:false} 或桥失败时提示，不再静默。
 function launchGame(gameId: string): void {
   if (!bridge) return;
-  bridge.launch(String(gameId), function (s: unknown) {
+  bridge.launch(String(gameId), function (s: unknown, failed?: boolean) {
+    if (failed) { toast('启动失败'); return; }
     let r: { ok?: boolean; msg?: string } = {};
     try { r = JSON.parse(String(s || '{}')); } catch (e) { }
     if (r && r.ok === false) toast(r.msg || '启动失败');
@@ -63,13 +78,27 @@ function chipColor(tag: string): string {
   return ['#ffb3c1', '#c4b5fd', '#b5ead7', '#ffd97d', '#ffc9a0'][h % 5];
 }
 
+// ---------- 封面请求身份 ----------
+// 每次封面请求分配递增序号并写入目标元素；迟到响应按序号判断是否仍是最新请求，
+// 覆盖"同 ID 连续请求 / A→B→A / 懒加载与定向重载交错"的乱序场景。
+let _coverReqSeq = 0;
+function beginCoverRequest(el: HTMLElement): string {
+  const seq = String(++_coverReqSeq);
+  el.dataset.coverSeq = seq;
+  return seq;
+}
+
+function isCoverRequestCurrent(el: HTMLElement, seq: string): boolean {
+  return el.dataset.coverSeq === seq;
+}
+
 // 把封面 data URI 应用到元素（prefix='img' → 设 src；否则设 backgroundImage + 渐变兜底）
 function loadCoverTo(gameId: string, el: HTMLElement | null, prefix: string): void {
   if (!el) return;
   const gid = String(gameId);
-  el.dataset.coverGid = gid;   // 记录元素当前目标，迟到封面据此丢弃
-  bridge.getCover(gid, function (uri: unknown) {
-    if (el.dataset.coverGid !== gid) return;
+  const seq = beginCoverRequest(el);
+  bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
+    if (failed || !isCoverRequestCurrent(el, seq)) return;
     if (!uri) return;
     if (prefix === 'img') { (el as HTMLImageElement).src = String(uri); return; }
     el.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;

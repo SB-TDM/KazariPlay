@@ -19,6 +19,8 @@ declare global {
     close(): void;
     pickTheme(t: string): void;
     applyTheme(t: string): void;
+    /** 启动时初始主题：用户已自行选择过则不覆盖 */
+    initTheme(t: string): void;
   }
   var Settings: SettingsApi;
 }

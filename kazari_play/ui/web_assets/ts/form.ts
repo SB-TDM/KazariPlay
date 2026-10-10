@@ -111,7 +111,8 @@ function saveForm(): void {
   // 编辑：标题仍必填；添加：只要求 exe（标题由后端自动推导，不强制取名）
   if (App.data.editingId && !data.title.trim()) { showFormError('fTitleRow', '标题不能为空'); return; }
   if (!App.data.editingId && !data.exe_path.trim()) { showFormError('fExeRow', '请先选择要添加的 exe 文件'); return; }
-  bridge.saveGame(App.data.editingId || '', JSON.stringify(data), function (s: unknown) {
+  bridge.saveGame(App.data.editingId || '', JSON.stringify(data), function (s: unknown, failed?: boolean) {
+    if (failed) { showFormError('fExeRow', '保存失败，请重试'); return; }
     let result: { ok?: boolean; msg?: string } = {};
     try { result = JSON.parse(String(s || '{}')); } catch (e) { }
     if (!result.ok) {
@@ -250,11 +251,12 @@ document.getElementById('metaApplyOk')!.onclick = () => {
     .map(b => metaApplyRows[Number(b.dataset.idx)].key);
   if (keys.length === 0) { toast('没有勾选要应用的字段'); return; }
   if (metaApplyCand && App.data.editingId) {
-    bridge.applyCandidate(String(App.data.editingId), JSON.stringify(metaApplyCand), JSON.stringify(keys), function (s: unknown) {
+    bridge.applyCandidate(String(App.data.editingId), JSON.stringify(metaApplyCand), JSON.stringify(keys), function (s: unknown, failed?: boolean) {
+      if (failed) { toast('应用失败'); return; }
       let r: { ok?: boolean; msg?: string } = {};
       try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
-      if (r && r.ok === false) { toast(r.msg || '应用失败'); return; }
-      toast(r.msg || '已应用所选字段');
+      if (r && r.ok === true) { toast(r.msg || '已应用所选字段'); return; }
+      toast(r.msg || '应用失败');
     });
   }
   closeMetaApply();

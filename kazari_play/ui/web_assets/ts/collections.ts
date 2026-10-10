@@ -93,9 +93,9 @@ function selectCollection(id: number, node: CollectionTreeNode | null): void {
   App.ui.state.collectionId = id;
   App.ui.state.collectionGroupId = isGroup ? id : (node ? findParentGroupId(id) : null);
   App.ui.state.nav = 'collection';
-  // 高亮互斥：清除「全部作品 / 继续游玩 / 我的收藏」等侧边栏项高亮，
-  // 只保留当前收藏夹项呈现粉色胶囊效果（与 clearCollectionFilter 对称）
-  document.querySelectorAll('#sidebar .side-item').forEach(x => x.classList.remove('active'));
+  // 高亮互斥：清除「全部作品 / 收藏」等导航项高亮，
+  // 收藏夹入口的 active 表示抽屉展开状态，由 setCollectionDrawer 维护，不在此清除
+  document.querySelectorAll('#sidebar .side-item[data-nav]').forEach(x => x.classList.remove('active'));
   // 选子分类时确保其父分组展开
   if (node && !isGroup) {
     const pg = findParentGroupId(id);

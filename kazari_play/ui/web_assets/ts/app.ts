@@ -16,10 +16,11 @@ function init(): void {
     if (_ready) return;
     _ready = true;
     window.bridgeReady = true;
-    bridge.getConfig(function (s: unknown) {
+    bridge.getConfig(function (s: unknown, failed?: boolean) {
+      if (failed) return;
       try {
         const cfg = JSON.parse(String(s || '{}')) as { theme?: string; cover_size?: string };
-        if (window.Settings) window.Settings.applyTheme(cfg.theme || 'light');
+        if (window.Settings) window.Settings.initTheme(cfg.theme || 'light');
         applyCoverSize(cfg.cover_size || 'medium');
       } catch (e) { }
     });
@@ -86,7 +87,8 @@ document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(
   it.onclick = () => {
     App.ui.state.nav = it.dataset.nav!;
     App.ui.state.collectionId = null;
-    document.querySelectorAll<HTMLElement>('#sidebar .side-item').forEach(x => x.classList.remove('active'));
+    // 只清除导航项高亮：收藏夹入口的 active 表示抽屉展开，由 setCollectionDrawer 维护
+    document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(x => x.classList.remove('active'));
     document.querySelectorAll<HTMLElement>('#collectionTree .collection-item').forEach(x => x.classList.remove('active'));
     document.querySelectorAll<HTMLElement>('#collectionTree .collection-group-header').forEach(x => x.classList.remove('active'));
     it.classList.add('active');
@@ -104,11 +106,28 @@ document.getElementById('btnSettings')!.onclick = () => {
 const collectionDrawer = document.getElementById('collectionDrawer')!;
 const collectionScrim = document.getElementById('collectionScrim')!;
 const btnCollections = document.getElementById('btnCollections')!;
+
+// 遮罩覆盖区域（卡片/空状态/FAB/批量栏）：鼠标由遮罩拦截，键盘靠 inert 同步禁用
+function setDrawerBackgroundInert(inert: boolean): void {
+  const blocked = [
+    document.querySelector('.scroll'),
+    document.getElementById('empty'),
+    document.getElementById('fabRefresh'),
+    document.getElementById('fab'),
+    document.getElementById('fabMenu'),
+    document.getElementById('batchBar'),
+  ];
+  blocked.forEach(el => { if (el) (el as HTMLElement).inert = inert; });
+}
+
 function setCollectionDrawer(open: boolean): void {
+  const hadFocus = !open && collectionDrawer.contains(document.activeElement);
   collectionDrawer.classList.toggle('show', open);
   collectionScrim.classList.toggle('show', open);
   btnCollections.classList.toggle('active', open);
   btnCollections.setAttribute('aria-expanded', open ? 'true' : 'false');
+  setDrawerBackgroundInert(open);
+  if (hadFocus) btnCollections.focus();
 }
 btnCollections.onclick = () => setCollectionDrawer(!collectionDrawer.classList.contains('show'));
 collectionScrim.onclick = () => setCollectionDrawer(false);
@@ -140,19 +159,19 @@ document.addEventListener('click', () => {
   hideShotMenu();
 });
 
-// 全局键盘：Esc 退出批量模式或关闭最上层 Sheet
+// 全局键盘：Esc 按「最上层优先」处理：
+// 上层模态/输入/确认/设置等 > 收藏夹抽屉 > 批量模式
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    hideShotMenu();
-    if (App.ui.state.batch) {
-      App.ui.state.batch = false;
-      document.body.classList.remove('batch');
-      document.getElementById('batchBtn')!.classList.remove('active');
-      App.ui.state.selected.clear();
-      renderAll();
-    }
-    else if (collectionDrawer.classList.contains('show')) setCollectionDrawer(false);
-    else closeTopSheet();
+  if (e.key !== 'Escape') return;
+  hideShotMenu();
+  if (closeTopSheet()) return;
+  if (collectionDrawer.classList.contains('show')) { setCollectionDrawer(false); return; }
+  if (App.ui.state.batch) {
+    App.ui.state.batch = false;
+    document.body.classList.remove('batch');
+    document.getElementById('batchBtn')!.classList.remove('active');
+    App.ui.state.selected.clear();
+    renderAll();
   }
 });
 

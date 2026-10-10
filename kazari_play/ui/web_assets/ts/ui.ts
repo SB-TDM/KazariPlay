@@ -1,7 +1,7 @@
 // ============================================================
 // ui.ts — Sheet / 通用对话框 / 右键菜单基础设施
 // 依赖：core.ts（esc）
-// 定义：showSheet / closeSheet / closeTopSheet / formOverlayVisible /
+// 定义：showSheet / closeSheet / closeTopSheet /
 //       showConfirmDialog / confirmOk / showInputDialog / inputOk /
 //       openPicker / showContextMenu
 // 被依赖：games.ts（卡片右键菜单）、collections.ts（收藏夹右键菜单）、
@@ -63,18 +63,17 @@ document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) closeSheet(o.id); });
 });
 
-// Esc 关闭最上层（顺序：表单 > 截图预览 > 管理游戏 > 收藏夹 > 选择器 > 详情）
-function closeTopSheet(): void {
-  if (formOverlayVisible()) return closeSheet('formOverlay');
-  if (document.getElementById('shotPreviewOverlay')!.classList.contains('show')) return closeSheet('shotPreviewOverlay');
-  if (document.getElementById('manageGamesOverlay')!.classList.contains('show')) return closeSheet('manageGamesOverlay');
-  if (document.getElementById('collectionOverlay')!.classList.contains('show')) return closeSheet('collectionOverlay');
-  if (document.getElementById('pickerOverlay')!.classList.contains('show')) return closeSheet('pickerOverlay');
-  if (document.getElementById('detailOverlay')!.classList.contains('show')) closeSheet('detailOverlay');
-}
-
-function formOverlayVisible(): boolean {
-  return document.getElementById('formOverlay')!.classList.contains('show');
+// Esc 关闭最上层：overlay 分块按注入顺序层叠（后出现者在上），倒序取第一个可见者。
+// 输入/确认清理对应回调；设置窗口走 Settings.close（含主题回退）；无可见弹层时返回 false。
+function closeTopSheet(): boolean {
+  const overlays = document.querySelectorAll<HTMLElement>('.overlay.show');
+  const top = overlays[overlays.length - 1];
+  if (!top) return false;
+  if (top.id === 'inputOverlay') inputCb = null;
+  else if (top.id === 'confirmOverlay') confirmCb = null;
+  if (top.id === 'settingsOverlay' && window.Settings) window.Settings.close();
+  else closeSheet(top.id);
+  return true;
 }
 
 // ---------- 通用确认对话框（替代原生 confirm）----------

@@ -7,6 +7,10 @@
   const $ = (id: string): HTMLElement => document.getElementById(id)!;
   let savedTheme = 'light';
   let pendingTheme: string | null = null;
+  let themePicked = false;        // 用户已显式选择主题：迟到配置不得覆盖
+  let configRequest = 0;          // 配置加载代际：只接受最新请求的回包
+  let settingsSession = 0;        // 打开会话代际：关闭/重开使旧保存回包失效
+  let saveSeq = 0;                // 保存请求代际：重复提交时只有最新一次生效
 
   function applyTheme(t: string): void {
     const root = document.documentElement;
@@ -14,6 +18,15 @@
     root.dataset.theme = t;
     void root.offsetHeight;               // 强制同步重排：主题立即生效
     requestAnimationFrame(() => root.classList.remove('theme-switch'));  // 布局稳定后恢复
+  }
+
+  // 启动时的初始主题：用户已自行选择（或初始化期间点击过主题）则不再覆盖
+  function initTheme(t: string): void {
+    if (themePicked) return;
+    savedTheme = t;
+    pendingTheme = t;
+    applyTheme(t);
+    markThemeCard(t);
   }
 
   function markThemeCard(t: string): void {
@@ -28,6 +41,9 @@
   }
 
   function open(): void {
+    settingsSession++;
+    stopHotkeyCapture(true);
+    ($('setSave') as HTMLButtonElement).disabled = false;
     loadConfig();
     $('settingsOverlay').classList.add('show');
     // 恢复上次停留的 tab（阶段 E：tab 记忆）
@@ -45,16 +61,20 @@
   }
 
   function close(): void {
+    settingsSession++;   // 使在途保存回包失效，不再关闭/干扰后续会话
+    stopHotkeyCapture(true);
     if (pendingTheme !== null && pendingTheme !== savedTheme) applyTheme(savedTheme);
     closeSheet('settingsOverlay');
   }
 
   function loadConfig(): void {
     if (!bridge) return;
-    bridge.getConfig(function (s: unknown) {
-      const cfg = JSON.parse(String(s || '{}')) as Record<string, unknown> & {
-        hotkeys?: Record<string, string>;
-      };
+    themePicked = false;   // 本次加载允许回填主题；期间用户选择后由 themePicked 拦下
+    const request = ++configRequest;
+    bridge.getConfig(function (s: unknown, failed?: boolean) {
+      if (failed || request !== configRequest) return;
+      let cfg: Record<string, unknown> & { hotkeys?: Record<string, string> };
+      try { cfg = JSON.parse(String(s || '{}')); } catch (e) { return; }
       ($('setCoverSize') as HTMLSelectElement).value = (cfg.cover_size as string) || 'medium';
       ($('setLogLevel') as HTMLSelectElement).value = String(cfg.log_level || 'INFO').toUpperCase();
       ($('setDisguise') as HTMLSelectElement).value = (cfg.disguise_scene as string) || 'excel';
@@ -68,10 +88,12 @@
       ($('setHkMute') as HTMLInputElement).value = fmtKey(hk.mute_toggle) || 'Ctrl + M';
       ($('setHkShot') as HTMLInputElement).value = fmtKey(hk.screenshot) || 'F12';
       ($('setCfgPath')).textContent = '配置目录：' + ((cfg.path as string) || '%APPDATA%\\KazariPlay');
-      savedTheme = (cfg.theme as string) || 'light';
-      pendingTheme = savedTheme;
-      applyTheme(savedTheme);
-      markThemeCard(savedTheme);
+      if (!themePicked) {   // 用户在等待期间已自行选择主题时不覆盖
+        savedTheme = (cfg.theme as string) || 'light';
+        pendingTheme = savedTheme;
+        applyTheme(savedTheme);
+        markThemeCard(savedTheme);
+      }
     });
     loadMetaSources();
   }
@@ -102,6 +124,7 @@
   }
 
   function pickTheme(t: string): void {
+    themePicked = true;   // 显式选择后，迟到的配置回包不再改写主题
     pendingTheme = t;
     applyTheme(t);
     markThemeCard(t);
@@ -112,6 +135,10 @@
 
   function save(): void {
     if (!bridge) return;
+    const session = settingsSession;
+    const seq = ++saveSeq;
+    stopHotkeyCapture(true);
+    const hotkeyShot = ($('setHkShot') as HTMLInputElement).value;
     const data: Record<string, unknown> = {
       cover_size: ($('setCoverSize') as HTMLSelectElement).value,
       log_level: ($('setLogLevel') as HTMLSelectElement).value,
@@ -126,20 +153,26 @@
         emergency_hide: ($('setHkHide') as HTMLInputElement).value,
         fullscreen_toggle: ($('setHkFull') as HTMLInputElement).value,
         mute_toggle: ($('setHkMute') as HTMLInputElement).value,
-        screenshot: ($('setHkShot') as HTMLInputElement).value,
+        screenshot: hotkeyShot,
       },
     };
-    bridge.saveConfigs(JSON.stringify(data), function (s: unknown) {
+    // 元数据源勾选与热键在点击时定格：成功回调不再读取当时的表单状态
+    const checkedSrc = [...document.querySelectorAll<HTMLElement>('#setSrcList .src-check:checked')]
+      .map(x => x.dataset.id);
+    const saveBtn = $('setSave') as HTMLButtonElement;
+    saveBtn.disabled = true;
+    bridge.saveConfigs(JSON.stringify(data), function (s: unknown, failed?: boolean) {
+      // 旧会话 / 被后续保存超越的回包：不干扰当前窗口与输入
+      if (session !== settingsSession || seq !== saveSeq) return;
+      if (failed) { saveBtn.disabled = false; toast('设置保存失败'); return; }
       let r: { ok?: boolean; msg?: string } = {};
       try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
-      if (!r || r.ok !== true) { toast(r.msg || '设置保存失败'); return; }   // 失败保留窗口与输入
+      if (!r || r.ok !== true) { saveBtn.disabled = false; toast(r.msg || '设置保存失败'); return; }   // 失败保留窗口与输入
       // 元数据源勾选（独立保存，即时生效）
-      const checkedSrc = [...document.querySelectorAll<HTMLElement>('#setSrcList .src-check:checked')]
-        .map(x => x.dataset.id);
       bridge.saveMetadataSources(JSON.stringify(checkedSrc));
       // 截图热键立即重注册（配置已保存；注册失败仅提示，不谎报）
-      bridge.updateScreenshotHotkey(($('setHkShot') as HTMLInputElement).value, function (ok: unknown) {
-        toast(ok ? '设置已保存' : '设置已保存（截图热键注册失败）');
+      bridge.updateScreenshotHotkey(hotkeyShot, function (ok: unknown, hkFailed?: boolean) {
+        toast(!hkFailed && ok === true ? '设置已保存' : '设置已保存（截图热键注册失败）');
       });
       if (window.applyCoverSize) window.applyCoverSize(data.cover_size as string);
       savedTheme = pendingTheme || savedTheme;
@@ -155,33 +188,70 @@
     return taken;
   }
 
+  // 当前热键捕获状态：同一时刻只允许一个字段在捕获，失焦/关闭/保存统一清理
+  let hotkeyCapture: {
+    el: HTMLInputElement;
+    prev: string;
+    handler: (e: KeyboardEvent) => void;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null = null;
+
+  // 结束当前捕获：移除监听与冲突计时器；restore=true 时恢复捕获前的值
+  function stopHotkeyCapture(restore: boolean): void {
+    const cap = hotkeyCapture;
+    if (!cap) return;
+    hotkeyCapture = null;
+    document.removeEventListener('keydown', cap.handler);
+    if (cap.timer !== null) clearTimeout(cap.timer);
+    if (restore && (cap.el.value === '请按下组合键…' || cap.el.classList.contains('conflict'))) {
+      cap.el.value = cap.prev;
+    }
+    cap.el.classList.remove('hint', 'conflict');
+  }
+
   function bindHotkey(el: HTMLInputElement): void {
+    el.addEventListener('blur', function () {
+      if (hotkeyCapture && hotkeyCapture.el === el) stopHotkeyCapture(true);
+    });
     el.addEventListener('focus', function () {
+      stopHotkeyCapture(true);   // 切换字段时先结束上一个捕获
+      const prev = el.value;
       el.classList.add('hint');
       el.value = '请按下组合键…';
-      const handler = function (e: KeyboardEvent): void {
-        e.preventDefault();
-        e.stopPropagation();
-        const mods: string[] = [];
-        if (e.ctrlKey) mods.push('Ctrl');
-        if (e.altKey) mods.push('Alt');
-        if (e.shiftKey) mods.push('Shift');
-        if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
-        const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
-        const combo = mods.concat([key]).join(' + ');
-        // 冲突检测：与其它已配置热键重复 → 拒绝并提示
-        if (takenHotkeys(el.id).has(combo)) {
-          el.value = '冲突，请换一个';
+      const cap = {
+        el: el,
+        prev: prev,
+        timer: null as ReturnType<typeof setTimeout> | null,
+        handler: function (e: KeyboardEvent): void {
+          e.preventDefault();
+          e.stopPropagation();
+          const mods: string[] = [];
+          if (e.ctrlKey) mods.push('Ctrl');
+          if (e.altKey) mods.push('Alt');
+          if (e.shiftKey) mods.push('Shift');
+          if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+          const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+          const combo = mods.concat([key]).join(' + ');
+          // 冲突检测：与其它已配置热键重复 → 拒绝并提示（计时器属于本次捕获）
+          if (takenHotkeys(el.id).has(combo)) {
+            el.value = '冲突，请换一个';
+            el.classList.remove('hint');
+            el.classList.add('conflict');
+            if (cap.timer !== null) clearTimeout(cap.timer);
+            cap.timer = setTimeout(() => {
+              cap.timer = null;
+              if (hotkeyCapture === cap) { el.value = '请按下组合键…'; el.classList.add('hint'); el.classList.remove('conflict'); }
+            }, 1200);
+            return;
+          }
+          el.value = combo;
           el.classList.remove('hint');
-          el.classList.add('conflict');
-          setTimeout(() => { el.value = '请按下组合键…'; el.classList.add('hint'); el.classList.remove('conflict'); }, 1200);
-          return;
-        }
-        el.value = combo;
-        el.classList.remove('hint');
-        document.removeEventListener('keydown', handler);
+          document.removeEventListener('keydown', cap.handler);
+          hotkeyCapture = null;
+        },
       };
-      document.addEventListener('keydown', handler);
+      hotkeyCapture = cap;
+      document.addEventListener('keydown', cap.handler);
     });
   }
 
@@ -237,11 +307,8 @@
       toast('已恢复默认设置');
     };
     ['setHkHide', 'setHkFull', 'setHkMute', 'setHkShot'].forEach((id) => bindHotkey($(id) as HTMLInputElement));
-
-    document.addEventListener('keydown', function (e: KeyboardEvent) {
-      if (e.key === 'Escape' && $('settingsOverlay').classList.contains('show')) close();
-    });
   });
 
-  window.Settings = { open: open, close: close, pickTheme: pickTheme, applyTheme: applyTheme };
+  // Esc 关闭最上层统一由 ui.closeTopSheet 处理（含本窗口），不再单独注册监听
+  window.Settings = { open: open, close: close, pickTheme: pickTheme, applyTheme: applyTheme, initTheme: initTheme };
 })();

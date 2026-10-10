@@ -16,7 +16,9 @@ function reloadCovers(): void {
     if (!c) return;
     card.dataset.coverLoaded = '';
     c.classList.remove('loaded');   // 重新加载时先去掉淡入标记，实图到达后再淡入
-    bridge.getCover(card.dataset.id!, function (uri: unknown) {
+    const seq = beginCoverRequest(card);
+    bridge.getCover(card.dataset.id!, function (uri: unknown, failed?: boolean) {
+      if (failed || !isCoverRequestCurrent(card, seq)) return;
       if (!uri) return;
       card.dataset.coverLoaded = '1';
       c.classList.add('loaded');
@@ -33,7 +35,9 @@ function reloadCover(gameId: string): void {
   if (!card || !c) return;
   card.dataset.coverLoaded = '';
   c.classList.remove('loaded');
-  bridge.getCover(gameId, function (uri: unknown) {
+  const seq = beginCoverRequest(card);
+  bridge.getCover(gameId, function (uri: unknown, failed?: boolean) {
+    if (failed || !isCoverRequestCurrent(card, seq)) return;
     if (!uri) return;
     card.dataset.coverLoaded = '1';
     c.classList.add('loaded');
@@ -49,14 +53,19 @@ function applyCoverSize(size: string): void {
   const s = COVER_SIZES[size] || COVER_SIZES.medium;
   document.documentElement.style.setProperty('--card-w', s.w + 'px');
   document.documentElement.style.setProperty('--card-h', s.h + 'px');
+  refreshWindow();   // 卡片度量变化后重算窗口化范围与 spacer（FR-08）
 }
 
 // ---------- 数据刷新 ----------
-// done：游戏列表回包后的可选回调，供调用方按真实结果反馈（如 FAB 刷新提示）。
+// done：游戏列表成功回包后的可选回调，供调用方按真实结果反馈（如 FAB 刷新提示）。
+// 桥失败（failed=true）时保留现有数据、不提示成功。
 function refreshAll(force: boolean, done?: () => void): void {
   if (!bridge) { if (done) done(); return; }
-  bridge.getGames(function (s: unknown) {
-    const fresh = JSON.parse(String(s)) as Game[];
+  bridge.getGames(function (s: unknown, failed?: boolean) {
+    if (failed) return;
+    let fresh: Game[];
+    try { fresh = JSON.parse(String(s)) as Game[]; } catch (e) { return; }
+    if (!Array.isArray(fresh)) return;
     // 数据无变化时不重建网格，避免卡片闪烁（事件推送 / 轮询兜底）
     if (force || _gamesChanged(App.data.games, fresh)) {
       App.data.games = fresh; renderAll(); syncCurrentGame();
@@ -66,11 +75,23 @@ function refreshAll(force: boolean, done?: () => void): void {
     }
     if (done) done();
   });
-  bridge.getCollectionsTree(function (s: unknown) {
-    App.ui.state.collectionTree = JSON.parse(String(s || '[]')) as CollectionTreeNode[];
+  bridge.getCollectionsTree(function (s: unknown, failed?: boolean) {
+    if (failed) return;
+    let tree: CollectionTreeNode[];
+    try { tree = JSON.parse(String(s || '[]')) as CollectionTreeNode[]; } catch (e) { return; }
+    App.ui.state.collectionTree = Array.isArray(tree) ? tree : [];
     renderCollectionTree();
+    // 树后到时同步派生显示与当前筛选结果（视图名/数量依赖树；分组子分类变化影响卡片）
+    const list = filterGames(App.data.games);
+    updateNavInfo(list);
+    renderCards(list);
+    renderEmpty(list);
   });
-  bridge.getRunning(function (r: unknown) { App.data.runningId = String(r || ''); markRunning(); });
+  bridge.getRunning(function (r: unknown, failed?: boolean) {
+    if (failed) return;
+    App.data.runningId = String(r || '');
+    markRunning();
+  });
 }
 
 // 增量刷新：后端写操作（收藏/评分/编辑/删除等）只通知变化项。
@@ -81,17 +102,20 @@ function applyGamesDelta(ids: string[]): void {
   let pending = ids.length;
   const deleted = new Set<string>();
   ids.forEach(idStr => {
-    bridge.getGame(idStr, function (s: unknown) {
-      try {
-        const fresh = JSON.parse(String(s || '{}')) as Game;
-        if (fresh && fresh.id) {
-          const gi = App.data.games.findIndex(x => x.id === fresh.id);
-          if (gi >= 0) App.data.games[gi] = fresh;
-          else App.data.games.push(fresh);   // 新增卡（saveGame 全量场景已覆盖，此处兜底）
-        } else {
-          deleted.add(idStr);   // 删除场景：id 不存在
-        }
-      } catch (e) { }
+    bridge.getGame(idStr, function (s: unknown, failed?: boolean) {
+      // 桥失败不代表游戏被删除：保留本地对象，等待下次刷新
+      if (!failed) {
+        try {
+          const fresh = JSON.parse(String(s || '{}')) as Game;
+          if (fresh && fresh.id) {
+            const gi = App.data.games.findIndex(x => x.id === fresh.id);
+            if (gi >= 0) App.data.games[gi] = fresh;
+            else App.data.games.push(fresh);   // 新增卡（saveGame 全量场景已覆盖，此处兜底）
+          } else if (fresh && typeof fresh === 'object' && !Array.isArray(fresh)) {
+            deleted.add(idStr);   // 删除场景：后端明确返回空对象（游戏不存在）
+          }
+        } catch (e) { }
+      }
       if (--pending === 0) {
         if (deleted.size) {
           App.data.games = App.data.games.filter(g => !deleted.has(g.id));
@@ -184,7 +208,7 @@ function filterGames(games: Game[], ignoreKw?: boolean): Game[] {
   }
   if (App.ui.state.sort === '名称') list.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
   else if (App.ui.state.sort === '评分') list.sort((a, b) => b.rating - a.rating);
-  else if (App.ui.state.collectionId === null) list.sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
+  else list.sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
   return list;
 }
 

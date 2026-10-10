@@ -173,15 +173,15 @@ function renameShot(): void {
 
 function openShotFolder(): void {
   if (!shotTarget) return;
-  bridge.openScreenshotFolder(shotTargetGameId, shotTarget.file, function (ok: unknown) {
-    toast(ok ? '已在资源管理器中定位' : '定位失败');
+  bridge.openScreenshotFolder(shotTargetGameId, shotTarget.file, function (ok: unknown, failed?: boolean) {
+    toast(!failed && ok === true ? '已在资源管理器中定位' : '定位失败');
   });
 }
 
 function copyShot(): void {
   if (!shotTarget) return;
-  bridge.copyScreenshotToClipboard(shotTargetGameId, shotTarget.file, function (ok: unknown) {
-    toast(ok ? '已复制到剪贴板' : '复制失败');
+  bridge.copyScreenshotToClipboard(shotTargetGameId, shotTarget.file, function (ok: unknown, failed?: boolean) {
+    toast(!failed && ok === true ? '已复制到剪贴板' : '复制失败');
   });
 }
 
@@ -193,8 +193,8 @@ function deleteShot(): void {
     title: '删除截图',
     message: `删除「${f}」？`,
     danger: true, okText: '删除', cb: () => {
-      bridge.deleteScreenshot(gid, f, function (ok: unknown) {
-        if (!ok) { toast('删除失败'); return; }
+      bridge.deleteScreenshot(gid, f, function (ok: unknown, failed?: boolean) {
+        if (failed || ok !== true) { toast('删除失败'); return; }
         if (App.data.currentGame?.id === gid) renderScreenshots();
       });
     }

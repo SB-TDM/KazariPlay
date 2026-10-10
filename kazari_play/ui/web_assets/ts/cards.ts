@@ -40,6 +40,7 @@ let _winEnd = 0;                     // 当前窗口结束索引
 let _topSpacer: HTMLElement | null = null;
 let _bottomSpacer: HTMLElement | null = null;
 let _winScrollBound = false;
+let _winResizeBound = false;
 let _winRaf = false;
 
 // 列数 / 行高（与 CSS .grid auto-fill + gap 对齐）
@@ -102,15 +103,51 @@ function _bindWindowScroll(): void {
     _winRaf = true;
     requestAnimationFrame(() => {
       _winRaf = false;
-      // 数据可能已变化，用当前全量 games 重算窗口
-      const list = filterGames(App.data.games);
-      const win = _windowRange(list.length);
-      if (win.start === _winStart && win.end === _winEnd) return;
-      _winStart = win.start; _winEnd = win.end;
-      renderCards(list);          // 增量替换窗口内卡片
-      _updateSpacers(list.length, win);
+      _recomputeWindow();
     });
   });
+}
+
+// 重算窗口范围并增量渲染；范围不变时仍刷新 spacer（列数/行高可能已变）
+function _recomputeWindow(): void {
+  const list = filterGames(App.data.games);
+  const win = _windowRange(list.length);
+  if (win.start === _winStart && win.end === _winEnd) {
+    _updateSpacers(list.length, win);
+    return;
+  }
+  _winStart = win.start; _winEnd = win.end;
+  renderCards(list);
+  _updateSpacers(list.length, win);
+}
+
+// 容器尺寸变化（窗口缩放 / 批量栏显隐）后重算窗口：滚动之外的第二条重算入口（FR-08）
+function _bindWindowResize(): void {
+  if (_winResizeBound) return;
+  _winResizeBound = true;
+  const scroller = document.querySelector('.scroll');
+  if (!scroller || typeof ResizeObserver === 'undefined') return;
+  let raf = false;
+  const ro = new ResizeObserver(() => {
+    if (raf) return;
+    raf = true;
+    requestAnimationFrame(() => {
+      raf = false;
+      _recomputeWindow();
+    });
+  });
+  ro.observe(scroller);
+}
+
+// 卡片档位等外部度量变化后重算窗口与 spacer（保留 DOM 复用）
+function refreshWindow(): void {
+  if (!_renderedIds.length && !App.data.games.length) return;
+  _recomputeWindow();
+}
+
+// 卡片闭包只保存 id，动作执行时解析当前对象（节点复用后创建时的 g 可能是旧快照）
+function _currentGame(id: string): Game | null {
+  return App.data.games.find(x => x.id === id) || null;
 }
 
 // 创建单张卡片 DOM（不含封面加载，封面由 observer 懒加载）
@@ -126,7 +163,12 @@ function buildCard(g: Game): HTMLElement {
     </div>
     ${g.id === App.data.runningId ? '<span class="running">运行中</span>' : ''}
     <div class="meta"><span class="title" title="${esc(g.title || '未命名游戏')}">${esc(g.title || '未命名游戏')}</span><span class="score">${(g.rating || 0).toFixed(1)}</span></div>`;
-  card.onclick = () => { if (App.ui.state.batch) toggleSelect(g.id, card); else openDetail(g); };
+  const gid = String(g.id);
+  card.onclick = () => {
+    if (App.ui.state.batch) { toggleSelect(gid, card); return; }
+    const cur = _currentGame(gid);
+    if (cur) openDetail(cur);
+  };
   // 键盘可达：卡片作为可聚焦交互元素（Enter/空格 触发与点击一致）
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
@@ -136,10 +178,12 @@ function buildCard(g: Game): HTMLElement {
   card.onkeydown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      if (App.ui.state.batch) toggleSelect(g.id, card); else openDetail(g);
+      if (App.ui.state.batch) { toggleSelect(gid, card); return; }
+      const cur = _currentGame(gid);
+      if (cur) openDetail(cur);
     }
   };
-  card.oncontextmenu = (e: MouseEvent) => { e.preventDefault(); openCardMenu(g, e.clientX, e.clientY); };
+  card.oncontextmenu = (e: MouseEvent) => { e.preventDefault(); openCardMenu(gid, e.clientX, e.clientY); };
   return card;
 }
 
@@ -148,6 +192,7 @@ function renderCards(list: Game[]): void {
   const grid = document.getElementById('grid')!;
   _ensureSpacers(grid);
   _bindWindowScroll();
+  _bindWindowResize();
   // 窗口化：只渲染 WindowCalculator 算出的可视区 ± 缓冲范围
   const win = _windowRange(list.length);
   _winStart = win.start; _winEnd = win.end;
@@ -188,6 +233,7 @@ function renderCards(list: Game[]): void {
       if (card.dataset.coverVersion !== String(byId[id].cover_version || 0)) {
         card.dataset.coverVersion = String(byId[id].cover_version || 0);
         card.dataset.coverLoaded = '';
+        beginCoverRequest(card);   // 作废在途旧封面响应
         const c = card.querySelector('.cover');
         if (c) {
           c.classList.remove('loaded');
@@ -224,14 +270,14 @@ function renderCards(list: Game[]): void {
         const card = en.target as HTMLElement;
         const gid = card.dataset.id;
         coverObserver!.unobserve(card);
-        bridge.getCover(gid!, function (uri: unknown) {
+        const seq = beginCoverRequest(card);
+        bridge.getCover(gid!, function (uri: unknown, failed?: boolean) {
+          if (failed || !isCoverRequestCurrent(card, seq)) return;
           if (!uri) return;
           const c = card.querySelector('.cover') as HTMLElement | null;
           if (c) {
             card.dataset.coverLoaded = '1';
             c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-            // 淡入动画仅首次加载播放一次：动画结束后移除 animation 属性，
-            // 避免后续 DOM 变化触发的渲染重算导致动画重播（否则"操作后全部封面变淡"）
             _playCoverFade(c);
           }
         });
@@ -242,15 +288,22 @@ function renderCards(list: Game[]): void {
 }
 
 // ---------- 卡片右键菜单（图标 + 分段，复用 ui.showContextMenu）----------
-function openCardMenu(g: Game, x: number, y: number): void {
+// 只接收 id；菜单打开与每个动作都解析当前对象，不携带卡片创建时的旧快照
+function openCardMenu(gameId: string, x: number, y: number): void {
+  if (!_currentGame(gameId)) return;
   showContextMenu([
-    { icon: '▶', text: '启动游戏', action: () => launchGame(g.id) },
-    { icon: '📂', text: '打开本地目录', action: () => bridge.openFolder(String(g.id)) },
+    { icon: '▶', text: '启动游戏', action: () => launchGame(gameId) },
+    { icon: '📂', text: '打开本地目录', action: () => bridge.openFolder(gameId) },
     'sep',
-    { icon: '🗂️', text: '管理收藏夹', action: () => { App.data.currentGame = g; openCollectionManager(); } },
-    { icon: '✏️', text: '编辑', action: () => openEdit(g) },
+    { icon: '🗂️', text: '管理收藏夹', action: () => {
+      const g = _currentGame(gameId); if (!g) return;
+      App.data.currentGame = g; openCollectionManager();
+    } },
+    { icon: '✏️', text: '编辑', action: () => { const g = _currentGame(gameId); if (g) openEdit(g); } },
     { icon: '🔄', text: '元数据匹配', action: () => {
-      bridge.matchVndb(String(g.id), function (s: unknown) {
+      const g = _currentGame(gameId); if (!g) return;
+      bridge.matchVndb(gameId, function (s: unknown, failed?: boolean) {
+        if (failed) { toast('匹配未启动'); return; }
         let result: { ok?: boolean; msg?: string } = {};
         try { result = JSON.parse(String(s || '{}')); } catch (e) { }
         toast(result.ok ? '开始匹配：' + g.title : (result.msg || '匹配未启动'));
@@ -258,11 +311,14 @@ function openCardMenu(g: Game, x: number, y: number): void {
     } },
     'sep',
     {
-      icon: '🗑️', text: '从库中移除', danger: true, action: () => showConfirmDialog({
-        title: '从库中移除',
-        message: `从库中移除「${g.title}」？\n（不会删除实际文件）`,
-        danger: true, okText: '移除', cb: () => bridge.deleteGame(String(g.id))
-      })
+      icon: '🗑️', text: '从库中移除', danger: true, action: () => {
+        const g = _currentGame(gameId); if (!g) return;
+        showConfirmDialog({
+          title: '从库中移除',
+          message: `从库中移除「${g.title}」？\n（不会删除实际文件）`,
+          danger: true, okText: '移除', cb: () => bridge.deleteGame(gameId)
+        });
+      }
     },
   ], x, y, 170);
 }
