@@ -58,8 +58,8 @@
 
 | 文档 | 状态 |
 |---|---|
-| [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) | 主界面改造计划：以 [design/main-ui-prototype.html](design/main-ui-prototype.html) 为视觉与交互标准，仅改造主界面，其他窗口保持原版；待实施 |
-| [UI_OPTIMIZATION_DISCUSSION.md](UI_OPTIMIZATION_DISCUSSION.md) | 原版全量 UI 优化评审与讨论草案；含证据、建议、验收和未决项，待讨论，未批准实施 |
+| [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) | V1.1 主界面整合计划：按确认原型改造主界面，其他窗口不套原型；包含旧计划逐项承接、生产代码保护、准确基线、独立工作区与分阶段验收；界面待实施，资源门禁见 §2 |
+| [UI_OPTIMIZATION_DISCUSSION.md](UI_OPTIMIZATION_DISCUSSION.md) | 2026-10-07 评审证据与候选建议；2026-10-09 已同步主界面冲突修订，具体承接/复验/延期以 MAIN_UI_REDESIGN_PLAN 为准，不自动全量授权实施 |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
