@@ -59,6 +59,7 @@
 | 文档 | 状态 |
 |---|---|
 | [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) | V1.1 主界面整合计划：按确认原型改造主界面，其他窗口不套原型；包含旧计划逐项承接、生产代码保护、准确基线、独立工作区与分阶段验收；界面待实施，资源门禁见 §2 |
+| [MAIN_UI_REDESIGN_G0_TRIAGE.md](MAIN_UI_REDESIGN_G0_TRIAGE.md) | G0 基线门禁结果与 §4 旧问题复验矩阵（C03/C04/C08/C09/C10/C11/C13/C16 等），含基线异常与处置建议 |
 | [UI_OPTIMIZATION_DISCUSSION.md](UI_OPTIMIZATION_DISCUSSION.md) | 2026-10-07 评审证据与候选建议；2026-10-09 已同步主界面冲突修订，具体承接/复验/延期以 MAIN_UI_REDESIGN_PLAN 为准，不自动全量授权实施 |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
