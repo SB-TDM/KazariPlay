@@ -6,7 +6,7 @@
   :root {
     color-scheme:light;
     --bg:#fff8f5; --bg-soft:#ffedf2; --bg-titlebar:#fff3ee; --bg-sidebar:#ffeef2;
-    --bg-panel:#ffffff; --bg-hover:#fff0f4; --text:#4a4358; --text-sub:#9c92a8;
+    --bg-panel:#ffffff; --bg-hover:#fff0f4; --text:#4a4358; --text-sub:#74687f;
     --text-disabled:#c7bdc9; --pink:#ff8fab; --pink-deep:#ff6f91; --purple:#b388ff;
     --mint:#7fd8be; --yellow:#ffd97d; --star:#ffb020;
     --grad-pink:linear-gradient(135deg,#ffb3c1,#ff8fab);
