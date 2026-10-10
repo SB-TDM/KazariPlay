@@ -1,6 +1,6 @@
 // ============================================================
 // collections.ts — 收藏夹树 / 收藏夹管理抽屉（当前游戏加入/退出收藏夹）
-// 依赖：state.ts / core.ts（esc/toast/chipColor）/ ui.ts（showSheet/closeSheet/
+// 依赖：state.ts / icons.ts / core.ts（esc/toast/chipColor）/ ui.ts（showSheet/closeSheet/
 //       showInputDialog/showConfirmDialog/showContextMenu）
 // 定义：renderCollectionTree / renderCollectionGroup / renderCollectionCategory /
 //       toggleExpand / bindCollectionItems / findCollectionNode / selectCollection /
@@ -26,7 +26,7 @@ function renderCollectionGroup(group: CollectionTreeNode): HTMLElement {
   const hasChildren = (group.children || []).length > 0;
   el.innerHTML = `
     <div class="collection-group-header ${App.ui.state.collectionId === group.id ? 'active' : ''}" data-id="${group.id}">
-      ${hasChildren ? `<button class="toggle ${open ? 'open' : ''}" title="${open ? '收起' : '展开'}">${open ? '▾' : '▸'}</button>` : ''}
+      ${hasChildren ? `<button class="toggle ${open ? 'open' : ''}" title="${open ? '收起' : '展开'}">${open ? ICON.chevronDown : ICON.chevronRight}</button>` : ''}
       <span class="name">${esc(group.name)}</span>
       <span class="count">${group.game_count || 0}</span>
     </div>
@@ -126,9 +126,9 @@ function clearCollectionFilter(): void {
 // 收藏夹右键菜单（复用通用右键菜单，带图标）
 function showCollectionCtx(x: number, y: number, node: CollectionTreeNode): void {
   showContextMenu([
-    { icon: '🎮', text: '管理游戏', action: () => openManageGames(node) },
-    { icon: '✏️', text: '重命名', action: () => renameCollection(node) },
-    { icon: '🗑️', text: '删除', action: () => delCollection(node), danger: true },
+    { icon: ICON.controller, text: '管理游戏', action: () => openManageGames(node) },
+    { icon: ICON.edit, text: '重命名', action: () => renameCollection(node) },
+    { icon: ICON.trash, text: '删除', action: () => delCollection(node), danger: true },
   ], x, y, 180);
 }
 

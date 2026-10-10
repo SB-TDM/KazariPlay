@@ -1,7 +1,7 @@
 // ============================================================
 // core.ts — bridge 代理 + 通用工具
 // 依赖：state.ts（state 于运行时使用）
-// 定义：bridge / esc / toast / stars / chipColor / loadCoverTo
+// 定义：bridge / esc / toast / chipColor / loadCoverTo
 //       beginCoverRequest / isCoverRequestCurrent
 // 注意：bridge 被 index.html 内联 onclick（窗口最小化等）直接引用，
 //       必须是全局绑定（顶层 const），不能包进 IIFE。
@@ -63,12 +63,6 @@ function launchGame(gameId: string): void {
     try { r = JSON.parse(String(s || '{}')); } catch (e) { }
     if (r && r.ok === false) toast(r.msg || '启动失败');
   });
-}
-
-// 星级字符串（1-5，0 表示未评分）
-function stars(r: number): string {
-  r = Math.max(0, Math.min(5, r || 0));
-  return '★'.repeat(r) + '☆'.repeat(5 - r);
 }
 
 // 标签/收藏夹色块颜色：字符串哈希 → 5 色糖果色板

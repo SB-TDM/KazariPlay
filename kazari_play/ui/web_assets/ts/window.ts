@@ -8,12 +8,13 @@
 // 最大化 / 还原切换（HTML 标题栏按钮）
 function toggleMax(): void {
   const b = document.getElementById('btnMax');
-  const willMax = b && b.textContent === '□';
+  const willMax = !!b && b.dataset.mode !== 'max';
   bridge.windowToggleMaximize();
-  document.body.classList.toggle('maximized', !!willMax);   // 最大化时隐藏缩放手柄
+  document.body.classList.toggle('maximized', willMax);   // 最大化时隐藏缩放手柄
   if (b) {
+    b.dataset.mode = willMax ? 'max' : 'restore';
     b.setAttribute('aria-label', willMax ? '还原窗口' : '最大化');
-    b.textContent = willMax ? '❐' : '□';
+    b.innerHTML = willMax ? ICON.winRestore : ICON.winMax;
   }
 }
 

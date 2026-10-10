@@ -46,7 +46,9 @@
   .more-menu .item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;
                    color:var(--text);cursor:pointer;
                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .more-menu .item .mi{flex:none;width:16px;text-align:center;font-size:12px;opacity:.85;}
+  .more-menu .item .mi{flex:none;width:16px;display:flex;align-items:center;justify-content:center;
+                       font-size:12px;opacity:.85;}
+  .more-menu .item .mi .ic{width:14px;height:14px;}
   .more-menu .item:hover{background:var(--bg-hover);color:var(--pink-deep);}
   .more-menu .item.danger{color:#ff6f81;}
   .more-menu .item.danger .mi{color:#ff6f81;}

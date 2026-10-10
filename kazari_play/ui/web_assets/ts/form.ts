@@ -179,7 +179,7 @@ function renderCandidates(cands: MetadataCandidate[]): void {
     const srcName = c.source_name
       ? `<span class="cand-src-name">${esc(c.source_name)}</span>` : '';
     d.innerHTML = `<div class="cand-title">${icon}${srcName}${esc(c.title || '')}</div>
-      <div class="cand-sub">${esc(c.developer || '')}${c.released ? ' · ' + esc(c.released) : ''}${c.rating ? ' · ★' + (+c.rating).toFixed(1) : ''}</div>`;
+      <div class="cand-sub">${esc(c.developer || '')}${c.released ? ' · ' + esc(c.released) : ''}${c.rating ? ' · ' + ICON.starFill + ' ' + (+c.rating).toFixed(1) : ''}</div>`;
     d.onclick = () => {
       if (!App.data.editingId) return;
       openMetaApply(c);

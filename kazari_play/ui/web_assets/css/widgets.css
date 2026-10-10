@@ -9,6 +9,7 @@
        box-shadow:0 8px 20px var(--glow-strong);cursor:pointer;font-size:27px;border:none;padding:0;
        transition:transform .25s var(--bounce),box-shadow .25s;}
   .fab:hover{transform:scale(1.12) rotate(90deg);box-shadow:0 12px 26px var(--glow-strong);}
+  #fab .ic{width:24px;height:24px;vertical-align:0;}
   .fab-refresh{right:26px;bottom:92px;}
   .fab-refresh svg{width:24px;height:24px;}
   .fabmenu{position:absolute;right:30px;bottom:92px;z-index:21;background:var(--bg-panel);

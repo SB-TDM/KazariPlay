@@ -33,6 +33,9 @@
   .dropdown .item, .fabmenu .item{display:block;}
   .side-item{text-align:center;}
 
+  /* 内联 SVG 图标：随容器字号缩放、随 currentColor 着色 */
+  .ic{width:1em;height:1em;flex:none;vertical-align:-0.125em;}
+
   /* 内容区允许选中复制（全局 user-select:none 仅针对 UI 框架元素） */
   .detail-desc, .dlg-content, .confirm-msg, .about .a-meta,
   .dlg-content input[type=text], .dlg-content select, .tagform input,

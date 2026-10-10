@@ -1,6 +1,6 @@
 // ============================================================
 // detail.ts — 详情底部抽屉（Modal Bottom Sheet）：展示 + 评分 + 收藏 + 事件
-// 依赖：state.ts / core.ts（loadCoverTo/toast/chipColor/esc）/ ui.ts（showSheet/closeSheet/
+// 依赖：state.ts / icons.ts / core.ts（loadCoverTo/toast/chipColor/esc）/ ui.ts（showSheet/closeSheet/
 //       showConfirmDialog）/ games.ts（setActiveCard/markRunning）/
 //       screenshots.ts（renderScreenshots）/ collections.ts（openCollectionManager）/
 // 定义：openDetail / refreshDetail / renderInfoBar / initRateEdit /
@@ -78,8 +78,8 @@ function initRateEdit(): void {
   el.innerHTML = '';
   for (let n = 1; n <= 5; n++) {
     const s = document.createElement('span');
-    s.textContent = n <= r ? '★' : '☆';
-    s.style.cssText = 'cursor:pointer;color:var(--star);font-size:17px;letter-spacing:2px;';
+    s.innerHTML = n <= r ? ICON.starFill : ICON.star;
+    s.style.cssText = 'cursor:pointer;color:var(--star);font-size:17px;display:inline-flex;margin-right:2px;';
     s.onmouseenter = () => { s.style.color = 'var(--pink-deep)'; };
     s.onmouseleave = () => { s.style.color = 'var(--star)'; };
     s.onclick = () => {
@@ -124,7 +124,7 @@ function renderDetailTags(): void {
 // 收藏按钮状态
 function updateFavBtn(): void {
   const b = document.getElementById('dlgFav')!;
-  b.textContent = App.data.currentGame!.fav ? '★ 已收藏' : '☆ 收藏';
+  b.innerHTML = App.data.currentGame!.fav ? ICON.starFill + ' 已收藏' : ICON.star + ' 收藏';
   b.classList.toggle('on', App.data.currentGame!.fav);
 }
 

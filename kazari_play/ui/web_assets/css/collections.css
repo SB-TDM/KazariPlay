@@ -25,11 +25,13 @@
   .cd-head #btnNewCollection{margin:0 0 0 auto;height:26px;font-size:12px;padding:0 10px;}
   .cd-close{flex:none;width:26px;height:26px;border:none;border-radius:8px;background:transparent;
     color:var(--text-sub);font-size:16px;cursor:pointer;line-height:1;}
+  .cd-close .ic{width:14px;height:14px;vertical-align:0;}
   .cd-close:hover{background:var(--bg-hover);color:var(--pink-deep);}
   .collection-drawer .collection-tree{flex:1;max-height:none;margin:4px 0;}
   #btnNewCollection{height:32px;margin:2px 6px;border:1.5px dashed var(--border-strong);
     color:var(--pink-deep);font-size:12.5px;background:var(--bg-panel);border-radius:50px;
     transition:transform .22s var(--bounce),background .2s,box-shadow .2s;flex:none;}
+  #btnNewCollection .ic{width:12px;height:12px;margin-right:1px;}
   #btnNewCollection:hover{background:var(--bg-hover);transform:translateY(-1px);
     box-shadow:0 3px 8px var(--glow-soft);}
   .collection-group{position:relative;}
@@ -44,6 +46,7 @@
     transition:transform .22s var(--bounce),background .2s,color .2s;}
   .collection-group-header .toggle:hover{background:var(--action-bg);color:var(--action-fg);transform:scale(1.12);
     box-shadow:0 2px 6px var(--glow-med);}
+  .collection-group-header .toggle .ic{width:12px;height:12px;}
   .collection-group-header.active .toggle{background:rgba(255,255,255,.28);color:#fff;}
   .collection-group-header .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
   .collection-group-header .count{flex:none;min-width:22px;height:18px;padding:0 7px;border-radius:50px;

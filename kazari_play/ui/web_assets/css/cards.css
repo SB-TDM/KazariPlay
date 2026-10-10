@@ -46,6 +46,7 @@
                text-shadow:0 1px 2px rgba(255,176,32,.2);}
   .card .fav{position:absolute;top:6px;right:9px;z-index:3;font-size:14px;color:var(--star);
              filter:drop-shadow(0 1px 3px rgba(255,176,32,.5));}
+  .card .fav .ic{display:block;}
   .card .check{position:absolute;right:8px;bottom:8px;z-index:3;width:22px;height:22px;border-radius:50%;
                border:2px solid #c9aeb9;background:var(--bg-panel);display:none;
                align-items:center;justify-content:center;transition:transform .2s var(--bounce),background .2s,border-color .2s;}

@@ -234,7 +234,7 @@ function updateSortLabel(): void {
   const b = document.getElementById('filterBtn');
   if (!b) return;
   const label = App.ui.state.sort === '名称' ? '作品名称' : App.ui.state.sort === '评分' ? '评分优先' : '最近游玩';
-  b.textContent = '排序：' + label + ' ▾';
+  b.innerHTML = '排序：' + label + ICON.chevronDown;
 }
 
 // 运行状态角标 + 详情启动按钮状态
@@ -292,7 +292,7 @@ function renderEmpty(list: Game[]): void {
   const filterEmpty = App.ui.state.collectionId !== null || !!App.ui.state.kw;
   if (favEmpty) {
     document.getElementById('emptyTitle')!.textContent = '还没有收藏的游戏';
-    document.getElementById('emptySub')!.textContent = '点击卡片详情里的 ★ 收藏，游戏就会出现在这里';
+    document.getElementById('emptySub')!.textContent = '在卡片详情里点击「收藏」，游戏就会出现在这里';
     document.getElementById('btnShowAll')!.style.display = 'inline-block';
     document.getElementById('btnScan')!.style.display = 'none';
   } else if (filterEmpty) {

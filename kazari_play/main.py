@@ -61,7 +61,8 @@ def _icon_data_uri() -> str:
 # 顶部 let/const/function 在多个经典 <script> 块间共享，等价于"按文件拆分的单文件脚本"。
 _JS_MANIFEST = [
     "state.js",        # 全局共享状态（无依赖，最先加载）
-    "core.js",         # bridge 代理 + 通用工具（esc/toast/stars/loadCoverTo）
+    "icons.js",        # 内联 SVG 图标库（无依赖）
+    "core.js",         # bridge 代理 + 通用工具（esc/toast/loadCoverTo）
     "ui.js",           # Sheet / 通用对话框 / 右键菜单基础设施
     "window.js",       # 标题栏拖拽 / 缩放 / 最大化
     "games.js",        # 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态

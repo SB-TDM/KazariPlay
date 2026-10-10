@@ -1,6 +1,6 @@
 // ============================================================
 // cards.ts — 卡片 DOM 构建 / 增量渲染（懒加载） / 右键菜单
-// 依赖：state.ts / core.ts（esc/stars/toast）/ ui.ts（showContextMenu/showConfirmDialog）/
+// 依赖：state.ts / icons.ts / core.ts（esc/toast）/ ui.ts（showContextMenu/showConfirmDialog）/
 //       games.ts（toggleSelect / App.data.runningId）/
 //       detail.ts（openDetail）/ collections.ts（openCollectionManager）/ form.ts（openEdit）
 // 定义：buildCard / renderCards / openCardMenu + coverObserver / _renderedIds
@@ -158,7 +158,7 @@ function buildCard(g: Game): HTMLElement {
   card.dataset.coverVersion = String(g.cover_version || 0);
   card.dataset.coverLoaded = '';
   card.innerHTML = `<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
-      ${g.fav ? '<span class="fav">★</span>' : ''}
+      ${g.fav ? '<span class="fav">' + ICON.starFill + '</span>' : ''}
       <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
     </div>
     ${g.id === App.data.runningId ? '<span class="running">运行中</span>' : ''}
@@ -255,7 +255,7 @@ function renderCards(list: Game[]): void {
       const fav = card.querySelector('.fav');
       const needFav = !!byId[id].fav;
       if (needFav && !fav) {
-        const f = document.createElement('span'); f.className = 'fav'; f.textContent = '★';
+        const f = document.createElement('span'); f.className = 'fav'; f.innerHTML = ICON.starFill;
         card.querySelector('.cover')!.appendChild(f);
       } else if (!needFav && fav) { fav.remove(); }
     }
@@ -292,15 +292,15 @@ function renderCards(list: Game[]): void {
 function openCardMenu(gameId: string, x: number, y: number): void {
   if (!_currentGame(gameId)) return;
   showContextMenu([
-    { icon: '▶', text: '启动游戏', action: () => launchGame(gameId) },
-    { icon: '📂', text: '打开本地目录', action: () => bridge.openFolder(gameId) },
+    { icon: ICON.play, text: '启动游戏', action: () => launchGame(gameId) },
+    { icon: ICON.folder, text: '打开本地目录', action: () => bridge.openFolder(gameId) },
     'sep',
-    { icon: '🗂️', text: '管理收藏夹', action: () => {
+    { icon: ICON.collection, text: '管理收藏夹', action: () => {
       const g = _currentGame(gameId); if (!g) return;
       App.data.currentGame = g; openCollectionManager();
     } },
-    { icon: '✏️', text: '编辑', action: () => { const g = _currentGame(gameId); if (g) openEdit(g); } },
-    { icon: '🔄', text: '元数据匹配', action: () => {
+    { icon: ICON.edit, text: '编辑', action: () => { const g = _currentGame(gameId); if (g) openEdit(g); } },
+    { icon: ICON.refresh, text: '元数据匹配', action: () => {
       const g = _currentGame(gameId); if (!g) return;
       bridge.matchVndb(gameId, function (s: unknown, failed?: boolean) {
         if (failed) { toast('匹配未启动'); return; }
@@ -311,7 +311,7 @@ function openCardMenu(gameId: string, x: number, y: number): void {
     } },
     'sep',
     {
-      icon: '🗑️', text: '从库中移除', danger: true, action: () => {
+      icon: ICON.trash, text: '从库中移除', danger: true, action: () => {
         const g = _currentGame(gameId); if (!g) return;
         showConfirmDialog({
           title: '从库中移除',
