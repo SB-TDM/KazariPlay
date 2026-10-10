@@ -4,6 +4,10 @@
 >
 > 本地版本分离已完成验收，公共 P0/P1 已集成 `develop` 并选择性同步 `feature/hook-translation`；实验字幕修复只留在实验分支。当前流程见 [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md)。
 
+## 主界面特性分支前端修复入口（2026-10-11）
+
+`feature/main-ui-redesign` 在 `3e3f672` 的前端审查结果统一维护于 [前端审查与修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)，包含 FR-01～FR-12 的复现步骤、根因、最小修复方向和验收条件。当前仅文档归档，问题仍待修复。该台账独立于下列 develop 试用反馈和更早的 P0/P1/P2 历史编号；不把历史 fixed 状态视为新主界面已通过验收。
+
 ## 当前试用反馈
 
 用户在 `1.4.0-beta.1` 原版 develop 试用包（源码 `85d936b`）报告三项现有问题，要求只归档，交由其他 agent 修复。详细症状、复现路径、现行代码证据、待确认范围和验收要求统一见 [试用问题交接](TRIAL_FEEDBACK_20261007.md)。本轮没有修复或重打包。

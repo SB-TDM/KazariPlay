@@ -3,6 +3,7 @@
 > 前端是**运行时内联进单个 HTML** 的经典脚本（不是模块打包）。唯一真相是 `ts/` 源；
 > `tsc` 编译到 `js/`（gitignore），`main.py` 按清单把 `js/*.js` + `partials/*.html` + css 内联。
 > 逐模块细节见 [`modules.md`](modules.md)。
+> `feature/main-ui-redesign` 后续修复先读 [2026-10-11 前端审查与修复参考](../FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)：FR-01～FR-12 的证据、根因、验收及未验证项在该文档统一维护。本页描述架构/约定，不证明所有交互已通过验收。
 
 ## 目录
 
@@ -76,5 +77,5 @@ pywebview 先注入 `window.pywebview`（`api` 为**空对象**），导航完�
 
 - 用户输入进 `innerHTML` 前必须 `esc()`（`core.ts`）。
 - 通用交互统一走 `ui.ts`：`showSheet/closeSheet/closeTopSheet`、`showConfirmDialog`、`showInputDialog`、`openPicker`、`showContextMenu`；通用勾选全选用 `makeCheckAll`。
-- 模态用 CSS `.overlay`（统一 `z-index`，靠 DOM 顺序层叠）；`Esc` 关闭最上层。
+- 模态用 CSS `.overlay`（统一 `z-index`，靠 DOM 顺序层叠）；目标是 `Esc` 只关闭最上层。当前关闭优先级及新抽屉键盘路径仍有缺口，见前端修复参考 FR-05。
 - 只改 `ts/`，改完必须 `npm run build`；新增模块登记 `main.py::_JS_MANIFEST`。
