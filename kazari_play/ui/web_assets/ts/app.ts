@@ -56,6 +56,7 @@ function bindFilterMenu(): void {
       document.querySelectorAll<HTMLElement>('#filterMenu .item').forEach(x => x.classList.remove('on'));
       it.classList.add('on');
       renderAll();
+      updateSortLabel();
     };
   });
 }
@@ -78,6 +79,7 @@ document.getElementById('filterBtn')!.onclick = function (e: MouseEvent) {
   document.getElementById('filterMenu')!.classList.toggle('show');
 };
 bindFilterMenu();
+updateSortLabel();
 
 // 侧边栏导航（全部作品 / 继续游玩 / 我的收藏；收藏夹入口在 collections.ts）
 document.querySelectorAll<HTMLElement>('#sidebar .side-item').forEach(it => {

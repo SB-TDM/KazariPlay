@@ -101,6 +101,7 @@ function applyGamesDelta(ids: string[]): void {
         // 直接调 renderCards（内部做窗口化 + DOM diff，复用未变卡片含封面），
         // 避免 renderAll 的滚动保持 + renderEmpty/updateBatchBar 全跑导致边缘重建。
         const list = filterGames(App.data.games);
+        updateNavInfo(list);
         renderCards(list);
         renderEmpty(list);
         updateBatchBar();
@@ -145,6 +146,7 @@ function renderAll(): void {
   const scroller = document.querySelector('.scroll');
   const keepTop = scroller ? scroller.scrollTop : 0;
   const list = filterGames(App.data.games);
+  updateNavInfo(list);
   renderCards(list);
   renderEmpty(list);
   updateBatchBar();
@@ -153,7 +155,7 @@ function renderAll(): void {
   }
 }
 
-function filterGames(games: Game[]): Game[] {
+function filterGames(games: Game[], ignoreKw?: boolean): Game[] {
   let list = games.slice();
   if (App.ui.state.nav === '继续游玩') {
     // 只显示最近 7 天游玩过的游戏
@@ -174,7 +176,7 @@ function filterGames(games: Game[]): Game[] {
     }
     list = list.filter(g => (g.collections || []).some(c => ids.includes(c.id)));
   }
-  if (App.ui.state.kw) {
+  if (!ignoreKw && App.ui.state.kw) {
     const k = App.ui.state.kw.toLowerCase();
     list = list.filter(g => g.title.toLowerCase().includes(k)
       || (g.dev || '').toLowerCase().includes(k)
@@ -184,6 +186,31 @@ function filterGames(games: Game[]): Game[] {
   else if (App.ui.state.sort === '评分') list.sort((a, b) => b.rating - a.rating);
   else if (App.ui.state.collectionId === null) list.sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
   return list;
+}
+
+// 副标题栏：当前视图名与数量（搜索时显示匹配数 / 视图总数）
+function updateNavInfo(list: Game[]): void {
+  const nameEl = document.getElementById('viewName');
+  const cntEl = document.getElementById('viewCount');
+  if (!nameEl || !cntEl) return;
+  let name = App.ui.state.nav || '全部作品';
+  if (App.ui.state.collectionId !== null) {
+    const all: CollectionTreeNode[] = [];
+    App.ui.state.collectionTree.forEach(g => { all.push(g); (g.children || []).forEach(c => all.push(c)); });
+    const c = all.find(x => x.id === App.ui.state.collectionId);
+    if (c) name = c.name;
+  }
+  nameEl.textContent = name;
+  const total = filterGames(App.data.games, true).length;
+  cntEl.textContent = App.ui.state.kw ? `匹配 ${list.length} / 共 ${total} 部` : `共 ${total} 部`;
+}
+
+// 排序按钮显示当前规则（与实际排序行为一致）
+function updateSortLabel(): void {
+  const b = document.getElementById('filterBtn');
+  if (!b) return;
+  const label = App.ui.state.sort === '名称' ? '作品名称' : App.ui.state.sort === '评分' ? '评分优先' : '最近游玩';
+  b.textContent = '排序：' + label + ' ▾';
 }
 
 // 运行状态角标 + 详情启动按钮状态
@@ -247,7 +274,7 @@ function renderEmpty(list: Game[]): void {
   } else if (filterEmpty) {
     document.getElementById('emptyTitle')!.textContent = '没有符合条件的结果';
     // 搜索空结果给可操作建议（阶段 G）
-    if (App.ui.state.kw) {
+  if (App.ui.state.kw) {
       document.getElementById('emptySub')!.textContent = '没有找到「' + App.ui.state.kw + '」——检查关键词拼写、试试开发商名，或清除搜索条件';
     } else {
       document.getElementById('emptySub')!.textContent = '当前收藏夹还没有游戏，试试清除筛选条件';
