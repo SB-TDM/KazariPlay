@@ -20,8 +20,8 @@
 
 **定位**：全站图标字形的唯一来源（Bootstrap Icons，16×16 视口，`currentColor`）。
 **依赖**：无（先于 core.ts 加载）。
-**定义**：`ICON`（play/folder/collection/edit/refresh/trash/controller/starFill/star/gear/smile/close/more/winMin/winMax/winRestore/chevronLeft/chevronDown/chevronRight/plus）。
-**约定**：`<svg class="ic">` 尺寸随容器 `font-size`（1em）、随主题着色；静态 HTML 图标（标题栏/侧栏/关闭按钮/关于页）内联同一路径；界面不再使用 emoji 或文字字形充当图标。
+**定义**：`ICON`（play/folder/collection/edit/refresh/trash/controller/starFill/star/gear/close/more/winMin/winMax/winRestore/chevronLeft/chevronDown/chevronRight/plus）。
+**约定**：`<svg class="ic">` 尺寸随容器 `font-size`（1em）、随主题着色；静态 HTML 图标（侧栏/关闭按钮/窗口按钮等）内联同一路径；界面不再使用 emoji 或文字字形充当图标（标题栏/关于页的笑脸 `☺` 为既有的品牌字符，保留）。
 
 ---
 

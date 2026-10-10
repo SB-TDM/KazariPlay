@@ -5,9 +5,9 @@
 ## 前端图标全量 SVG 化（2026-10-11）
 
 - **新增 `ts/icons.ts`**（Bootstrap Icons 16×16、`currentColor`）并登记 `main.py::_JS_MANIFEST`（state 之后）；`ICON.*` 供卡片/收藏夹右键菜单、评分星、收藏按钮、排序箭头、窗口按钮等复用；静态图标（标题栏/侧栏/关闭按钮/关于页）在 HTML 内联同一路径。
-- **替换全部 emoji 与符号图标**：📂🗂✏️🔄🗑🎮⚙☺▶★☆▸▾⋮‹＋─□❐✕ → 内联 SVG；移除已无消费者的 `stars()`；空状态文案不再引用 ★ 字形；窗口最大化/还原按钮改用 `data-mode` 驱动图标切换。
+- **替换 emoji 与符号图标**：📂🗂✏️🔄🗑🎮⚙▶★☆▸▾⋮‹＋─□❐✕ → 内联 SVG；**标题栏与关于页的笑脸保留原字符 `☺`**；移除已无消费者的 `stars()`；空状态文案不再引用 ★ 字形；窗口最大化/还原按钮改用 `data-mode` 驱动图标切换。
 - **样式**：新增 `.ic`（1em 随字号、`currentColor` 随主题）；右键菜单图标位、窗口按钮、抽屉箭头、FAB 等按上下文设定尺寸。
-- 验证：typecheck/build、`verify_frontend`（15 脚本块）、`test_classic_boundary`（清单同步为 15）、`test_p1_frontend`、`test_ui_ordering`、`test_bridge_contract` 通过；离线对抗回归 10 项全过；图标一致性脚本校验 22 处 HTML 图标与 `ICON` 逐字符一致、无残留字形。未做源码 GUI/原生 DPI 实机验收。
+- 验证：typecheck/build、`verify_frontend`（15 脚本块）、`test_classic_boundary`（清单同步为 15）、`test_p1_frontend`、`test_ui_ordering`、`test_bridge_contract` 通过；离线对抗回归 10 项全过；图标一致性脚本校验 HTML 图标与 `ICON` 逐字符一致、无残留字形。未做源码 GUI/原生 DPI 实机验收。
 
 ## 扫描整棵树规则与元数据匹配/封面体验优化（2026-10-08）
 
