@@ -1202,10 +1202,13 @@ class WebBridge:
           仅这些字段被覆盖。为空字符串时退回旧行为（仅填充空白字段）。
         """
         from core import multi_source
-        cand = json.loads(candidate_json)
+        try:
+            cand = json.loads(candidate_json)
+        except Exception:
+            cand = None
         g = self.manager.get_game(game_id)
         if not g or not cand:
-            return
+            return json.dumps({"ok": False, "msg": "找不到游戏或候选数据", "changed": False}, ensure_ascii=False)
         selected = None
         if fields_json and fields_json.strip():
             try:
@@ -1236,6 +1239,7 @@ class WebBridge:
         if cand.get("length_minutes") and want("length_minutes"):
             g.length_minutes = int(cand["length_minutes"])
             changed = True
+        cover_failed = False
         if cand.get("cover_url") and (selected is None and not g.cover_path or "cover" in (selected or ())):
             try:
                 covers_dir = os.path.join(get_app_data_dir(), "covers")
@@ -1250,12 +1254,20 @@ class WebBridge:
                 if multi_source.download_cover(cand, dest):
                     g.cover_path = dest
                     changed = True
+                else:
+                    cover_failed = True
             except Exception as e:
                 logger.error("下载封面失败: %s", e)
+                cover_failed = True
         if changed:
             self.manager.update_game(g)
             self.reloadCover(game_id)   # 单游戏元数据应用，只定向重载该卡封面
         self.refresh_delta([game_id])
+        if cover_failed:
+            return json.dumps({"ok": True, "changed": changed, "msg": "部分字段已应用，封面下载失败"}, ensure_ascii=False)
+        if not changed:
+            return json.dumps({"ok": True, "changed": False, "msg": "没有可应用的字段"}, ensure_ascii=False)
+        return json.dumps({"ok": True, "changed": True}, ensure_ascii=False)
 
     # ---------- 启动时自动扫描 ----------
     # ---------- 前端刷新（统一经 UISync 合并推送，见 ui/sync.py）----------

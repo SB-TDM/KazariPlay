@@ -250,8 +250,12 @@ document.getElementById('metaApplyOk')!.onclick = () => {
     .map(b => metaApplyRows[Number(b.dataset.idx)].key);
   if (keys.length === 0) { toast('没有勾选要应用的字段'); return; }
   if (metaApplyCand && App.data.editingId) {
-    bridge.applyCandidate(String(App.data.editingId), JSON.stringify(metaApplyCand), JSON.stringify(keys));
-    toast('已应用所选字段');
+    bridge.applyCandidate(String(App.data.editingId), JSON.stringify(metaApplyCand), JSON.stringify(keys), function (s: unknown) {
+      let r: { ok?: boolean; msg?: string } = {};
+      try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+      if (r && r.ok === false) { toast(r.msg || '应用失败'); return; }
+      toast(r.msg || '已应用所选字段');
+    });
   }
   closeMetaApply();
 };
