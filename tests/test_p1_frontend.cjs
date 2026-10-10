@@ -55,7 +55,10 @@ const timers = [], progressReplies = [];
 ctx.setInterval = callback => { timers.push(callback); return timers.length; };
 ctx.clearInterval = () => {};
 ctx.clearTimeout = () => {};
+ctx.setTimeout = () => 0;
 ctx.bridge.getBatchProgress = callback => progressReplies.push(callback);
+ctx.bridge.cancelScan = () => {};
+ctx.bridge.cancelMatch = () => {};
 // batch.js 载入时调用 core.makeCheckAll（仅建立全选绑定）；本测试不覆盖该控件，提供最小桩
 ctx.makeCheckAll = () => ({ boxes: () => [], update() {} });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/batch.js'), 'utf8'), ctx);
@@ -70,4 +73,20 @@ ctx.updateScanProgress({ running: true, dirs: 1, games: 1 });
 const scanGeneration = vm.runInContext('bpGeneration', ctx);
 progressReplies[1]('{"running":false}');
 assert.equal(vm.runInContext('bpGeneration', ctx), scanGeneration, 'old match response must not hide new scan');
+
+// C11：取消等待中，扫描进度推送不得重新启用取消按钮或覆盖“正在取消…”文案
+const cancelBtn = element('bpCancel');
+cancelBtn.disabled = false;
+cancelBtn.style.display = '';
+ctx.updateScanProgress({ running: true, dirs: 1, games: 1 });
+cancelBtn.onclick();
+assert.equal(cancelBtn.disabled, true, 'cancel click disables button');
+assert.equal(cancelBtn.textContent, '正在取消…');
+assert.equal(vm.runInContext('cancelPending', ctx), true);
+ctx.updateScanProgress({ running: true, dirs: 3, games: 2 });
+assert.equal(cancelBtn.disabled, true, 'progress push must not re-enable while cancelling');
+assert.equal(cancelBtn.textContent, '正在取消…');
+ctx.updateScanProgress({ running: false });
+assert.equal(vm.runInContext('cancelPending', ctx), false, 'task end clears cancel-pending latch');
+
 console.log('P1 FRONTEND PASS: screenshot target/response isolation and progress generation');

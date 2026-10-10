@@ -47,6 +47,8 @@ function batchPickCollection(mode: 'add' | 'remove' | 'move'): void {
 // ---------- 批量进度条（VNDB 批量匹配等耗时操作反馈） ----------
 let bpTimer: ReturnType<typeof setInterval> | null = null;
 let bpGeneration = 0;
+// 用户已点击取消、等待后端真正结束：期间进度推送不得重置取消按钮
+let cancelPending = false;
 
 function showBatchProgress(title: string): void {
   // 取消扫描进度的延迟隐藏，避免刚显示就被扫描结束的定时器收起
@@ -63,9 +65,9 @@ function hideBatchProgress(): void {
   if (bpTimer) { clearInterval(bpTimer); bpTimer = null; }
   const box = document.getElementById('batchProgress');
   if (box) box.classList.remove('show');
-  // 任务结束后恢复取消按钮（下次任务重新可用）
+  // 任务结束后恢复取消按钮（下次任务重新可用）；取消等待中不恢复
   const cancelBtn = document.getElementById('bpCancel') as HTMLButtonElement | null;
-  if (cancelBtn) cancelBtn.disabled = false;
+  if (cancelBtn && !cancelPending) cancelBtn.disabled = false;
 }
 
 // 轮询后端批量任务进度；完成（running=false）时收起并提示
@@ -80,13 +82,14 @@ function trackBatchProgress(title: string): void {
   const subEl = document.getElementById('bpSub');
   const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
   cancelMode = 'match';
-  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; (cancelBtn as HTMLButtonElement).disabled = false; }
+  if (cancelBtn && !cancelPending) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消匹配'; (cancelBtn as HTMLButtonElement).disabled = false; }
   bpTimer = setInterval(function () {
     bridge.getBatchProgress(function (s: unknown) {
       if (generation !== bpGeneration) return;
       let p: BatchProgress = {};
       try { p = JSON.parse(String(s || '{}')) as BatchProgress; } catch (e) { }
       if (!p || !p.running) {
+        cancelPending = false;   // 任务真正结束，取消等待解除
         hideBatchProgress();
         return;
       }
@@ -119,7 +122,8 @@ function updateScanProgress(p: ScanProgress): void {
   if (!box) return;
   const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
   if (!p || !p.running) {
-    // 扫描结束：延迟收起（让用户看到最终进度），隐藏取消按钮
+    // 扫描结束：解除取消等待，延迟收起（让用户看到最终进度），隐藏取消按钮
+    cancelPending = false;
     if (scanHideTimer) clearTimeout(scanHideTimer);
     scanHideTimer = setTimeout(() => {
       box.classList.remove('show');
@@ -137,7 +141,7 @@ function updateScanProgress(p: ScanProgress): void {
   const folderIdx = (p.index && p.total) ? `（目录 ${p.index}/${p.total}）` : '';
   document.getElementById('bpSub')!.textContent =
     `已扫描 ${p.dirs || 0} 个文件夹 · 发现 ${games} 个游戏 ${folderIdx}`;
-  if (cancelBtn) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消扫描'; (cancelBtn as HTMLButtonElement).disabled = false; }
+  if (cancelBtn && !cancelPending) { cancelBtn.style.display = ''; cancelBtn.textContent = '取消扫描'; (cancelBtn as HTMLButtonElement).disabled = false; }
   cancelMode = 'scan';
   box.classList.add('show');
 }
@@ -148,9 +152,10 @@ function updateBatchProgress(p: { running?: boolean; title?: string }): void {
   if (p && p.running) {
     cancelMode = 'match';
     const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
-    if (cancelBtn) cancelBtn.textContent = '取消匹配';
+    if (cancelBtn && !cancelPending) cancelBtn.textContent = '取消匹配';
     trackBatchProgress(p.title || '批量处理中…');
   } else {
+    cancelPending = false;   // 任务真正结束，取消等待解除
     hideBatchProgress();
   }
 }
@@ -272,7 +277,7 @@ document.getElementById('pickerClose')!.onclick = () => closeSheet('pickerOverla
 // 取消按钮：按当前阶段取消扫描或 VNDB 匹配
 document.getElementById('bpCancel')!.onclick = () => {
   const btn = document.getElementById('bpCancel') as HTMLButtonElement | null;
-  // 立即反馈“正在取消”（实际终止可能需等在途请求返回）
-  if (btn && !btn.disabled) { btn.disabled = true; btn.textContent = '正在取消…'; }
+  // 立即反馈“正在取消”（实际终止可能需等在途请求返回）；置位后进度推送不再重置按钮
+  if (btn && !btn.disabled) { btn.disabled = true; btn.textContent = '正在取消…'; cancelPending = true; }
   if (cancelMode === 'match') bridge.cancelMatch(); else bridge.cancelScan();
 };
