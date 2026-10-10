@@ -76,10 +76,15 @@ function showFormError(rowId: string, msg: string): void {
   row.classList.add('has-error');
   const err = document.createElement('div');
   err.className = 'form-error';
+  err.id = rowId + '-error';
   err.textContent = msg;
   row.appendChild(err);
   const input = row.querySelector('input, select, textarea') as HTMLElement | null;
-  if (input) input.focus();
+  if (input) {
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', err.id);
+    input.focus();
+  }
 }
 
 function clearFormError(rowId: string): void {
@@ -88,6 +93,8 @@ function clearFormError(rowId: string): void {
   row.classList.remove('has-error');
   const old = row.querySelector('.form-error');
   if (old) old.remove();
+  const input = row.querySelector('input, select, textarea');
+  if (input) { input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby'); }
 }
 
 function saveForm(): void {

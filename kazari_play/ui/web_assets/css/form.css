@@ -38,6 +38,7 @@
   .dialog.edit-form .dlg-foot{flex:none;padding:12px 26px 16px;}
 
   /* 表单内联校验错误：红边 + 行下提示（与 label 列对齐） */
+  .form-row.has-error{flex-wrap:wrap;}
   .form-row.has-error input, .form-row.has-error select, .form-row.has-error textarea{border-color:#ff6f81;}
   .form-error{flex-basis:100%;font-size:11.5px;color:#ff6f81;line-height:1.5;margin-top:2px;padding-left:74px;}
 
