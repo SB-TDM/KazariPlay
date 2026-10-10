@@ -10,7 +10,7 @@
     transition:border-color .2s var(--soft),color .2s;user-select:none;}
   .src-chip img{width:14px;height:14px;border-radius:3px;}
   .src-chip:hover{border-color:var(--pink);color:var(--pink-deep);}
-  .src-chip.on{background:var(--grad-pink);color:#fff;border-color:transparent;}
+  .src-chip.on{background:var(--action-bg);color:var(--action-fg);border-color:transparent;}
   .src-chip.on:hover{color:#fff;}
   .src-chip.off{opacity:.5;cursor:default;}
   .src-chip.off:hover{border-color:var(--border-soft);color:var(--text-sub);}

@@ -11,6 +11,8 @@
     --mint:#7fd8be; --yellow:#ffd97d; --star:#ffb020;
     --grad-pink:linear-gradient(135deg,#ffb3c1,#ff8fab);
     --grad-mint:linear-gradient(135deg,#b5ead7,#7fd8be);
+    /* 白字承载控件用的深色操作色（保证 ≥4.5:1）；装饰性粉色仍用 --grad-pink */
+    --action-bg:#c22a63; --action-fg:#ffffff; --action-mint-bg:#1f7a63;
     --radius-lg:18px; --radius-md:12px; --card-w:154px; --card-h:210px;
     --titlebar-h:40px; --sidebar-w:140px; --nav-h:44px;
     --navbar-bg:rgba(255,255,255,.6);
@@ -36,6 +38,7 @@
     --border-soft:#3a3049; --border-strong:#ef86ad;
     --grad-pink:linear-gradient(135deg,#8a4f72,#ef86ad);
     --grad-mint:linear-gradient(135deg,#3d6b5e,#6cc5ab);
+    --action-bg:#b8406a; --action-fg:#ffffff; --action-mint-bg:#26795f;
     --navbar-bg:rgba(28,22,40,.72);
     --shadow-dlg:0 14px 40px rgba(0,0,0,.6);
     --glow-soft:rgba(239,134,173,.08);
