@@ -14,7 +14,7 @@
     /* 白字承载控件用的深色操作色（保证 ≥4.5:1）；装饰性粉色仍用 --grad-pink */
     --action-bg:#c22a63; --action-fg:#ffffff; --action-mint-bg:#1f7a63;
     --radius-lg:18px; --radius-md:12px; --card-w:154px; --card-h:210px;
-    --titlebar-h:40px; --sidebar-w:140px; --nav-h:44px;
+    --titlebar-h:40px; --sidebar-w:72px; --nav-h:44px;
     --navbar-bg:rgba(255,255,255,.6);
     --border-soft:#ffd7e0; --border-strong:#ff8fab;
     --shadow-dlg:0 14px 40px rgba(120,70,110,.30);

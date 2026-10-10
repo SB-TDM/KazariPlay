@@ -33,15 +33,17 @@
                  box-shadow:0 4px 12px var(--glow-strong);}
   .navbtn.active:hover{color:var(--action-fg);}
 
-  /* 侧边栏 */
+  /* 侧边栏（72px 图标列） */
   .sidebar{width:var(--sidebar-w);flex:none;background:var(--bg-sidebar);
            border-right:1px solid var(--glow-soft);display:flex;flex-direction:column;
-           padding:8px 6px 20px;} /* 底部留白：避免「设置」按钮落入窗口缩放热区 */
+           align-items:center;padding:8px 0 20px;} /* 底部留白：避免「设置」按钮落入窗口缩放热区 */
   .side-item{display:flex;align-items:center;justify-content:center;gap:9px;height:38px;padding:0 12px;color:var(--text-sub);
              font-size:15px;cursor:pointer;border-radius:50px;transition:transform .22s var(--soft),background .2s,color .2s;}
+  .sidebar .side-item{width:46px;height:44px;padding:0;border-radius:14px;font-size:17px;flex:none;margin:0 0 2px;}
+  .sidebar .side-item:disabled{opacity:.45;cursor:default;}
   .side-item:hover{background:var(--bg-hover);color:var(--pink-deep);transform:translateX(2px);}
+  .sidebar .side-item:hover{transform:none;}
   .side-item.active{color:var(--action-fg);background:var(--action-bg);box-shadow:0 3px 10px var(--glow-med);}
-  .side-sep{height:1px;background:var(--glow-soft);margin:8px 10px;border-radius:1px;}
   .side-spacer{flex:1;}
 
   /* 主区域 */
