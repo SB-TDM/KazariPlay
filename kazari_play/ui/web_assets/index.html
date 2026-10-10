@@ -20,20 +20,28 @@
   </div>
 
   <div class="row">
-    <!-- 侧边栏 -->
+    <!-- 侧边栏（图标列）：导航 + 收藏夹入口 + 底部功能 -->
     <div class="sidebar" id="sidebar">
-      <button type="button" class="side-item active" data-nav="全部作品">全部作品</button>
-      <button type="button" class="side-item" data-nav="继续游玩">继续游玩</button>
-      <button type="button" class="side-item" data-nav="我的收藏">我的收藏</button>
-      <div class="side-sep"></div>
-      <div class="collection-tree" id="collectionTree"></div>
-      <button type="button" class="side-item" id="btnNewCollection">＋ 新建收藏夹</button>
+      <button type="button" class="side-item active" data-nav="全部作品" id="btnNavAll" title="全部作品" aria-label="全部作品">▦</button>
+      <button type="button" class="side-item" data-nav="我的收藏" id="btnNavFav" title="我的最爱" aria-label="我的最爱">★</button>
+      <button type="button" class="side-item" id="btnCollections" title="收藏夹" aria-label="收藏夹" aria-expanded="false">🗂</button>
       <div class="side-spacer"></div>
-      <button type="button" class="side-item" id="btnSettings">设置</button>
+      <button type="button" class="side-item" id="btnHome" title="个人主页（暂未开放）" aria-label="个人主页（暂未开放）" disabled>☺</button>
+      <button type="button" class="side-item" id="btnTheme" title="切换亮/暗主题" aria-label="切换亮/暗主题">☾</button>
+      <button type="button" class="side-item" id="btnSettings" title="设置" aria-label="设置">⚙</button>
     </div>
 
     <!-- 主区域 -->
     <div class="main">
+      <div class="collection-scrim" id="collectionScrim"></div>
+      <div class="collection-drawer" id="collectionDrawer">
+        <div class="cd-head">
+          <span class="cd-title">收藏夹</span>
+          <button type="button" class="cd-new" id="btnNewCollection">＋ 新建</button>
+          <button type="button" class="cd-close" id="btnCollectionsClose" aria-label="收起收藏夹">‹</button>
+        </div>
+        <div class="collection-tree" id="collectionTree"></div>
+      </div>
       <div class="navbar">
         <div class="nav-view">
           <span class="view-name" id="viewName">全部作品</span>

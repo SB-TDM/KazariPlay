@@ -81,9 +81,8 @@ document.getElementById('filterBtn')!.onclick = function (e: MouseEvent) {
 bindFilterMenu();
 updateSortLabel();
 
-// 侧边栏导航（全部作品 / 继续游玩 / 我的收藏；收藏夹入口在 collections.ts）
-document.querySelectorAll<HTMLElement>('#sidebar .side-item').forEach(it => {
-  if (it.id === 'btnNewCollection' || it.id === 'btnSettings') return;
+// 侧边栏导航（全部作品 / 我的收藏；收藏夹入口在下方浮层）
+document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(it => {
   it.onclick = () => {
     App.ui.state.nav = it.dataset.nav!;
     App.ui.state.collectionId = null;
@@ -98,6 +97,27 @@ document.querySelectorAll<HTMLElement>('#sidebar .side-item').forEach(it => {
 // 设置入口
 document.getElementById('btnSettings')!.onclick = () => {
   if (window.Settings) window.Settings.open();
+  else toast('设置模块加载失败');
+};
+
+// 收藏夹浮层（S3）：侧栏入口开关、遮罩/关闭按钮收起、Esc 收起
+const collectionDrawer = document.getElementById('collectionDrawer')!;
+const collectionScrim = document.getElementById('collectionScrim')!;
+const btnCollections = document.getElementById('btnCollections')!;
+function setCollectionDrawer(open: boolean): void {
+  collectionDrawer.classList.toggle('show', open);
+  collectionScrim.classList.toggle('show', open);
+  btnCollections.classList.toggle('active', open);
+  btnCollections.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+btnCollections.onclick = () => setCollectionDrawer(!collectionDrawer.classList.contains('show'));
+collectionScrim.onclick = () => setCollectionDrawer(false);
+document.getElementById('btnCollectionsClose')!.onclick = () => setCollectionDrawer(false);
+
+// 主题切换（即时持久化，复用设置模块）
+document.getElementById('btnTheme')!.onclick = () => {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (window.Settings) window.Settings.pickTheme(dark ? 'light' : 'dark');
   else toast('设置模块加载失败');
 };
 
@@ -131,6 +151,7 @@ document.addEventListener('keydown', e => {
       App.ui.state.selected.clear();
       renderAll();
     }
+    else if (collectionDrawer.classList.contains('show')) setCollectionDrawer(false);
     else closeTopSheet();
   }
 });
