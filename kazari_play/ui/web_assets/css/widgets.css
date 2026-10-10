@@ -21,7 +21,8 @@
 
   /* 批量工具栏 */
   .batchbar{position:absolute;left:50%;transform:translate(-50%,16px);bottom:24px;z-index:30;
-            display:none;align-items:center;gap:6px;background:var(--bg-panel);
+            display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;
+            max-width:calc(100% - 24px);background:var(--bg-panel);
             border:1.5px solid var(--border-soft);border-radius:50px;padding:8px 14px;
             box-shadow:0 14px 32px var(--glow-med);opacity:0;
             transition:opacity .22s,transform .28s var(--bounce);}
