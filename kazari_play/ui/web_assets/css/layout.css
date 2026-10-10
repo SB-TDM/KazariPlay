@@ -41,6 +41,11 @@
              font-size:15px;cursor:pointer;border-radius:50px;transition:transform .22s var(--soft),background .2s,color .2s;}
   .sidebar .side-item{width:46px;height:44px;padding:0;border-radius:14px;font-size:17px;flex:none;margin:0 0 2px;}
   .sidebar .side-item:disabled{opacity:.45;cursor:default;}
+  .sidebar .side-item svg{width:20px;height:20px;display:block;}
+  /* 主题按钮图标随亮暗切换：亮色显示太阳，暗色显示月亮 */
+  #btnTheme .icon-moon{display:none;}
+  :root[data-theme="dark"] #btnTheme .icon-sun{display:none;}
+  :root[data-theme="dark"] #btnTheme .icon-moon{display:block;}
   .side-item:hover{background:var(--bg-hover);color:var(--pink-deep);transform:translateX(2px);}
   .sidebar .side-item:hover{transform:none;}
   .side-item.active{color:var(--action-fg);background:var(--action-bg);box-shadow:0 3px 10px var(--glow-med);}
