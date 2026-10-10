@@ -15,7 +15,7 @@
           z-index:50;position:relative;
           display:flex;align-items:center;padding:0 16px;gap:10px;flex:none;
           border-bottom:1px solid var(--border-soft);}
-  .search{flex:1 1 320px;max-width:460px;min-width:0;
+  .search{position:absolute;left:50%;transform:translateX(-50%);width:min(460px,55%);
           display:flex;align-items:center;background:var(--bg-panel);
           border:1.5px solid var(--border-soft);border-radius:50px;height:32px;padding:0 14px;gap:6px;
           box-shadow:inset 0 1px 3px var(--glow-soft);transition:border-color .2s,box-shadow .2s;}
