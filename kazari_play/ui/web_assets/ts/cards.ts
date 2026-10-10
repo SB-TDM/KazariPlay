@@ -125,11 +125,14 @@ function buildCard(g: Game): HTMLElement {
       <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
     </div>
     ${g.id === App.data.runningId ? '<span class="running">运行中</span>' : ''}
-    <div class="meta"><span class="dev">${esc(g.dev || '未知')}</span><span class="stars">${stars(g.rating)}</span></div>`;
+    <div class="meta"><span class="title" title="${esc(g.title || '未命名游戏')}">${esc(g.title || '未命名游戏')}</span><span class="score">${(g.rating || 0).toFixed(1)}</span></div>`;
   card.onclick = () => { if (App.ui.state.batch) toggleSelect(g.id, card); else openDetail(g); };
   // 键盘可达：卡片作为可聚焦交互元素（Enter/空格 触发与点击一致）
   card.tabIndex = 0;
   card.setAttribute('role', 'button');
+  const fullName = g.title || '未命名游戏';
+  card.title = fullName;
+  card.setAttribute('aria-label', fullName);
   card.onkeydown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -192,14 +195,17 @@ function renderCards(list: Game[]): void {
         }
         if (coverObserver) coverObserver.observe(card);
       }
-      // 复用节点：仅更新可能变化的字段（fav/选中/评分/开发商）
+      // 复用节点：仅更新可能变化的字段（游戏名/评分/选中/收藏）
       if (card.className.indexOf('selected') >= 0 !== App.ui.state.selected.has(id))
         card.classList.toggle('selected', App.ui.state.selected.has(id));
       const meta = card.querySelector('.meta')!;
-      const dev = meta.querySelector('.dev');
-      if (dev && dev.textContent !== (byId[id].dev || '未知')) dev.textContent = byId[id].dev || '未知';
-      const st = meta.querySelector('.stars');
-      if (st && st.textContent !== stars(byId[id].rating)) st.textContent = stars(byId[id].rating);
+      const fullName = byId[id].title || '未命名游戏';
+      const titleEl = meta.querySelector('.title');
+      if (titleEl && titleEl.textContent !== fullName) { titleEl.textContent = fullName; titleEl.setAttribute('title', fullName); }
+      if (card.title !== fullName) { card.title = fullName; card.setAttribute('aria-label', fullName); }
+      const scoreEl = meta.querySelector('.score');
+      const scoreText = (byId[id].rating || 0).toFixed(1);
+      if (scoreEl && scoreEl.textContent !== scoreText) scoreEl.textContent = scoreText;
       const fav = card.querySelector('.fav');
       const needFav = !!byId[id].fav;
       if (needFav && !fav) {

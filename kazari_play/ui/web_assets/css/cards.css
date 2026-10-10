@@ -40,6 +40,8 @@
               padding:0 10px;font-size:12px;color:var(--text-sub);background:var(--bg-panel);
               white-space:nowrap;overflow:hidden;}
   .card .meta .dev{overflow:hidden;text-overflow:ellipsis;}
+  .card .meta .title{overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+  .card .meta .score{flex:none;margin-left:6px;color:var(--star);font-weight:600;font-variant-numeric:tabular-nums;}
   .card .stars{color:var(--star);font-size:12px;letter-spacing:1px;flex:none;
                text-shadow:0 1px 2px rgba(255,176,32,.2);}
   .card .fav{position:absolute;top:6px;right:9px;z-index:3;font-size:14px;color:var(--star);
