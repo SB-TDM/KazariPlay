@@ -37,19 +37,28 @@ function renderHomeHead(): void {
 }
 
 // ---------- 继续游玩：按 last_played 倒序，数量随容器宽度自适应（1~6，一行放下） ----------
+// 重建前比较签名（顺序 + 卡片展示字段 + cover_version）：完全未变则保留现有卡片与已加载封面
+// （运行中角标由 markRunning 就地更新，不参与签名，避免启动/退出游戏引发无谓重建）
+let _homeContinueSig: string | null = null;
 function renderHomeContinue(): void {
   const box = document.getElementById('homeContinue')!;
   const sec = document.getElementById('homeContinueSec') as HTMLElement;
   const played = App.data.games.filter(g => !!g.last_played)
     .sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
-  if (!played.length) { sec.hidden = true; box.innerHTML = ''; return; }
-  sec.hidden = false;
+  const empty = played.length === 0;
+  if (!empty) sec.hidden = false;   // 数量依赖容器宽度：先显形再测量（隐藏时 clientWidth 为 0）
   const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
   const gap = 14;
   const fit = box.clientWidth ? Math.floor((box.clientWidth + gap) / (cardW + gap)) : HOME_CONTINUE_LIMIT;
   const count = Math.max(1, Math.min(HOME_CONTINUE_LIMIT, fit));
+  const list = played.slice(0, count);
+  const sig = list.map(g => [g.id, g.title || '', g.rating || 0, g.fav ? 1 : 0,
+    g.cover_version || 0].join(':')).join('|');
+  if (sig === _homeContinueSig) return;   // 无变化：保留卡片与封面（含空态）
+  _homeContinueSig = sig;
+  if (empty) { sec.hidden = true; box.innerHTML = ''; return; }
   box.innerHTML = '';
-  played.slice(0, count).forEach(g => {
+  list.forEach(g => {
     const card = buildCard(g);
     box.appendChild(card);
     loadCardCover(card);   // 主页卡片不在列表滚动容器内，直接加载封面
