@@ -62,7 +62,7 @@
 
 | 文档 | 状态 |
 |---|---|
-| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.1（个人化聚合仪表盘：问候/继续游玩/统计/收藏夹快捷）；待评审，未实施 |
+| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.2（个人化聚合仪表盘：问候/继续游玩/统计/收藏夹快捷）+ 实施计划草案；工作分支 `feature/home-page`，未实施 |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
