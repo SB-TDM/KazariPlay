@@ -2,11 +2,17 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 修复最大化/还原无效：窗口句柄被同名 Shell 窗口抢占（2026-10-11）
+
+- **根因**：`_win32_hwnd()` 用 `FindWindowW(None, WINDOW_TITLE)` 按标题取句柄；Windows 11 的 Shell 内部窗口 `Windows.Internal.Shell.TabProxyWindow` 会以同名标题先被命中（探针实测：该句柄属于其它进程、类名为 `TabProxyWindow`）。于是 `ShowWindow(SW_RESTORE)` 作用到错误窗口且返回成功，应用把 `_maximized` 置回 False，主窗口却仍最大化——表现为“最大化后点还原没反应 / 疑似没绑定”。
+- **修复**：`_win32_hwnd()` 改为枚举顶层窗口，取「本进程 + `WindowsForms10` 类 + 标题匹配」的主窗口并缓存，仅找不到时退回 `FindWindowW`；其余窗口逻辑保持原版（本地 `_maximized` + `_restore_win32`）。
+- **验证**：pywebview 探针在真实窗口上运行同一查找算法——返回值等于本进程主窗、而 `FindWindowW` 返回同名 TabProxy 窗口；对该句柄 `SW_MAXIMIZE`/`SW_RESTORE` 均生效。typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 通过。
+
 ## 最大化按钮改为沿用原版实现（2026-10-11）
 
 - **背景**：曾为“最大化后无法还原”把切换改成“后端按 Win32 `IsZoomed` 判定真实状态并回传前端驱动 UI”，但实机表现为点击后按钮样式不再更新；经用户指出——原版实现是正常的。
 - **处理**：
-  - 后端窗口方法全部回退原版：`windowToggleMaximize` 恢复本地 `_maximized` 标志 + `_restore_win32`，不返回状态、不做 `IsZoomed` 判定、`windowResize` 恢复原守卫；`web_bridge.py` 相对基线 `3e3f672` 无差异。
+  - 后端窗口方法回退原版：`windowToggleMaximize` 恢复本地 `_maximized` 标志 + `_restore_win32`，不返回状态、不做 `IsZoomed` 判定、`windowResize` 恢复原守卫（句柄查找的后续修复见上一节）。
   - 前端 `toggleMax` 沿用原版本地切换；因按钮内容已 SVG 化（原版为文本 `□`/`❐`），状态标记改用 `aria-label`（`最大化` ↔ `还原窗口`），点击后切 `.maximized` 类并切换 `ICON.winMax` / `ICON.winRestore`。
 - **验证**：typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 通过；Playwright（桩桥）与真实 pywebview 端到端（组装 HTML + `js_api`）均确认「标签 / `.maximized` / 图标」两次点击正确往返，每次点击只调用一次 `windowToggleMaximize`。
 

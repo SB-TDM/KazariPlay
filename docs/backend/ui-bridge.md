@@ -111,7 +111,8 @@
 - `_on_game_start` → `running=id` + `refresh_delta`；`_on_game_exit` → `running=""` + `refresh_delta`
 
 ### 窗口控制
-- `windowMinimize` / `windowToggleMaximize`（frameless 下 restore 用 Win32 `SW_RESTORE`，按 `WINDOW_TITLE` FindWindow；以本地 `_maximized` 标志切换方向）/ `windowMaximize` / `windowRestore` / `windowClose`（先 `overlay_client.quit()` 再 `destroy`）
+- 句柄查找 `_win32_hwnd()`：按「本进程 + `WindowsForms10` 类 + 标题匹配」枚举主窗口并缓存（不能只用 `FindWindowW` 按标题——Windows 11 同名 Shell `TabProxyWindow` 会先被命中）。
+- `windowMinimize` / `windowToggleMaximize`（frameless 下 restore 用 Win32 `SW_RESTORE`；以本地 `_maximized` 标志切换方向）/ `windowMaximize` / `windowRestore` / `windowClose`（先 `overlay_client.quit()` 再 `destroy`）
 - 拖拽：`windowStartDrag`/`windowMoveDrag`/`windowEndDrag`（锚点 + 鼠标全局坐标）
 - 缩放：`windowResizeStart` + `windowResize(direction, dx, dy)`（起始几何 + 累计位移；最小 900×620；最大化时忽略）
 
