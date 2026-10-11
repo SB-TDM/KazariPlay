@@ -1,7 +1,7 @@
 // ============================================================
 // home.ts — 主页（默认视图）：问候/日期、继续游玩、统计、收藏夹快捷、空库引导
-// 依赖：state.ts / core.ts（bridge/esc）/ cards.ts（buildCard/loadCardCover）/
-//       collections.ts（selectCollection，运行时调用）
+// 依赖：state.ts / core.ts（bridge/esc）/ cards.ts（buildCard/syncCard/loadCardCover/cardCols）/
+//       games.ts（compareLastPlayedDesc）/ collections.ts（selectCollection），均运行时调用
 // 定义：updateHomeView（由 games.renderAll / applyGamesDelta 调用）
 // 被依赖：games.ts（渲染链路）；默认视图由 state.ts 的 nav='主页' 决定
 // ============================================================
@@ -22,6 +22,11 @@ function renderHomeSections(): void {
   renderHomeContinue();
   renderHomeStats();
   renderHomeCollections();
+  renderHomeEmpty();
+}
+
+// 空库引导：有作品时隐藏
+function renderHomeEmpty(): void {
   document.getElementById('homeEmpty')!.hidden = App.data.games.length !== 0;
 }
 
@@ -44,16 +49,14 @@ function renderHomeContinue(): void {
   const box = document.getElementById('homeContinue')!;
   const sec = document.getElementById('homeContinueSec') as HTMLElement;
   const played = App.data.games.filter(g => !!g.last_played)
-    .sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
+    .sort(compareLastPlayedDesc);
   if (!played.length) {
     if (_homeContinueIds.length) { box.innerHTML = ''; _homeContinueIds = []; }
     sec.hidden = true;
     return;
   }
   sec.hidden = false;   // 数量依赖容器宽度：先显形再测量（隐藏时 clientWidth 为 0）
-  const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
-  const gap = 14;
-  const fit = box.clientWidth ? Math.floor((box.clientWidth + gap) / (cardW + gap)) : HOME_CONTINUE_LIMIT;
+  const fit = box.clientWidth ? cardCols(box.clientWidth) : HOME_CONTINUE_LIMIT;
   const count = Math.max(1, Math.min(HOME_CONTINUE_LIMIT, fit));
   const list = played.slice(0, count);
   const byId: Record<string, Game> = {}; list.forEach(g => byId[g.id] = g);
@@ -108,27 +111,26 @@ function formatTotalMinutes(minutes: number): string {
   return m ? `${h} 小时 ${m} 分钟` : `${h} 小时`;
 }
 
+// 统计：就地更新静态骨架节点（不整体重建，保留节点身份与焦点）
 function renderHomeStats(): void {
   const games = App.data.games;
   const total = games.length;
   const fav = games.filter(g => g.fav).length;
   const minutes = games.reduce((s, g) => s + (g.play_time || 0), 0);
-  const latest = games.filter(g => g.last_played)
-    .sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''))[0] as Game | undefined;
+  const latest: Game | undefined = games.filter(g => g.last_played).sort(compareLastPlayedDesc)[0];
   const recentText = latest ? (latest.last_text || '—') : '无';
-  const box = document.getElementById('homeStats')!;
-  box.innerHTML = `
-    <button type="button" class="home-stat" id="homeStatTotal" aria-label="共 ${total} 部作品，查看全部作品"><b>${total}</b><span>作品总数</span></button>
-    <button type="button" class="home-stat" id="homeStatFav" aria-label="共 ${fav} 部收藏，查看我的最爱"><b>${fav}</b><span>收藏数</span></button>
-    <div class="home-stat"><b>${formatTotalMinutes(minutes)}</b><span>总游玩时长</span></div>
-    <div class="home-stat"><b>${esc(recentText)}</b><span>最近一次游玩</span></div>`;
-  (document.getElementById('homeStatTotal') as HTMLButtonElement).onclick = () =>
-    (document.getElementById('btnNavAll') as HTMLElement).click();
-  (document.getElementById('homeStatFav') as HTMLButtonElement).onclick = () =>
-    (document.getElementById('btnNavFav') as HTMLElement).click();
+  const totalBtn = document.getElementById('homeStatTotal') as HTMLButtonElement;
+  const favBtn = document.getElementById('homeStatFav') as HTMLButtonElement;
+  totalBtn.querySelector('b')!.textContent = String(total);
+  totalBtn.setAttribute('aria-label', `共 ${total} 部作品，查看全部作品`);
+  favBtn.querySelector('b')!.textContent = String(fav);
+  favBtn.setAttribute('aria-label', `共 ${fav} 部收藏，查看我的最爱`);
+  (document.getElementById('homeStatTime')!.querySelector('b') as HTMLElement).textContent = formatTotalMinutes(minutes);
+  (document.getElementById('homeStatRecent')!.querySelector('b') as HTMLElement).textContent = recentText;
 }
 
 // ---------- 收藏夹快捷：按树序平铺前 8 个，点击走抽屉同款筛选路径 ----------
+let _homeChipSig = '';
 function renderHomeCollections(): void {
   const box = document.getElementById('homeCollections')!;
   const sec = document.getElementById('homeCollectionsSec') as HTMLElement;
@@ -138,6 +140,9 @@ function renderHomeCollections(): void {
     (g.children || []).forEach(c => items.push({ node: c, label: g.name + ' / ' + c.name }));
   });
   const shown = items.slice(0, HOME_CHIP_LIMIT);
+  const sig = shown.map(it => it.node.id + ':' + it.label).join('|');
+  if (sig === _homeChipSig) return;   // 无变化：保留现有 chips（及其焦点）
+  _homeChipSig = sig;
   if (!shown.length) { sec.hidden = true; box.innerHTML = ''; return; }
   sec.hidden = false;
   box.innerHTML = '';
@@ -154,4 +159,8 @@ function renderHomeCollections(): void {
 
 // ---------- 事件绑定 ----------
 document.getElementById('homeScanBtn')!.onclick = () => bridge.scanFolder();
+(document.getElementById('homeStatTotal') as HTMLButtonElement).onclick = () =>
+  (document.getElementById('btnNavAll') as HTMLElement).click();
+(document.getElementById('homeStatFav') as HTMLButtonElement).onclick = () =>
+  (document.getElementById('btnNavFav') as HTMLElement).click();
 bindHomeResize();

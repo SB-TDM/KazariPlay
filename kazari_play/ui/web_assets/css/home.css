@@ -22,7 +22,7 @@
   .home-sub{margin-top:3px;font-size:12.5px;color:var(--text-sub);}
 
   /* 分区标题 */
-  .home-sec[hidden]{display:none;}
+  .home-sec[hidden], .home-empty[hidden]{display:none;}
   .home-sec-title{font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:10px;}
 
   /* 继续游玩：复用现有卡片（固定尺寸），跟随封面档位自动换行 */
@@ -47,13 +47,8 @@
              transition:transform .2s var(--bounce),border-color .2s,color .2s;}
   .home-chip:hover{transform:translateY(-1px);border-color:var(--pink);color:var(--pink-deep);}
 
-  /* 空库引导 */
+  /* 空库引导（主按钮复用 base.css 的 .btn-primary） */
   .home-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
               padding:56px 0 30px;text-align:center;}
-  .home-empty[hidden]{display:none;}
   .home-empty h2{font-size:22px;color:var(--text);}
   .home-empty p{font-size:13.5px;color:var(--text-sub);}
-  .home-empty .primary{height:44px;padding:0 24px;border:none;border-radius:50px;cursor:pointer;
-                       font-size:14px;font-weight:bold;font-family:var(--font);
-                       background:var(--grad-pink);color:#fff;box-shadow:0 4px 12px var(--glow-strong);}
-  .home-empty .primary:hover{transform:translateY(-2px);}

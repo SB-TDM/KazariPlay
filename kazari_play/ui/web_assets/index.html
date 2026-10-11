@@ -86,8 +86,8 @@
           <div class="home-stats" id="homeStats">
             <button type="button" class="home-stat" id="homeStatTotal" aria-label="查看全部作品"><b>0</b><span>作品总数</span></button>
             <button type="button" class="home-stat" id="homeStatFav" aria-label="查看我的最爱"><b>0</b><span>收藏数</span></button>
-            <div class="home-stat"><b>0 分钟</b><span>总游玩时长</span></div>
-            <div class="home-stat"><b>无</b><span>最近一次游玩</span></div>
+            <div class="home-stat" id="homeStatTime"><b>0 分钟</b><span>总游玩时长</span></div>
+            <div class="home-stat" id="homeStatRecent"><b>无</b><span>最近一次游玩</span></div>
           </div>
         </section>
         <section class="home-sec" id="homeCollectionsSec" hidden>
@@ -97,14 +97,14 @@
         <div class="home-empty" id="homeEmpty" hidden>
           <h2>游戏库还是空的</h2>
           <p>扫描游戏文件夹，开始构建你的游戏库</p>
-          <button type="button" class="primary" id="homeScanBtn">扫描游戏文件夹</button>
+          <button type="button" class="btn-primary" id="homeScanBtn">扫描游戏文件夹</button>
         </div>
       </div>
 
       <div class="empty" id="empty">
         <h2 id="emptyTitle">游戏库还是空的</h2>
         <p id="emptySub">扫描游戏文件夹，开始构建你的游戏库</p>
-        <div><button class="primary" id="btnScan">扫描游戏文件夹</button>
+        <div><button class="btn-primary" id="btnScan">扫描游戏文件夹</button>
              <button class="soft" id="btnShowAll" style="display:none">显示全部游戏</button></div>
       </div>
 

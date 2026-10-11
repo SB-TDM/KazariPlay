@@ -43,15 +43,22 @@ let _winScrollBound = false;
 let _winResizeBound = false;
 let _winRaf = false;
 
+const CARD_GAP = 14;   // 与 CSS .grid gap 对齐（窗口化与主页「继续游玩」共用）
+
+// 指定宽度下可容纳的卡片列数（列表窗口化与主页共用；宽度为 0 时按 1 列处理）
+function cardCols(width: number): number {
+  const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
+  if (!width) return 1;
+  return Math.max(1, Math.floor((width + CARD_GAP) / (cardW + CARD_GAP)));
+}
+
 // 列数 / 行高（与 CSS .grid auto-fill + gap 对齐）
 function _winMetrics(): { cols: number; rowH: number } {
   const grid = document.getElementById('grid');
   const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
   const cardH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-h')) || 210;
-  const gap = 14;
   const width = grid ? grid.clientWidth : cardW;
-  const cols = Math.max(1, Math.floor((width + gap) / (cardW + gap)));
-  return { cols, rowH: cardH + gap };
+  return { cols: cardCols(width), rowH: cardH + CARD_GAP };
 }
 
 // WindowCalculator：根据滚动位置 + 容器高度计算 [start, end) 索引范围

@@ -92,10 +92,9 @@
   .empty.show{display:flex;}
   .empty h2{font-size:24px;color:var(--text);}
   .empty p{font-size:14px;color:var(--text-sub);}
-  .empty button{height:44px;padding:0 24px;border:none;border-radius:50px;cursor:pointer;
-                font-size:14px;font-weight:bold;font-family:var(--font);}
-  .empty .primary{background:var(--grad-pink);color:#fff;}
-  .empty .soft{background:var(--bg-panel);color:var(--text);border:1.5px solid var(--border-soft);}
+  .empty .soft{height:44px;padding:0 24px;border-radius:50px;cursor:pointer;
+               font-size:14px;font-weight:bold;font-family:var(--font);
+               background:var(--bg-panel);color:var(--text);border:1.5px solid var(--border-soft);}
 
   /* 窗口缩放手柄 */
   .resizer{position:fixed;z-index:80;display:block;}
