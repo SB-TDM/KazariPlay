@@ -37,32 +37,50 @@ function renderHomeHead(): void {
 }
 
 // ---------- 继续游玩：按 last_played 倒序，数量随容器宽度自适应（1~6，一行放下） ----------
-// 重建前比较签名（顺序 + 卡片展示字段 + cover_version）：完全未变则保留现有卡片与已加载封面
-// （运行中角标由 markRunning 就地更新，不参与签名，避免启动/退出游戏引发无谓重建）
-let _homeContinueSig: string | null = null;
+// 与列表同款复用渲染：按 id 复用卡片节点（保留已加载封面），只增删/挪位/同步变化字段；
+// 仅新卡或 cover_version 变化的卡才重新加载封面（运行角标由 markRunning 就地更新）
+let _homeContinueIds: string[] = [];
 function renderHomeContinue(): void {
   const box = document.getElementById('homeContinue')!;
   const sec = document.getElementById('homeContinueSec') as HTMLElement;
   const played = App.data.games.filter(g => !!g.last_played)
     .sort((a, b) => (b.last_played || '').localeCompare(a.last_played || ''));
-  const empty = played.length === 0;
-  if (!empty) sec.hidden = false;   // 数量依赖容器宽度：先显形再测量（隐藏时 clientWidth 为 0）
+  if (!played.length) {
+    if (_homeContinueIds.length) { box.innerHTML = ''; _homeContinueIds = []; }
+    sec.hidden = true;
+    return;
+  }
+  sec.hidden = false;   // 数量依赖容器宽度：先显形再测量（隐藏时 clientWidth 为 0）
   const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 154;
   const gap = 14;
   const fit = box.clientWidth ? Math.floor((box.clientWidth + gap) / (cardW + gap)) : HOME_CONTINUE_LIMIT;
   const count = Math.max(1, Math.min(HOME_CONTINUE_LIMIT, fit));
   const list = played.slice(0, count);
-  const sig = list.map(g => [g.id, g.title || '', g.rating || 0, g.fav ? 1 : 0,
-    g.cover_version || 0].join(':')).join('|');
-  if (sig === _homeContinueSig) return;   // 无变化：保留卡片与封面（含空态）
-  _homeContinueSig = sig;
-  if (empty) { sec.hidden = true; box.innerHTML = ''; return; }
-  box.innerHTML = '';
-  list.forEach(g => {
-    const card = buildCard(g);
-    box.appendChild(card);
-    loadCardCover(card);   // 主页卡片不在列表滚动容器内，直接加载封面
+  const byId: Record<string, Game> = {}; list.forEach(g => byId[g.id] = g);
+  const newIds = list.map(g => g.id);
+  const oldMap: Record<string, HTMLElement> = {};
+  _homeContinueIds.forEach(id => {
+    const c = box.querySelector(`.card[data-id="${id}"]`) as HTMLElement | null;
+    if (c) oldMap[id] = c;
   });
+  // 1) 移除不再展示的卡片
+  _homeContinueIds.forEach(id => { if (!byId[id]) { const c = oldMap[id]; if (c) c.remove(); } });
+  // 2) 从后往前：复用节点挪位，新增节点创建
+  let anchor: Node | null = null;
+  for (let i = newIds.length - 1; i >= 0; i--) {
+    const id = newIds[i];
+    let card = oldMap[id];
+    if (!card) {
+      card = buildCard(byId[id]);
+      box.insertBefore(card, anchor);
+      loadCardCover(card);   // 新卡直接加载封面（主页卡片不在列表滚动容器内）
+    } else {
+      box.insertBefore(card, anchor);
+      if (syncCard(card, byId[id])) loadCardCover(card);
+    }
+    anchor = card;
+  }
+  _homeContinueIds = newIds;
 }
 
 // 窗口尺寸变化后按新宽度重算「继续游玩」数量

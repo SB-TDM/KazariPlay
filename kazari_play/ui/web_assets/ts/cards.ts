@@ -3,7 +3,7 @@
 // 依赖：state.ts / icons.ts / core.ts（esc/toast）/ ui.ts（showContextMenu/showConfirmDialog）/
 //       games.ts（toggleSelect / App.data.runningId）/
 //       detail.ts（openDetail）/ collections.ts（openCollectionManager）/ form.ts（openEdit）
-// 定义：buildCard / renderCards / openCardMenu / loadCardCover + coverObserver / _renderedIds
+// 定义：buildCard / syncCard / renderCards / openCardMenu / loadCardCover + coverObserver / _renderedIds
 // 被依赖：games.ts（renderAll 调用 renderCards）
 // ============================================================
 
@@ -204,6 +204,41 @@ function buildCard(g: Game): HTMLElement {
   return card;
 }
 
+// 复用节点：把已有卡片同步到当前数据（标题/评分/选中/收藏）
+// 封面版本变化时重置封面并返回 true（调用方决定重新懒加载或直接加载），未变化返回 false
+function syncCard(card: HTMLElement, g: Game): boolean {
+  const id = String(g.id);
+  let coverStale = false;
+  if (card.dataset.coverVersion !== String(g.cover_version || 0)) {
+    card.dataset.coverVersion = String(g.cover_version || 0);
+    card.dataset.coverLoaded = '';
+    beginCoverRequest(card);   // 作废在途旧封面响应
+    const c = card.querySelector('.cover');
+    if (c) {
+      c.classList.remove('loaded');
+      (c as HTMLElement).style.backgroundImage = 'linear-gradient(160deg,#ffd7e0,#ff9fbc)';
+    }
+    coverStale = true;
+  }
+  if (card.className.indexOf('selected') >= 0 !== App.ui.state.selected.has(id))
+    card.classList.toggle('selected', App.ui.state.selected.has(id));
+  const meta = card.querySelector('.meta')!;
+  const fullName = g.title || '未命名游戏';
+  const titleEl = meta.querySelector('.title');
+  if (titleEl && titleEl.textContent !== fullName) { titleEl.textContent = fullName; titleEl.setAttribute('title', fullName); }
+  if (card.title !== fullName) { card.title = fullName; card.setAttribute('aria-label', fullName); }
+  const scoreEl = meta.querySelector('.score');
+  const scoreText = (g.rating || 0).toFixed(1);
+  if (scoreEl && scoreEl.textContent !== scoreText) scoreEl.textContent = scoreText;
+  const fav = card.querySelector('.fav');
+  const needFav = !!g.fav;
+  if (needFav && !fav) {
+    const f = document.createElement('span'); f.className = 'fav'; f.innerHTML = ICON.starFill;
+    card.querySelector('.cover')!.appendChild(f);
+  } else if (!needFav && fav) { fav.remove(); }
+  return coverStale;
+}
+
 // 增量渲染：对比新旧 id 列表，只增删改变化部分，未变化卡片原样保留（含已加载封面）
 function renderCards(list: Game[]): void {
   const grid = document.getElementById('grid')!;
@@ -246,35 +281,8 @@ function renderCards(list: Game[]): void {
       if (coverObserver) coverObserver.observe(card);
     } else {
       grid.insertBefore(card, anchor);
-      // 复用节点：若封面版本变化（VNDB 匹配/手动更换后）则强制重新加载封面
-      if (card.dataset.coverVersion !== String(byId[id].cover_version || 0)) {
-        card.dataset.coverVersion = String(byId[id].cover_version || 0);
-        card.dataset.coverLoaded = '';
-        beginCoverRequest(card);   // 作废在途旧封面响应
-        const c = card.querySelector('.cover');
-        if (c) {
-          c.classList.remove('loaded');
-          (c as HTMLElement).style.backgroundImage = 'linear-gradient(160deg,#ffd7e0,#ff9fbc)';
-        }
-        if (coverObserver) coverObserver.observe(card);
-      }
-      // 复用节点：仅更新可能变化的字段（游戏名/评分/选中/收藏）
-      if (card.className.indexOf('selected') >= 0 !== App.ui.state.selected.has(id))
-        card.classList.toggle('selected', App.ui.state.selected.has(id));
-      const meta = card.querySelector('.meta')!;
-      const fullName = byId[id].title || '未命名游戏';
-      const titleEl = meta.querySelector('.title');
-      if (titleEl && titleEl.textContent !== fullName) { titleEl.textContent = fullName; titleEl.setAttribute('title', fullName); }
-      if (card.title !== fullName) { card.title = fullName; card.setAttribute('aria-label', fullName); }
-      const scoreEl = meta.querySelector('.score');
-      const scoreText = (byId[id].rating || 0).toFixed(1);
-      if (scoreEl && scoreEl.textContent !== scoreText) scoreEl.textContent = scoreText;
-      const fav = card.querySelector('.fav');
-      const needFav = !!byId[id].fav;
-      if (needFav && !fav) {
-        const f = document.createElement('span'); f.className = 'fav'; f.innerHTML = ICON.starFill;
-        card.querySelector('.cover')!.appendChild(f);
-      } else if (!needFav && fav) { fav.remove(); }
+      // 复用节点：同步数据字段；封面版本变化时重置并重新懒加载（syncCard 返回是否需重载）
+      if (syncCard(card, byId[id]) && coverObserver) coverObserver.observe(card);
     }
     anchor = card;
   }
