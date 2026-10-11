@@ -81,11 +81,11 @@ function refreshAll(force: boolean, done?: () => void): void {
     try { tree = JSON.parse(String(s || '[]')) as CollectionTreeNode[]; } catch (e) { return; }
     App.ui.state.collectionTree = Array.isArray(tree) ? tree : [];
     renderCollectionTree();
-    // 树后到时同步派生显示与当前筛选结果（视图名/数量依赖树；分组子分类变化影响卡片）
+    // 树后到时同步派生显示与当前筛选结果（视图名/数量与主页 chips 依赖树；分组子分类变化影响卡片）
     const list = filterGames(App.data.games);
     updateNavInfo(list);
-    renderCards(list);
-    renderEmpty(list);
+    const onHome = updateHomeView();
+    if (!onHome) { renderCards(list); renderEmpty(list); }
   });
   bridge.getRunning(function (r: unknown, failed?: boolean) {
     if (failed) return;
@@ -124,10 +124,11 @@ function applyGamesDelta(ids: string[]): void {
         // 增量渲染：只更新窗口内变化卡片，不重算滚动位置/不整网格重建。
         // 直接调 renderCards（内部做窗口化 + DOM diff，复用未变卡片含封面），
         // 避免 renderAll 的滚动保持 + renderEmpty/updateBatchBar 全跑导致边缘重建。
+        // 主页视图时跳过列表渲染，改由 updateHomeView 刷新主页板块。
         const list = filterGames(App.data.games);
         updateNavInfo(list);
-        renderCards(list);
-        renderEmpty(list);
+        const onHome = updateHomeView();
+        if (!onHome) { renderCards(list); renderEmpty(list); }
         updateBatchBar();
         syncCurrentGame();
       }
@@ -172,10 +173,10 @@ function renderAll(): void {
   const list = filterGames(App.data.games);
   updateNavInfo(list);
   updateCollectionsEntry();   // 收藏夹开关只在「全部作品」视图显示
-  renderCards(list);
-  renderEmpty(list);
+  const onHome = updateHomeView();   // 主页视图：切类并渲染；主页时跳过列表渲染
+  if (!onHome) { renderCards(list); renderEmpty(list); }
   updateBatchBar();
-  if (scroller && keepTop > 0) {
+  if (!onHome && scroller && keepTop > 0) {
     requestAnimationFrame(() => { scroller.scrollTop = keepTop; });
   }
 }

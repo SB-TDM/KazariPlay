@@ -3,7 +3,7 @@
 // 依赖：state.ts / icons.ts / core.ts（esc/toast）/ ui.ts（showContextMenu/showConfirmDialog）/
 //       games.ts（toggleSelect / App.data.runningId）/
 //       detail.ts（openDetail）/ collections.ts（openCollectionManager）/ form.ts（openEdit）
-// 定义：buildCard / renderCards / openCardMenu + coverObserver / _renderedIds
+// 定义：buildCard / renderCards / openCardMenu / loadCardCover + coverObserver / _renderedIds
 // 被依赖：games.ts（renderAll 调用 renderCards）
 // ============================================================
 
@@ -150,6 +150,23 @@ function _currentGame(id: string): Game | null {
   return App.data.games.find(x => x.id === id) || null;
 }
 
+// 单卡封面加载（懒加载 observer 与主页卡片共用；按请求代际丢弃迟到响应）
+function loadCardCover(card: HTMLElement): void {
+  const gid = card.dataset.id;
+  if (!gid) return;
+  const seq = beginCoverRequest(card);
+  bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
+    if (failed || !isCoverRequestCurrent(card, seq)) return;
+    if (!uri) return;
+    const c = card.querySelector('.cover') as HTMLElement | null;
+    if (c) {
+      card.dataset.coverLoaded = '1';
+      c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+      _playCoverFade(c);
+    }
+  });
+}
+
 // 创建单张卡片 DOM（不含封面加载，封面由 observer 懒加载）
 function buildCard(g: Game): HTMLElement {
   const card = document.createElement('div');
@@ -268,19 +285,8 @@ function renderCards(list: Game[]): void {
       entries.forEach(en => {
         if (!en.isIntersecting) return;
         const card = en.target as HTMLElement;
-        const gid = card.dataset.id;
         coverObserver!.unobserve(card);
-        const seq = beginCoverRequest(card);
-        bridge.getCover(gid!, function (uri: unknown, failed?: boolean) {
-          if (failed || !isCoverRequestCurrent(card, seq)) return;
-          if (!uri) return;
-          const c = card.querySelector('.cover') as HTMLElement | null;
-          if (c) {
-            card.dataset.coverLoaded = '1';
-            c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-            _playCoverFade(c);
-          }
-        });
+        loadCardCover(card);
       });
     }, { root: document.querySelector('.scroll'), rootMargin: '160px' });
     grid.querySelectorAll('.card').forEach(c => coverObserver!.observe(c));

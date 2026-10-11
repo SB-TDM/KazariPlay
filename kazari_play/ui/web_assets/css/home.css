@@ -1,0 +1,59 @@
+/* ============================================================
+   home.css — 主页（默认视图）：问候头部 / 继续游玩 / 统计 /
+   收藏夹快捷 / 空库引导；同时负责「主页 ↔ 列表」的显隐切换
+   ============================================================ */
+
+  /* 主页容器：默认隐藏；body.home-view 时显示并隐藏列表视图的部件 */
+  .home{flex:1;min-height:0;overflow-y:auto;padding:24px 16px 90px;
+        display:none;flex-direction:column;gap:18px;}
+  body.home-view .home{display:flex;}
+  body.home-view .navbar,
+  body.home-view .scroll,
+  body.home-view .empty,
+  body.home-view .batchbar{display:none;}
+
+  /* 头部：问候 + 日期/副文案 */
+  .home-head{display:flex;align-items:center;gap:14px;}
+  .home-avatar{flex:none;width:48px;height:48px;border-radius:16px;background:var(--grad-pink);
+               color:#fff;display:flex;align-items:center;justify-content:center;
+               box-shadow:0 4px 12px var(--glow-strong);}
+  .home-greet{min-width:0;}
+  .home-hello{font-size:20px;font-weight:700;color:var(--text);}
+  .home-sub{margin-top:3px;font-size:12.5px;color:var(--text-sub);}
+
+  /* 分区标题 */
+  .home-sec[hidden]{display:none;}
+  .home-sec-title{font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:10px;}
+
+  /* 继续游玩：复用现有卡片（固定尺寸），跟随封面档位自动换行 */
+  .home-cards{display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-start;}
+
+  /* 统计 */
+  .home-stats{display:flex;flex-wrap:wrap;gap:10px;}
+  .home-stat{min-width:132px;padding:12px 16px;border-radius:var(--radius-lg);text-align:left;
+             background:var(--bg-panel);border:1.5px solid var(--border-soft);
+             display:flex;flex-direction:column;gap:2px;font-family:var(--font);color:var(--text);}
+  button.home-stat{cursor:pointer;transition:transform .2s var(--bounce),border-color .2s,box-shadow .2s;}
+  button.home-stat:hover{transform:translateY(-2px);border-color:var(--pink);
+                         box-shadow:0 4px 10px var(--glow-soft);}
+  .home-stat b{font-size:18px;font-weight:700;}
+  .home-stat span{font-size:11.5px;color:var(--text-sub);}
+
+  /* 收藏夹快捷 chips */
+  .home-chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .home-chip{height:28px;padding:0 12px;border-radius:50px;font-size:12px;font-family:var(--font);
+             background:var(--bg-panel);border:1.5px solid var(--border-soft);color:var(--text-sub);
+             cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+             transition:transform .2s var(--bounce),border-color .2s,color .2s;}
+  .home-chip:hover{transform:translateY(-1px);border-color:var(--pink);color:var(--pink-deep);}
+
+  /* 空库引导 */
+  .home-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+              padding:56px 0 30px;text-align:center;}
+  .home-empty[hidden]{display:none;}
+  .home-empty h2{font-size:22px;color:var(--text);}
+  .home-empty p{font-size:13.5px;color:var(--text-sub);}
+  .home-empty .primary{height:44px;padding:0 24px;border:none;border-radius:50px;cursor:pointer;
+                       font-size:14px;font-weight:bold;font-family:var(--font);
+                       background:var(--grad-pink);color:#fff;box-shadow:0 4px 12px var(--glow-strong);}
+  .home-empty .primary:hover{transform:translateY(-2px);}

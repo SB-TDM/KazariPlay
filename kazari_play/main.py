@@ -74,6 +74,7 @@ _JS_MANIFEST = [
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
     "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
+    "home.js",         # 主页视图（问候/继续游玩/统计/收藏夹快捷，默认视图）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
 ]
 

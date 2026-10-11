@@ -119,7 +119,7 @@ class ClassicBoundaryTests(unittest.TestCase):
         self.assertIn('id="shotsGrid"', html)
         self.assertIn('id="relocateOverlay"', html)
         self.assertIn("getScreenshotOriginal", html)
-        self.assertEqual(len(main._JS_MANIFEST), 15)
+        self.assertEqual(len(main._JS_MANIFEST), 16)
         for name in ("CMakeLists.txt", "build.bat", "build32.bat", "src/main.cpp", "src/protocol.h"):
             text = (ROOT / "overlay" / name).read_text(encoding="utf-8")
             for marker in ("hostlib", "textractor", "texthook", "ai_translator", "WinHttp", "start_hook"):
