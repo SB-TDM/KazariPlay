@@ -40,7 +40,7 @@
 | [backend/ui-bridge.md](backend/ui-bridge.md) | WebBridge（js_api）与 UISync（刷新总线、事件域） |
 | [backend/utils.md](backend/utils.md) | 13 个工具模块（路径/配置/网络客户端/标题归一化/热键等） |
 | [frontend/README.md](frontend/README.md) | 前端架构：ts 源码、清单内联、全局模型、bridge、渲染约定 |
-| [frontend/modules.md](frontend/modules.md) | 15 个 ts 模块逐一：定位、依赖、定义 |
+| [frontend/modules.md](frontend/modules.md) | 16 个 ts 模块逐一：定位、依赖、定义 |
 | [overlay.md](overlay.md) | C++ overlay：管道协议、分层窗口、动画与 Python 对接 |
 | [testing.md](testing.md) | 测试分类、运行方式与改动验证建议 |
 
@@ -62,7 +62,7 @@
 
 | 文档 | 状态 |
 |---|---|
-| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.2（个人化聚合仪表盘：问候/继续游玩/统计/收藏夹快捷）+ 实施计划草案；工作分支 `feature/home-page`，未实施 |
+| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.3：个人化聚合仪表盘（问候/继续游玩/统计/收藏夹快捷/空库引导）；工作分支 `feature/home-page`，已实施（离线回归通过，待源码 GUI 复验） |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |

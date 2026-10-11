@@ -2,6 +2,14 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 主页（默认视图）实施（2026-10-11）
+
+- 新增 `ts/home.ts`（登记 `_JS_MANIFEST`，位于 `app.js` 之前）与 `css/home.css`：主页头部（按时段问候 + 「日期 · 今天想玩点什么？」）、继续游玩（`last_played` 倒序，数量随宽度自适应 1~6，复用现有卡片/右键/运行角标）、统计（总数/收藏数点击跳转；总游玩时长/最近一次游玩只读，总时长与后端 `format_play_time` 同口径）、收藏夹快捷（树序前 8 chips，点击走 `selectCollection` 筛选）、空库扫描引导；设计依据见 [主页设计稿](MAIN_UI_HOME_DESIGN.md)。
+- 默认视图改为主页：侧栏首项「主页」(house)、「全部作品」换 `controller` 素材；`body.home-view` 由 `updateHomeView` 统一维护（主页时隐藏副标题栏/列表/批量栏，保留 FAB 与任务进度）。
+- 接线：`renderAll`、`applyGamesDelta`、收藏夹树回包三条链路均挂主页刷新，主页时跳过列表渲染。
+- 数据零后端改动：全部派生自 `App.data.games` 与收藏夹树；`cards.ts` 抽出 `loadCardCover` 供懒加载与主页卡片共用。
+- 验证：新增主页离线回归 2 场景（默认视图/跳转/排序/角标/统计/chips/窄窗 900；空库引导）全过；既有离线回归 11 项适配后全过；typecheck/build/verify_frontend（16 脚本块）/classic_boundary（清单 16）/ordering/bridge_contract/P1 与图标一致性检查全过。源码 GUI 实机复验待做。
+
 ## 收藏夹开关仅限「全部作品」视图（2026-10-11）
 
 - 副标题栏的收藏夹开关只在「全部作品」视图存在（nav=全部作品且未筛选收藏夹）；切到「我的收藏」或收藏夹筛选时隐藏，切回后恢复（保持原激活态）。

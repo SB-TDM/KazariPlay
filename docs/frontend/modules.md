@@ -146,6 +146,17 @@
 
 ---
 
+## home.ts — 主页（默认视图）
+
+**定位**：个人化聚合仪表盘：问候 / 日期与副文案、继续游玩、统计、收藏夹快捷、空库引导；同时负责 `body.home-view` 的视图显隐。
+**依赖**：state / core / cards（`buildCard`/`loadCardCover`）/ collections（`selectCollection`，运行时）。
+**定义**：`updateHomeView()`（由 `renderAll`/`applyGamesDelta` 与收藏夹树回包调用，返回是否主页）、`renderHomeSections`、`renderHomeHead`、`renderHomeContinue`、`renderHomeStats`、`renderHomeCollections`、`formatTotalMinutes`、`bindHomeResize`。
+**关键逻辑**
+- 继续游玩：`last_played` 倒序取最近款，数量按容器宽度自适应 1~6（一行放下）；卡片复用现有组件与交互，封面经 `loadCardCover` 直接加载。
+- 统计：作品总数 / 收藏数可点击（经侧栏按钮跳转），总游玩时长与最近一次游玩只读；总时长与后端 `format_play_time` 同口径（分钟；≥60 显示「X 小时 Y 分钟」）。
+- 收藏夹快捷：按树序取前 8（分组 + 分类），点击走 `selectCollection` 筛选路径；无数据时区块隐藏。
+- 视图：主页时隐藏副标题栏/列表/批量栏（保留 FAB 与任务进度）；数据刷新链路挂接见 `games.ts`。
+
 ## app.ts — 启动引导（最后加载）
 
 **定位**：只做「粘合」——初始化、导航、搜索、筛选下拉、FAB、全局点击与键盘。
