@@ -2,10 +2,18 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 主页代码复评修复（2026-10-11）
+
+- **R1**：`setActiveCard` 改为对全部 `.card[data-id]` 匹配项置高亮——列表网格与主页卡片同 id 并存时，可见的主页卡片此前拿不到 active 环（实测：`.card.active` 只落在隐藏的网格卡上）。
+- **R2**：主页**不再隐藏批量栏**（移除 `body.home-view .batchbar{display:none}`）——批量模式下点主页卡片会切换勾选，此前批量栏被隐藏导致无操作入口、且点不进详情；现与其它视图行为一致。
+- **R3**：主页统计的「作品总数/收藏数」按钮补 `aria-label`（含数量与跳转去向），静态骨架同步。
+- **R6**：`home.ts` 的 `_homeResizeBound` 声明移至使用函数之前（可读性）。
+- 验证：审查探针确认 R1（主页卡获得 active）与 R2（主页批量栏可见）；主页离线回归 2 场景、既有离线回归 11 项、typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract/P1/图标一致性全部通过。
+
 ## 主页（默认视图）实施（2026-10-11）
 
 - 新增 `ts/home.ts`（登记 `_JS_MANIFEST`，位于 `app.js` 之前）与 `css/home.css`：主页头部（按时段问候 + 「日期 · 今天想玩点什么？」）、继续游玩（`last_played` 倒序，数量随宽度自适应 1~6，复用现有卡片/右键/运行角标）、统计（总数/收藏数点击跳转；总游玩时长/最近一次游玩只读，总时长与后端 `format_play_time` 同口径）、收藏夹快捷（树序前 8 chips，点击走 `selectCollection` 筛选）、空库扫描引导；设计依据见 [主页设计稿](MAIN_UI_HOME_DESIGN.md)。
-- 默认视图改为主页：侧栏首项「主页」(house)、「全部作品」换 `controller` 素材；`body.home-view` 由 `updateHomeView` 统一维护（主页时隐藏副标题栏/列表/批量栏，保留 FAB 与任务进度）。
+- 默认视图改为主页：侧栏首项「主页」(house)、「全部作品」换 `controller` 素材；`body.home-view` 由 `updateHomeView` 统一维护（主页时隐藏副标题栏与列表；批量栏、FAB 与任务进度保留）。
 - 接线：`renderAll`、`applyGamesDelta`、收藏夹树回包三条链路均挂主页刷新，主页时跳过列表渲染。
 - 数据零后端改动：全部派生自 `App.data.games` 与收藏夹树；`cards.ts` 抽出 `loadCardCover` 供懒加载与主页卡片共用。
 - 验证：新增主页离线回归 2 场景（默认视图/跳转/排序/角标/统计/chips/窄窗 900；空库引导）全过；既有离线回归 11 项适配后全过；typecheck/build/verify_frontend（16 脚本块）/classic_boundary（清单 16）/ordering/bridge_contract/P1 与图标一致性检查全过。源码 GUI 实机复验待做。
