@@ -2,6 +2,13 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 收藏夹入口移入副标题栏（2026-10-11）
+
+- 侧栏图标列的「收藏夹」按钮移除，移入主界面副标题栏：横向对齐原抽屉关闭按钮一带（抽屉右端）、垂直居中；收起/展开均可点击。
+- 抽屉头部删除「‹」收起按钮；开关兼任开合：收起时显示收藏夹图标（三栏），展开时按钮激活并切换为「‹」样式（图标由 CSS 按 `.active` 切换），`aria-expanded` / `aria-label`（收藏夹 ↔ 收起收藏夹）同步。
+- 视图名宽度上限 240px → 185px，避免与开关重叠；抽屉本体（标题 / ＋新建 / 树列表）、Esc 与遮罩点击关闭、遮罩下 inert 等行为不变。
+- 验证：离线对抗回归 10 项全过（含开关开合、图标切换、Esc 焦点、遮罩不穿透）；900/1366 及长名称场景开关零重叠；typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 与图标一致性检查通过。
+
 ## 修复最大化/还原无效：窗口句柄被同名 Shell 窗口抢占（2026-10-11）
 
 - **根因**：`_win32_hwnd()` 用 `FindWindowW(None, WINDOW_TITLE)` 按标题取句柄；Windows 11 的 Shell 内部窗口 `Windows.Internal.Shell.TabProxyWindow` 会以同名标题先被命中（探针实测：该句柄属于其它进程、类名为 `TabProxyWindow`）。于是 `ShowWindow(SW_RESTORE)` 作用到错误窗口且返回成功，应用把 `_maximized` 置回 False，主窗口却仍最大化——表现为“最大化后点还原没反应 / 疑似没绑定”。
