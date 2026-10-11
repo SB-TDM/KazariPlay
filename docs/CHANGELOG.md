@@ -2,11 +2,17 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
-## 修复最大化按钮无法还原（2026-10-11）
+## 最大化按钮改为沿用原版实现（2026-10-11）
 
-- **根因**：`windowToggleMaximize` 依赖应用自维护的 `_maximized` 标志切换方向，而 pywebview 的 `window.maximized` 在 frameless 下恒为 False、且窗口被外部路径（Win+Up、系统还原等）改变状态时标志会脱节；一旦脱节，按钮点击变成反向或空操作，窗口停在最大化无法缩小。前端又按本地 `data-mode` 自行猜测方向，进一步放大不一致。
-- **修复**：后端改用 Win32 `IsZoomed` 读取真实状态决定切换方向，并把切换后的真实状态**返回前端**（`windowToggleMaximize` 现返回 bool）；`_win32_hwnd()` 增加句柄缓存；`windowResize` 的最大化跳过判定改用 `IsZoomed`。前端 `toggleMax` 以后端回传状态驱动 `.maximized` 类、按钮图标与 aria-label，桥失败时保持现状。
-- 验证：pywebview 受控探针（正常最大化/还原 + 外部最大化后再点按钮可还原，`IsZoomed` 与 `window.maximized` 差异已确认）、组装 HTML + 桩桥的前端契约测试（回传 true/false/失败三态）、typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 全部通过。未做源码 GUI 实机点击复验。
+- **背景**：曾为“最大化后无法还原”把切换改成“后端按 Win32 `IsZoomed` 判定真实状态并回传前端驱动 UI”，但实机表现为点击后按钮样式不再更新；经用户指出——原版实现是正常的。
+- **处理**：
+  - 后端窗口方法全部回退原版：`windowToggleMaximize` 恢复本地 `_maximized` 标志 + `_restore_win32`，不返回状态、不做 `IsZoomed` 判定、`windowResize` 恢复原守卫；`web_bridge.py` 相对基线 `3e3f672` 无差异。
+  - 前端 `toggleMax` 沿用原版本地切换；因按钮内容已 SVG 化（原版为文本 `□`/`❐`），状态标记改用 `aria-label`（`最大化` ↔ `还原窗口`），点击后切 `.maximized` 类并切换 `ICON.winMax` / `ICON.winRestore`。
+- **验证**：typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 通过；Playwright（桩桥）与真实 pywebview 端到端（组装 HTML + `js_api`）均确认「标签 / `.maximized` / 图标」两次点击正确往返，每次点击只调用一次 `windowToggleMaximize`。
+
+## 修复最大化按钮（2026-10-11，已被下方“沿用原版实现”取代）
+
+- 首次尝试：后端改用 Win32 `IsZoomed` 判定真实状态并回传前端驱动 UI。实机验证发现按钮样式不再更新，用户确认原版实现正常；该方案已回退，最终状态见上一节。
 
 ## 选中态/按钮配色还原（2026-10-11）
 
@@ -17,7 +23,7 @@
 ## 前端图标全量 SVG 化（2026-10-11）
 
 - **新增 `ts/icons.ts`**（Bootstrap Icons 16×16、`currentColor`）并登记 `main.py::_JS_MANIFEST`（state 之后）；`ICON.*` 供卡片/收藏夹右键菜单、评分星、收藏按钮、排序箭头、窗口按钮等复用；静态图标（标题栏/侧栏/关闭按钮/关于页）在 HTML 内联同一路径。
-- **替换 emoji 与符号图标**：📂🗂✏️🔄🗑🎮⚙▶★☆▸▾⋮‹＋─□❐✕ → 内联 SVG；**标题栏与关于页的笑脸保留原字符 `☺`**；移除已无消费者的 `stars()`；空状态文案不再引用 ★ 字形；窗口最大化/还原按钮改用 `data-mode` 驱动图标切换。
+- **替换 emoji 与符号图标**：📂🗂✏️🔄🗑🎮⚙▶★☆▸▾⋮‹＋─□❐✕ → 内联 SVG；**标题栏与关于页的笑脸保留原字符 `☺`**；移除已无消费者的 `stars()`；空状态文案不再引用 ★ 字形；窗口最大化/还原按钮以 `aria-label` 驱动图标切换（详见“最大化按钮改为沿用原版实现”）。
 - **样式**：新增 `.ic`（1em 随字号、`currentColor` 随主题）；右键菜单图标位、窗口按钮、抽屉箭头、FAB 等按上下文设定尺寸。
 - 验证：typecheck/build、`verify_frontend`（15 脚本块）、`test_classic_boundary`（清单同步为 15）、`test_p1_frontend`、`test_ui_ordering`、`test_bridge_contract` 通过；离线对抗回归 10 项全过；图标一致性脚本校验 HTML 图标与 `ICON` 逐字符一致、无残留字形。未做源码 GUI/原生 DPI 实机验收。
 

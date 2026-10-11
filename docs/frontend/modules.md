@@ -54,7 +54,7 @@
 
 **定位**：标题栏拖拽 / 缩放 / 最大化（frameless 自绘窗口）。
 **依赖**：core.ts / icons.ts。
-**定义**：`toggleMax`（**内联 onclick 引用，须全局**；调用 `windowToggleMaximize` 并按后端回传的真实状态切 `.maximized` 类、更新按钮图标与 aria）、`bindDrag`（拖拽）、`bindResize`（四边/四角缩放）。
+**定义**：`toggleMax`（**内联 onclick 引用，须全局**；沿用原版本地切换逻辑，按钮 SVG 化后以 `aria-label`（最大化/还原窗口）判定当前状态，点击后切 `.maximized` 类并更新按钮图标与 aria）、`bindDrag`（拖拽）、`bindResize`（四边/四角缩放）。
 
 ---
 

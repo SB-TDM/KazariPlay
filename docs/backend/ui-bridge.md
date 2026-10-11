@@ -111,9 +111,9 @@
 - `_on_game_start` → `running=id` + `refresh_delta`；`_on_game_exit` → `running=""` + `refresh_delta`
 
 ### 窗口控制
-- `windowMinimize` / `windowToggleMaximize`（以 Win32 `IsZoomed` 判定真实状态后切换；frameless 下 restore 用 Win32 `SW_RESTORE`，按 `WINDOW_TITLE` FindWindow 并缓存句柄；**返回切换后的真实状态**供前端驱动 UI）/ `windowMaximize` / `windowRestore` / `windowClose`（先 `overlay_client.quit()` 再 `destroy`）
+- `windowMinimize` / `windowToggleMaximize`（frameless 下 restore 用 Win32 `SW_RESTORE`，按 `WINDOW_TITLE` FindWindow；以本地 `_maximized` 标志切换方向）/ `windowMaximize` / `windowRestore` / `windowClose`（先 `overlay_client.quit()` 再 `destroy`）
 - 拖拽：`windowStartDrag`/`windowMoveDrag`/`windowEndDrag`（锚点 + 鼠标全局坐标）
-- 缩放：`windowResizeStart` + `windowResize(direction, dx, dy)`（起始几何 + 累计位移；最小 900×620；最大化时按 `IsZoomed` 忽略）
+- 缩放：`windowResizeStart` + `windowResize(direction, dx, dy)`（起始几何 + 累计位移；最小 900×620；最大化时忽略）
 
 ---
 
