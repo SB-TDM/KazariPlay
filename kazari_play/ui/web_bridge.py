@@ -315,6 +315,7 @@ class WebBridge:
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
         self._drag_anchor = None
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
+        self._hwnd = 0               # 主窗口句柄缓存（_win32_hwnd 命中复用）
         self._vndb_counter = 0       # VNDB 进度节流计数
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
@@ -1374,12 +1375,45 @@ class WebBridge:
                 logger.warning("最大化失败: %s", e)
 
     def _win32_hwnd(self):
-        """通过标题查找窗口句柄（pywebview 不直接暴露 hwnd）"""
+        """查找本进程主窗口句柄（pywebview 不直接暴露 hwnd），结果缓存复用。
+
+        不能用 FindWindowW 按标题直接取：Windows 11 的 Shell 内部窗口
+        （Windows.Internal.Shell.TabProxyWindow）会以同名标题先被命中，
+        导致 ShowWindow 作用到错误窗口——最大化/还原看似无效。
+        改为枚举本进程、标题匹配的 WindowsForms 顶层窗口。
+        """
         if os.name != "nt":
             return 0
         try:
             import ctypes
-            return ctypes.windll.user32.FindWindowW(None, WINDOW_TITLE)
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            if self._hwnd and user32.IsWindow(self._hwnd):
+                return self._hwnd
+            found = 0
+            own_pid = os.getpid()
+            enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+            def _cb(hwnd, _lparam):
+                nonlocal found
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value != own_pid:
+                    return True
+                cls = ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(hwnd, cls, 256)
+                if not cls.value.startswith("WindowsForms10"):
+                    return True
+                title = ctypes.create_unicode_buffer(512)
+                user32.GetWindowTextW(hwnd, title, 512)
+                found = hwnd
+                return title.value != WINDOW_TITLE   # 精确命中即停止枚举
+
+            user32.EnumWindows(enum_proc(_cb), 0)
+            if not found:
+                found = user32.FindWindowW(None, WINDOW_TITLE)
+            self._hwnd = found
+            return found
         except Exception:
             return 0
 
