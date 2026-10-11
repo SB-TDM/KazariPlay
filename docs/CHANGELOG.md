@@ -2,6 +2,12 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 修复最大化按钮无法还原（2026-10-11）
+
+- **根因**：`windowToggleMaximize` 依赖应用自维护的 `_maximized` 标志切换方向，而 pywebview 的 `window.maximized` 在 frameless 下恒为 False、且窗口被外部路径（Win+Up、系统还原等）改变状态时标志会脱节；一旦脱节，按钮点击变成反向或空操作，窗口停在最大化无法缩小。前端又按本地 `data-mode` 自行猜测方向，进一步放大不一致。
+- **修复**：后端改用 Win32 `IsZoomed` 读取真实状态决定切换方向，并把切换后的真实状态**返回前端**（`windowToggleMaximize` 现返回 bool）；`_win32_hwnd()` 增加句柄缓存；`windowResize` 的最大化跳过判定改用 `IsZoomed`。前端 `toggleMax` 以后端回传状态驱动 `.maximized` 类、按钮图标与 aria-label，桥失败时保持现状。
+- 验证：pywebview 受控探针（正常最大化/还原 + 外部最大化后再点按钮可还原，`IsZoomed` 与 `window.maximized` 差异已确认）、组装 HTML + 桩桥的前端契约测试（回传 true/false/失败三态）、typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 全部通过。未做源码 GUI 实机点击复验。
+
 ## 选中态/按钮配色还原（2026-10-11）
 
 - 用户要求将按钮选中态及同类颜色按钮还原为原品牌渐变：撤销 C04（`c9d357b`）的深色操作色方案，移除 `--action-bg/--action-fg/--action-mint-bg` 变量。

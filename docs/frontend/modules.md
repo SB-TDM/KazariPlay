@@ -53,8 +53,8 @@
 ## window.ts — 无边框窗口控制
 
 **定位**：标题栏拖拽 / 缩放 / 最大化（frameless 自绘窗口）。
-**依赖**：core.ts。
-**定义**：`toggleMax`（**内联 onclick 引用，须全局**，切 `.maximized` 类隐藏缩放手柄）、`bindDrag`（拖拽）、`bindResize`（四边/四角缩放）。
+**依赖**：core.ts / icons.ts。
+**定义**：`toggleMax`（**内联 onclick 引用，须全局**；调用 `windowToggleMaximize` 并按后端回传的真实状态切 `.maximized` 类、更新按钮图标与 aria）、`bindDrag`（拖拽）、`bindResize`（四边/四角缩放）。
 
 ---
 
