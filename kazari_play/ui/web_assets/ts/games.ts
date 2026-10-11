@@ -277,11 +277,11 @@ function toggleSelect(id: string, card: HTMLElement): void {
 }
 
 // 当前详情打开的卡片高亮（ring 主色描边 + shadow）
+// 同名 id 可能同时存在于列表网格与主页卡片：全部置为 active，隐藏的那个不影响观感
 function setActiveCard(id: string | null): void {
   document.querySelectorAll('.card.active').forEach(c => c.classList.remove('active'));
   if (!id) return;
-  const c = document.querySelector(`.card[data-id="${id}"]`);
-  if (c) c.classList.add('active');
+  document.querySelectorAll(`.card[data-id="${id}"]`).forEach(c => c.classList.add('active'));
 }
 
 // 空状态提示（区分：收藏为空 / 筛选无结果 / 游戏库为空）

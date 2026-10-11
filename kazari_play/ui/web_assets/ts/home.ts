@@ -57,6 +57,7 @@ function renderHomeContinue(): void {
 }
 
 // 窗口尺寸变化后按新宽度重算「继续游玩」数量
+let _homeResizeBound = false;
 function bindHomeResize(): void {
   if (_homeResizeBound) return;
   _homeResizeBound = true;
@@ -70,7 +71,6 @@ function bindHomeResize(): void {
     });
   });
 }
-let _homeResizeBound = false;
 
 // ---------- 统计 ----------
 // 总时长与后端 format_play_time 同口径（分钟；<60 按分钟；≥60 显示「X 小时 Y 分钟」）
@@ -91,8 +91,8 @@ function renderHomeStats(): void {
   const recentText = latest ? (latest.last_text || '—') : '无';
   const box = document.getElementById('homeStats')!;
   box.innerHTML = `
-    <button type="button" class="home-stat" id="homeStatTotal"><b>${total}</b><span>作品总数</span></button>
-    <button type="button" class="home-stat" id="homeStatFav"><b>${fav}</b><span>收藏数</span></button>
+    <button type="button" class="home-stat" id="homeStatTotal" aria-label="共 ${total} 部作品，查看全部作品"><b>${total}</b><span>作品总数</span></button>
+    <button type="button" class="home-stat" id="homeStatFav" aria-label="共 ${fav} 部收藏，查看我的最爱"><b>${fav}</b><span>收藏数</span></button>
     <div class="home-stat"><b>${formatTotalMinutes(minutes)}</b><span>总游玩时长</span></div>
     <div class="home-stat"><b>${esc(recentText)}</b><span>最近一次游玩</span></div>`;
   (document.getElementById('homeStatTotal') as HTMLButtonElement).onclick = () =>

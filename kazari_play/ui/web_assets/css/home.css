@@ -3,14 +3,14 @@
    收藏夹快捷 / 空库引导；同时负责「主页 ↔ 列表」的显隐切换
    ============================================================ */
 
-  /* 主页容器：默认隐藏；body.home-view 时显示并隐藏列表视图的部件 */
+  /* 主页容器：默认隐藏；body.home-view 时显示并隐藏列表视图的部件
+     （批量栏为全局件，不随视图隐藏：批量模式下主页卡片仍可勾选且有操作入口） */
   .home{flex:1;min-height:0;overflow-y:auto;padding:24px 16px 90px;
         display:none;flex-direction:column;gap:18px;}
   body.home-view .home{display:flex;}
   body.home-view .navbar,
   body.home-view .scroll,
-  body.home-view .empty,
-  body.home-view .batchbar{display:none;}
+  body.home-view .empty{display:none;}
 
   /* 头部：问候 + 日期/副文案 */
   .home-head{display:flex;align-items:center;gap:14px;}
