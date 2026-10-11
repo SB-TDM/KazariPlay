@@ -1,11 +1,12 @@
 // ============================================================
 // ui.ts — Sheet / 通用对话框 / 右键菜单基础设施
-// 依赖：core.ts（esc）
+// 依赖：core.ts（esc）/ icons.ts（ICON）
 // 定义：showSheet / closeSheet / closeTopSheet /
 //       showConfirmDialog / confirmOk / showInputDialog / inputOk /
-//       openPicker / showContextMenu
+//       openPicker / showContextMenu / makeStarSlider
 // 被依赖：games.ts（卡片右键菜单）、collections.ts（收藏夹右键菜单）、
-//         batch.ts（openPicker）、detail.ts / screenshots.ts（对话框）
+//         batch.ts（openPicker）、detail.ts / screenshots.ts（对话框）、
+//         detail.ts / form.ts（星级滑条）
 // ============================================================
 
 /** 确认对话框选项 */
@@ -167,4 +168,41 @@ function showContextMenu(entries: ContextMenuEntry[], x: number, y: number, widt
   document.body.appendChild(m);
   setTimeout(() => document.addEventListener('click', function h() { m.remove(); document.removeEventListener('click', h); }), 0);
   return m;
+}
+
+// ---------- 星级滑条（详情评分 / 编辑表单共用）----------
+/** 星级滑条实例（0-5，0.5 步进；0 表示未评分） */
+interface StarSlider {
+  get(): number;
+  set(value: number): void;
+}
+
+// 五星星轨 + 覆盖其上的隐藏 range 输入：点击/拖动/键盘（←→ ±0.5）改值；
+// 拖动中只更新本地显示，松手（change）才回调 onChange（避免高频保存）。
+// 容器带 id 时给输入框衍生 id（el.id + 'Input'），供 <label for> 关联。
+function makeStarSlider(el: HTMLElement, value: number, onChange?: (value: number) => void): StarSlider {
+  el.classList.add('star-slider');
+  const inputId = el.id ? el.id + 'Input' : '';
+  el.innerHTML =
+    `<span class="ss-wrap"><span class="ss-layer ss-base">${ICON.star.repeat(5)}</span>` +
+    `<span class="ss-layer ss-fill">${ICON.starFill.repeat(5)}</span>` +
+    `<input type="range" min="0" max="5" step="0.5" aria-label="评分"${inputId ? ` id="${inputId}"` : ''}></span>` +
+    `<span class="ss-val"></span>`;
+  const input = el.querySelector('input') as HTMLInputElement;
+  const fill = el.querySelector('.ss-fill') as HTMLElement;
+  const val = el.querySelector('.ss-val') as HTMLElement;
+  const paint = (): void => {
+    const v = Number(input.value);
+    fill.style.width = (v / 5 * 100) + '%';
+    val.textContent = v ? v.toFixed(1) : '未评分';
+    el.dataset.r = String(v);
+  };
+  input.value = String(value || 0);
+  paint();
+  input.addEventListener('input', paint);
+  input.addEventListener('change', () => { paint(); if (onChange) onChange(Number(input.value)); });
+  return {
+    get: () => Number(input.value),
+    set: (v: number) => { input.value = String(v || 0); paint(); },
+  };
 }

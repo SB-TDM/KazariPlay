@@ -70,25 +70,24 @@ function renderInfoBar(): void {
   ].map(x => `<div class="info-item"><b>${x[0]}</b>${x[1]}</div>`).join('');
 }
 
-// 详情评分：点击星级直接修改（调用后端 setRating）
+// 详情评分：星级滑条拖动/点击/键盘直接修改（0.5 步进，0 为未评分；调用后端 setRating）
 function initRateEdit(): void {
   const el = document.querySelector('.rate-edit') as HTMLElement | null;
   if (!el) return;
-  const r = +el.dataset.r! || 0;
-  el.innerHTML = '';
-  for (let n = 1; n <= 5; n++) {
-    const s = document.createElement('span');
-    s.innerHTML = n <= r ? ICON.starFill : ICON.star;
-    s.style.cssText = 'cursor:pointer;color:var(--star);font-size:17px;display:inline-flex;margin-right:2px;';
-    s.onmouseenter = () => { s.style.color = 'var(--pink-deep)'; };
-    s.onmouseleave = () => { s.style.color = 'var(--star)'; };
-    s.onclick = () => {
-      if (!App.data.currentGame) return;
-      bridge.setRating(String(App.data.currentGame.id), n);
-      App.data.currentGame.rating = n; el.dataset.r = String(n); initRateEdit();
-    };
-    el.appendChild(s);
-  }
+  makeStarSlider(el, +el.dataset.r! || 0, (v: number) => {
+    if (!App.data.currentGame) return;
+    const g = App.data.currentGame;
+    const prev = +g.rating || 0;
+    g.rating = v;
+    bridge.setRating(String(g.id), v, function (ok: unknown, failed?: boolean) {
+      if (failed || ok !== true) {
+        g.rating = prev;
+        const cur = document.querySelector('.rate-edit') as HTMLElement | null;
+        if (cur) { cur.dataset.r = String(prev); initRateEdit(); }
+        toast('评分保存失败，请重试');
+      }
+    });
+  });
 }
 
 // 收藏夹完整路径：分类显示「分组 / 分类」，分组仅显示分组名

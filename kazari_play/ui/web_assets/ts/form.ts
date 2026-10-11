@@ -35,6 +35,13 @@ function setFormRows(showList: string[], hideList: string[]): void {
   (hideList || []).forEach(id => (document.getElementById(id) as HTMLElement).style.display = 'none');
 }
 
+// 评分星级滑条（首次使用时初始化；0.5 步进，0 为未评分）
+let ratingSlider: StarSlider | null = null;
+function ratingSliderEl(): StarSlider {
+  if (!ratingSlider) ratingSlider = makeStarSlider(document.getElementById('fRating') as HTMLElement, 0);
+  return ratingSlider;
+}
+
 // 打开编辑表单（复用详情对象的数据）
 function openEdit(g: Game): void {
   App.data.editingId = g.id;
@@ -42,7 +49,7 @@ function openEdit(g: Game): void {
   (document.getElementById('fTitle') as HTMLInputElement).value = g.title || '';
   (document.getElementById('fEngine') as HTMLInputElement).value = g.engine || '';
   (document.getElementById('fDev') as HTMLInputElement).value = g.dev || '';
-  (document.getElementById('fRating') as HTMLInputElement).value = String(g.rating || 0);
+  ratingSliderEl().set(Number(g.rating) || 0);
   (document.getElementById('fDesc') as HTMLTextAreaElement).value = g.description || '';
   (document.getElementById('fExe') as HTMLInputElement).value = g.exe_path || '';
   (document.getElementById('fCoverPrev') as HTMLImageElement).src = '';
@@ -60,7 +67,7 @@ function openAdd(): void {
   App.data.editingId = null;
   document.getElementById('formTitle')!.textContent = '手动添加单个 exe';
   ['fTitle', 'fEngine', 'fDev', 'fDesc', 'fExe'].forEach(id => (document.getElementById(id) as HTMLInputElement).value = '');
-  (document.getElementById('fRating') as HTMLInputElement).value = '0';
+  ratingSliderEl().set(0);
   document.getElementById('fCands')!.style.display = 'none';
   metaSearchRequest++;   // 作废上一对象的在途候选搜索
   setFormRows(['fExeRow'], FORM_ROWS.concat(['fCoverRow', 'fMetaRow']));
@@ -104,7 +111,7 @@ function saveForm(): void {
     title: (document.getElementById('fTitle') as HTMLInputElement).value,
     engine: (document.getElementById('fEngine') as HTMLInputElement).value,
     developer: (document.getElementById('fDev') as HTMLInputElement).value,
-    rating: parseInt((document.getElementById('fRating') as HTMLInputElement).value || '0'),
+    rating: ratingSliderEl().get(),
     description: (document.getElementById('fDesc') as HTMLTextAreaElement).value,
     exe_path: (document.getElementById('fExe') as HTMLInputElement).value
   };

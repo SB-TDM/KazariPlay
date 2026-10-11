@@ -24,7 +24,7 @@ class Game:
     play_time: int = 0           # 总游玩时长（分钟）
     last_played: str = ""        # ISO 格式
     date_added: str = ""         # ISO 格式，空时由数据库填 CURRENT_TIMESTAMP
-    rating: int = 0              # 1-5，0 表示未评分
+    rating: float = 0.0          # 0-5 半星制（0.5 步进），0 表示未评分
     logo_path: str = ""          # Logo 图片路径（叠加在封面上）
     description: str = ""        # 游戏描述/简介
     launch_exe_path: str = ""    # 自定义启动 exe 路径（为空时回退到 exe_path）

@@ -18,6 +18,7 @@ from typing import List, Optional
 
 from utils.logger import get_logger
 from utils.proxy_utils import get_opener
+from utils.rating_utils import rating_from_100
 
 logger = get_logger()
 
@@ -88,14 +89,8 @@ def _parse_game(item: dict) -> dict:
              or item.get("coverUrl") or "")
     released = item.get("releaseDate") or item.get("release_date") or ""
     description = item.get("introduction") or item.get("description") or ""
-    # score 可能是数字字符串（文档示例为 ""），防御式转换
-    score = item.get("score") or item.get("rating") or 0
-    try:
-        rating_5 = round(float(score) / 20)
-    except (ValueError, TypeError):
-        rating_5 = 0
-    if rating_5 < 1:
-        rating_5 = 0
+    # score 可能是数字字符串（文档示例为 ""），防御式转换（0-100 → 0-5 半星制）
+    rating_5 = rating_from_100(item.get("score") or item.get("rating") or 0)
     return {
         "source": "ymgal",
         "source_id": str(item.get("id") or item.get("gid") or ""),

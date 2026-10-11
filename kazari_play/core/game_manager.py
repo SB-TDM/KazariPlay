@@ -6,6 +6,7 @@ from core.game_launcher import GameLauncher
 from core.game_monitor import GameMonitor
 from database.game_repository import GameRepository
 from utils.logger import get_logger
+from utils.rating_utils import normalize_rating
 
 logger = get_logger()
 
@@ -151,11 +152,12 @@ class GameManager:
         self.repository.update_favorite(game_id, new_state)
         return new_state
 
-    def set_rating(self, game_id: str, rating: int) -> bool:
-        """设置评分（1-5）"""
-        if not 1 <= rating <= 5:
+    def set_rating(self, game_id: str, rating: float) -> bool:
+        """设置评分（0-5，0.5 步进；0 表示未评分）"""
+        r = normalize_rating(rating)
+        if r is None:
             return False
-        return self.repository.update_rating(game_id, rating)
+        return self.repository.update_rating(game_id, r)
 
     def rename_game(self, game_id: str, new_title: str) -> bool:
         """手动修改游戏标题"""

@@ -43,6 +43,17 @@
     transition:transform .2s var(--bounce);}
   .btn-primary:hover{transform:translateY(-2px);}
 
+  /* 星级滑条（详情评分 / 编辑表单共用）：五星星轨 + 隐藏的 range 输入 */
+  .star-slider{display:inline-flex;align-items:center;gap:8px;font-size:17px;color:var(--star);}
+  .star-slider .ss-wrap{position:relative;display:inline-block;line-height:1;cursor:pointer;}
+  .star-slider .ss-layer{display:inline-block;white-space:nowrap;line-height:1;}
+  .star-slider .ss-base{opacity:.3;}
+  .star-slider .ss-fill{position:absolute;left:0;top:0;overflow:hidden;width:100%;}
+  .star-slider .ss-wrap input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;}
+  .star-slider .ss-wrap:hover .ss-fill{color:var(--pink-deep);}
+  .star-slider .ss-val{font-size:12px;color:var(--text-sub);min-width:40px;}
+  .star-slider:focus-within{outline:2px solid var(--pink);outline-offset:3px;border-radius:8px;}
+
   /* 内容区允许选中复制（全局 user-select:none 仅针对 UI 框架元素） */
   .detail-desc, .dlg-content, .confirm-msg, .about .a-meta,
   .dlg-content input[type=text], .dlg-content select, .tagform input,

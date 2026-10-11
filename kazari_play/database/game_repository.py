@@ -125,7 +125,7 @@ class GameRepository:
             (1 if is_favorite else 0, game_id)
         )
     
-    def update_rating(self, game_id: str, rating: int) -> bool:
+    def update_rating(self, game_id: str, rating: float) -> bool:
         """更新评分"""
         return self.db.execute(
             "UPDATE games SET rating = ? WHERE id = ?",

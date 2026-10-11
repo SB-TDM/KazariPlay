@@ -13,7 +13,7 @@ API 文档：https://api.vndb.org/kana
     title         -> title（罗马音/英文）
     alttitle      -> title（日文原名，优先用）
     image.url     -> cover_path（下载到本地后的路径）
-    rating        -> rating（0-100，需转换为 1-5）
+    rating        -> rating（0-100，转换为 0-5 半星制）
     description   -> description（HTML 标签需清理）
     released      -> released（ISO 日期 YYYY-MM-DD）
     length_minutes-> length_minutes（VNDB 直接返回分钟数）
@@ -28,6 +28,7 @@ import urllib.error
 from typing import List, Dict, Optional
 from utils.logger import get_logger
 from utils.proxy_utils import get_opener
+from utils.rating_utils import rating_from_100
 
 logger = get_logger()
 
@@ -203,11 +204,8 @@ def _parse_vn_item(item: dict) -> dict:
     image = item.get("image") or {}
     cover_url = image.get("url") or ""
 
-    # 评分（VNDB 0-100 → 1-5）
-    rating_raw = item.get("rating", 0) or 0
-    rating_5 = round(rating_raw / 20)
-    if rating_5 < 1:
-        rating_5 = 0  # 0 表示未评分
+    # 评分（VNDB 0-100 → 0-5 半星制）
+    rating_5 = rating_from_100(item.get("rating", 0) or 0)
 
     # 描述（清理 BBCode）
     description = _clean_html(item.get("description") or "")

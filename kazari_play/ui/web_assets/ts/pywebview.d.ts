@@ -79,7 +79,7 @@ interface PyWebViewApi {
   matchVndbBatch(ids_json: string): Promise<string>;
   previewRelocate(ids_json: string): Promise<string>;
   applyRelocate(mapping_json: string): Promise<string>;
-  setRating(game_id: string, rating: number): Promise<unknown>;
+  setRating(game_id: string, rating: number): Promise<boolean>;
   getRunning(): Promise<string>;
   updateScreenshotHotkey(hotkey?: string): Promise<boolean>;
 

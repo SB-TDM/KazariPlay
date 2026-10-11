@@ -24,6 +24,7 @@ from ui.sync import UISync
 from utils.config import Config
 from utils.path_utils import get_app_data_dir
 from utils.logger import get_logger
+from utils.rating_utils import normalize_rating
 from version import WINDOW_TITLE
 
 logger = get_logger()
@@ -446,7 +447,8 @@ class WebBridge:
                 if field in data:
                     setattr(g, field, data[field])
             if "rating" in data:
-                g.rating = int(data["rating"] or 0)
+                r = normalize_rating(data["rating"])
+                g.rating = r if r is not None else 0
             if "cat_id" in data:
                 g.category_id = int(data["cat_id"] or 0)
             new_exe = (data.get("exe_path") or "").strip()
@@ -476,7 +478,7 @@ class WebBridge:
             g = Game(id=self.manager.scanner._generate_id(exe_path), title=title,
                      exe_path=exe_path, folder=os.path.dirname(exe_path),
                      engine=data.get("engine", ""), developer=data.get("developer", ""),
-                     description=data.get("description", ""), rating=int(data.get("rating", 0) or 0))
+                     description=data.get("description", ""), rating=normalize_rating(data.get("rating", 0)) or 0)
             g.identity = self.manager.scanner._make_identity(
                 g.engine, os.path.basename(os.path.normpath(g.folder)))
             g.category_id = int(data.get("cat_id", 0) or 0)
@@ -890,9 +892,11 @@ class WebBridge:
         self.refresh()
 
     # ---------- 评分 / 运行状态 ----------
-    def setRating(self, game_id: str, rating: int):
-        self.manager.set_rating(game_id, int(rating))
+    def setRating(self, game_id: str, rating: float) -> bool:
+        if not self.manager.set_rating(game_id, rating):
+            return False
         self.refresh_delta([game_id])
+        return True
 
     def getRunning(self) -> str:
         g = self.manager.get_running_game()
@@ -1236,7 +1240,8 @@ class WebBridge:
             g.released = cand["released"]
             changed = True
         if cand.get("rating") and want("rating"):
-            g.rating = int(cand["rating"]) if cand["rating"] <= 5 else round(cand["rating"] / 20)
+            raw = float(cand["rating"])
+            g.rating = normalize_rating(raw if raw <= 5 else raw / 20) or 0
             changed = True
         if cand.get("length_minutes") and want("length_minutes"):
             g.length_minutes = int(cand["length_minutes"])
