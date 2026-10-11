@@ -55,6 +55,15 @@
 
 ---
 
+## rating_utils.py — 评分规范化
+
+**定位**：全链路统一 0-5 半星制（0.5 步进；0 表示未评分）。
+
+- `normalize_rating(value) -> Optional[float]`：用户评分写入（详情滑条 / 表单 / 候选应用）共用——非数字/NaN/越界返回 None，否则对齐到最近半星。
+- `rating_from_100(score) -> float`：0-100 分制来源（VNDB/YMGal）→ 0-5 半星（半星四舍五入，低于 1 星归 0）。
+
+---
+
 ## title_utils.py — 标题归一化（联动核心）
 
 `normalize_title(title, *, for_identity=False) -> str`
@@ -98,7 +107,7 @@
 - `search_vn(title, count=5, cancel_event=None) -> List[dict]`：`filters=["search","=",title]`，`sort="searchrank"`，fields 含 `id,title,alttitle,image.url,rating,description,released,length_minutes,developers.name`；失败返回 `[]`（不抛）。
 - `search_first_vn(title, cancel)`：取第一条（自动选策略）。
 - `search = search_vn`：**multi_source 统一入口**（`client.search(keyword, count=...)`）。
-- `_parse_vn_item(item)`：`vndb_id`（补 `v` 前缀）、`title`（**优先 alttitle 日文原名**）、`cover_url`、`rating`（0-100 → round/20 → 0-5，<1 归 0）、`description`（`_clean_html` 去 BBCode/HTML 实体）、`developer`（developers 名字拼接）、`released`、`length_minutes`。
+- `_parse_vn_item(item)`：`vndb_id`（补 `v` 前缀）、`title`（**优先 alttitle 日文原名**）、`cover_url`、`rating`（0-100 → `rating_from_100` → 0-5 半星，<1 归 0）、`description`（`_clean_html` 去 BBCode/HTML 实体）、`developer`（developers 名字拼接）、`released`、`length_minutes`。
 
 **封面**
 - `download_cover(cover_url, dest_path, cancel_event=None, timeout=None, retries=0, progress_cb=None) -> bool`：`timeout` 缺省读 `cover_download.timeout`（**改设置即时生效**）；`_http_get` 按 `Content-Length` 分块上报 `progress_cb(read/total)`（0.0~1.0）；写入后校验非空。
@@ -114,7 +123,7 @@
 
 ## ymgal_client.py — 月幕客户端
 
-`YmgalError`；`search(keyword, count=5)` → 统一候选（`_parse_game`）；`download_cover`；`_request` / `_get_token` / `_auth_headers`（需 token）。状态 `experimental`（受地区/IP 影响）。
+`YmgalError`；`search(keyword, count=5)` → 统一候选（`_parse_game`，评分经 `rating_from_100` 转 0-5 半星）；`download_cover`；`_request` / `_get_token` / `_auth_headers`（需 token）。状态 `experimental`（受地区/IP 影响）。
 
 ---
 
@@ -126,5 +135,6 @@ path_utils ◀── db_manager / config / logger / screenshot_service / web_bri
 vndb_client ◀── metadata_matcher / multi_source
 title_utils ◀── game_scanner / metadata_matcher
 proxy_utils ◀── vndb/bangumi/ymgal client
+rating_utils ◀── game_manager / web_bridge / vndb_client / ymgal_client
 hotkeys ◀── main.py（注册）/ web_bridge（重配）
 ```

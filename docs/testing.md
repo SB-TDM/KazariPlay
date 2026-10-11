@@ -11,6 +11,7 @@ python tests/test_scanner.py           # 扫描器
 python -B tests/test_p0_data_flow.py   # P0 写入/取消
 python -B tests/test_p1_reliability.py # P1 截图/身份/重定位/任务隔离
 python tests/test_classic_boundary.py  # 无翻译边界 + 旧数据兼容
+python tests/test_rating.py            # 评分规范化（0-5 半星）
 python tests/test_ui_sync.py
 python tests/test_multi_source.py
 python tests/test_cover_cache.py
@@ -44,6 +45,7 @@ node tests/test_p1_frontend.cjs
 | `test_p1_reliability.py` | P1：截图、`identity` 回填、批量重新定位预览（多候选）、任务隔离 |
 | `test_scanner.py` | 中文启动器过滤、体积优先选主 exe、标题清洗、进度回调、取消 |
 | `test_classic_boundary.py` | 原版分离回归：无翻译能力、旧库与旧配置可读写兼容 |
+| `test_rating.py` | 评分规范化与换算：0-5 半星对齐、非法拒绝、0-100 来源换算边界、低于 1 星归 0 |
 | `test_ui_sync.py` | UISync：域→JS 语句、合并、payload 转义、未绑窗口降级、多线程 |
 | `test_multi_source.py` | 多源注册表完整性、默认混合源、pending 剔除、`_wrap`/`_dedupe`、`set_mixed_sources` |
 | `test_cover_cache.py` | 封面 base64 LRU：`move_to_end`、条目/字节双上限、clear |

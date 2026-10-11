@@ -43,10 +43,10 @@
 ## ui.ts — Sheet / 对话框 / 右键菜单基础设施
 
 **定位**：所有模态与上下文菜单的统一实现。
-**依赖**：core.ts。
-**定义**：`showSheet/closeSheet(id,instant)/closeTopSheet(boolean)`、`showConfirmDialog(opts)/confirmOk`、`showInputDialog(opts)/inputOk`、`openPicker(title,items,onPick)`、`showContextMenu(entries,x,y,width)`（返回元素，全局点击自动移除）。
+**依赖**：core.ts / icons.ts。
+**定义**：`showSheet/closeSheet(id,instant)/closeTopSheet(boolean)`、`showConfirmDialog(opts)/confirmOk`、`showInputDialog(opts)/inputOk`、`openPicker(title,items,onPick)`、`showContextMenu(entries,x,y,width)`（返回元素，全局点击自动移除）、`makeStarSlider(el,value,onChange)`（星级滑条：0-5 半星，拖动/点击/键盘改值，change 回调；详情评分与编辑表单共用）。
 **Esc 语义**：`closeTopSheet` 按 overlay 注入顺序（即层叠顺序，后出现者在上）倒序关闭第一个可见弹层；输入/确认清理对应回调，设置窗口走 `Settings.close`；无可见弹层返回 false（调用方继续处理抽屉/批量）。
-**被依赖**：games/cards/collections/batch/detail/screenshots。
+**被依赖**：games/cards/collections/batch/detail/screenshots/form。
 
 ---
 
@@ -86,7 +86,7 @@
 
 **定位**：底部 Sheet：封面 / 信息条 / 评分 / 收藏 / 标签 / 收藏夹路径 / 启动 / 截图区。
 **依赖**：state / core / ui / games / screenshots / collections。
-**定义**：`openDetail(g)`（存 `currentGame`、高亮卡、异步重取最新）、`refreshDetail`、`renderInfoBar`、`initRateEdit`、`collectionPath`、`renderDetailTags`、`updateFavBtn`。
+**定义**：`openDetail(g)`（存 `currentGame`、高亮卡、异步重取最新）、`refreshDetail`、`renderInfoBar`、`initRateEdit`（星级滑条：0.5 步进、0=未评分，失败回退 + toast）、`collectionPath`、`renderDetailTags`、`updateFavBtn`。
 
 ---
 
@@ -132,7 +132,7 @@
 **定位**：编辑与手动添加表单；多源元数据搜索、候选展示与字段勾选应用。
 **依赖**：state / core / ui。
 **定义**
-- 表单：`openEdit(g)` / `openAdd()`（`setFormRows` 切换显示行）、`saveForm()`（校验 + `saveGame`）、`showFormError/clearFormError`
+- 表单：`openEdit(g)` / `openAdd()`（`setFormRows` 切换显示行；评分滑条 `ratingSliderEl` 回填/重置）、`saveForm()`（校验 + 读评分滑条 + `saveGame`）、`showFormError/clearFormError`
 - 元数据：`initMetaSources`（`getMetadataSources`）、`renderSrcBar`（源切换 mixed/单源）、`currentSearchTargets`、`renderCandidates`、`META_FIELDS`（字段定义表：key/label/cur/next/hasCand）、`openMetaApply(c)`（字段勾选对话框，`metaApplySel = makeCheckAll(...)`）、`closeMetaApply`；应用调 `bridge.applyCandidate(id, cand, fields)`
 
 ---

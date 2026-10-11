@@ -53,7 +53,7 @@
 - `resetConfig()` / `setTheme(theme)`（**即时持久化**，无需点保存）/ `getConfigPath()`
 
 ### 写操作
-- `toggleFav` / `launch`（返回 `{ok}`）/ `openFolder`（explorer /select）/ `deleteGame` / `saveGame(id, data_json)`（见下）/ `setRating`
+- `toggleFav` / `launch`（返回 `{ok}`）/ `openFolder`（explorer /select）/ `deleteGame` / `saveGame(id, data_json)`（见下）/ `setRating(game_id, rating)`（0-5 半星；成功返回 true 并局部刷新，非法值返回 false）
 - `saveGame`：
   - `id` 非空：编辑——改 title/engine/developer/description/rating/cat_id；改了 `exe_path` 则校验存在、同步 `folder`；**重算 `identity`**；失败提示「启动路径是否重复」
   - `id` 空：手动添加——校验 exe、查重 `get_by_path`、标题自动推导（文件夹名→文件名）；添加后**后台自动触发匹配**（`_start_task`），`refresh()` 全量

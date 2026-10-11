@@ -2,6 +2,14 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 评分半星制与星级滑条（2026-10-11）
+
+- **交互**：详情评分从「点击星星」改为**星级滑条**（五星星轨 + 覆盖其上的原生 range 输入），支持点击/拖动/键盘（←→ ±0.5）；编辑表单的评分下拉同步换成同款滑条。拖动中只更新本地显示，**松手（change）才保存一次**；滑到最左 = 未评分。
+- **数值**：评分从整数扩展为 **0-5 半星制（0.5 步进）**，0 仍表示未评分；卡片评分显示（一位小数）与排序（评分优先）本就按数字处理，无需改。
+- **后端**：新增 `utils/rating_utils.py`（`normalize_rating`：0-5 半星对齐 + 非法拒绝；`rating_from_100`：0-100 → 0-5 半星）；`web_bridge.setRating` 返回 bool 且仅在成功时局部刷新；`saveGame` 编辑/添加与 `applyCandidate` 的 `int()` 截断全部改走规范化；`game_manager.set_rating` 校验放宽为 0-5 半星（允许清除为 0）；`game_model.rating` 改 float；VNDB/YMGal 来源评分换算改半星（低于 1 星仍归 0）。
+- **兼容**：SQLite 动态类型直接存小数（`rating INTEGER` 列无需迁移）；旧整数评分显示与排序不变。
+- 验证：新增 `tests/test_rating.py`（规范化/换算边界）；离线回归新增「评分滑条」8 项（结构/拖动 4.5→90%/0=未评分/失败回退 + toast/表单回填与保存）；主页 2 场景、既有离线回归 11 项、typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract/P1 全过。
+
 ## 主页代码审查整改（R7–R14、R16，2026-10-11）
 
 - **R7**：抽 `compareLastPlayedDesc` 共用最近游玩比较器（games.ts 时间排序与主页继续游玩/统计，原 3 处重复）。

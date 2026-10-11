@@ -18,7 +18,7 @@
 **表结构**
 | 表 | 用途 | 关键列 |
 |---|---|---|
-| `games` | 游戏主表 | `id(PK)`、`exe_path(UNIQUE)`、`title`、`folder`、`engine`、`identity`、`cover_path`、`logo_path`、`launch_exe_path`、`is_favorite`、`rating`、`play_count`、`play_time`、`last_played`、`date_added`、`description`、`vndb_id/released/developer/length_minutes`、`category_id`、`tags`(兼容快照)、`hook_code* / translate_enabled / clean_filter_override`(实验版兼容) |
+| `games` | 游戏主表 | `id(PK)`、`exe_path(UNIQUE)`、`title`、`folder`、`engine`、`identity`、`cover_path`、`logo_path`、`launch_exe_path`、`is_favorite`、`rating`（0-5 半星）、`play_count`、`play_time`、`last_played`、`date_added`、`description`、`vndb_id/released/developer/length_minutes`、`category_id`、`tags`(兼容快照)、`hook_code* / translate_enabled / clean_filter_override`(实验版兼容) |
 | `tags` | 标签 | `id`、`name(UNIQUE)`、`color`、`sort_order` |
 | `game_tags` | 游戏-标签多对多 | `(game_id, tag_id)` PK |
 | `categories` | 扁平分类 | `id`、`name(UNIQUE)`、`sort_order` |

@@ -14,7 +14,7 @@
 **关键字段分组**
 - 标识：`id`（exe 路径 MD5 前 16）、`title`、`exe_path`、`folder`、`engine`、`identity`
 - 资产：`cover_path`、`logo_path`
-- 状态：`is_favorite`、`play_count`、`play_time`（分钟）、`last_played`、`date_added`、`rating`
+- 状态：`is_favorite`、`play_count`、`play_time`（分钟）、`last_played`、`date_added`、`rating`（0-5 半星，0=未评分）
 - 展示：`description`
 - 启动：`launch_exe_path`（自定义启动 exe，空则回退 `exe_path`）
 - VNDB 元数据：`vndb_id`、`released`、`developer`、`length_minutes`
@@ -108,7 +108,7 @@
 - 扫描：`scan_and_add(folder, progress_cb, cancel_event) -> (added, new_games, skipped)`
   - 判重① `repository.get_by_path(exe_path)` ② `repository.get_by_identity(identity)` → 命中即 `skipped`
 - 增删改：`add_game` / `delete_game`（→ `batch_delete([id])==1`）/ `update_game`（保留 play_count/play_time/last_played/date_added/is_favorite/rating，标签同步关联表）
-- 状态：`set_favorite/toggle_favorite/set_rating/rename_game`
+- 状态：`set_favorite/toggle_favorite/set_rating`（0-5 半星，非法拒绝，允许 0 清除）`/rename_game`
 - 标签/分类：委托 `tag_repo`
 - 批量：`batch_add_tag/batch_remove_tag/batch_set_category/batch_set_favorite`（`db.execute_many` 单事务）、`batch_delete`（运行中先 `close_game`）
 - 收藏夹：委托 `collection_repo`（`get_collections_tree/create/update/delete/reorder/...`）
