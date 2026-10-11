@@ -152,7 +152,7 @@
 **依赖**：state / core / cards（`buildCard`/`loadCardCover`）/ collections（`selectCollection`，运行时）。
 **定义**：`updateHomeView()`（由 `renderAll`/`applyGamesDelta` 与收藏夹树回包调用，返回是否主页）、`renderHomeSections`、`renderHomeHead`、`renderHomeContinue`、`renderHomeStats`、`renderHomeCollections`、`formatTotalMinutes`、`bindHomeResize`。
 **关键逻辑**
-- 继续游玩：`last_played` 倒序取最近款，数量按容器宽度自适应 1~6（一行放下）；卡片复用现有组件与交互，封面经 `loadCardCover` 直接加载。
+- 继续游玩：`last_played` 倒序取最近款，数量按容器宽度自适应 1~6（一行放下）；卡片复用现有组件与交互，封面经 `loadCardCover` 直接加载；重渲染前按签名（顺序/标题/评分/收藏/`cover_version`）比较，未变则跳过重建保留已加载封面（运行角标由 `markRunning` 就地更新，不入签名）。
 - 统计：作品总数 / 收藏数可点击（经侧栏按钮跳转），总游玩时长与最近一次游玩只读；总时长与后端 `format_play_time` 同口径（分钟；≥60 显示「X 小时 Y 分钟」）。
 - 收藏夹快捷：按树序取前 8（分组 + 分类），点击走 `selectCollection` 筛选路径；无数据时区块隐藏。
 - 视图：主页时隐藏副标题栏与列表（批量栏、FAB、任务进度保留）；数据刷新链路挂接见 `games.ts`。
