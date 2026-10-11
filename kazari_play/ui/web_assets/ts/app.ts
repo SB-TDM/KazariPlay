@@ -102,7 +102,7 @@ document.getElementById('btnSettings')!.onclick = () => {
   else toast('设置模块加载失败');
 };
 
-// 收藏夹浮层（S3）：侧栏入口开关、遮罩/关闭按钮收起、Esc 收起
+// 收藏夹浮层（S3）：副标题栏开关、遮罩收起、Esc 收起
 const collectionDrawer = document.getElementById('collectionDrawer')!;
 const collectionScrim = document.getElementById('collectionScrim')!;
 const btnCollections = document.getElementById('btnCollections')!;
@@ -124,14 +124,14 @@ function setCollectionDrawer(open: boolean): void {
   const hadFocus = !open && collectionDrawer.contains(document.activeElement);
   collectionDrawer.classList.toggle('show', open);
   collectionScrim.classList.toggle('show', open);
-  btnCollections.classList.toggle('active', open);
+  btnCollections.classList.toggle('active', open);   // 展开时按钮切换为收起样式（图标由 CSS 按 .active 切换）
   btnCollections.setAttribute('aria-expanded', open ? 'true' : 'false');
+  btnCollections.setAttribute('aria-label', open ? '收起收藏夹' : '收藏夹');
   setDrawerBackgroundInert(open);
   if (hadFocus) btnCollections.focus();
 }
 btnCollections.onclick = () => setCollectionDrawer(!collectionDrawer.classList.contains('show'));
 collectionScrim.onclick = () => setCollectionDrawer(false);
-document.getElementById('btnCollectionsClose')!.onclick = () => setCollectionDrawer(false);
 
 // 主题切换（即时持久化，复用设置模块）
 document.getElementById('btnTheme')!.onclick = () => {
