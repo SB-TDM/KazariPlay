@@ -133,6 +133,12 @@ function setCollectionDrawer(open: boolean): void {
 btnCollections.onclick = () => setCollectionDrawer(!collectionDrawer.classList.contains('show'));
 collectionScrim.onclick = () => setCollectionDrawer(false);
 
+// 收藏夹开关只在「全部作品」视图存在；其它视图隐藏（抽屉若已打开保持原状，可经 Esc/遮罩收起）
+function updateCollectionsEntry(): void {
+  const isAllView = App.ui.state.nav === '全部作品' && App.ui.state.collectionId === null;
+  btnCollections.hidden = !isAllView;
+}
+
 // 主题切换（即时持久化，复用设置模块）
 document.getElementById('btnTheme')!.onclick = () => {
   const dark = document.documentElement.getAttribute('data-theme') === 'dark';

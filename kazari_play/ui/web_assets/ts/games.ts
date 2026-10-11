@@ -171,6 +171,7 @@ function renderAll(): void {
   const keepTop = scroller ? scroller.scrollTop : 0;
   const list = filterGames(App.data.games);
   updateNavInfo(list);
+  updateCollectionsEntry();   // 收藏夹开关只在「全部作品」视图显示
   renderCards(list);
   renderEmpty(list);
   updateBatchBar();

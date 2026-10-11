@@ -42,6 +42,7 @@
     font-family:var(--font);cursor:pointer;
     transition:background .2s,color .2s,transform .22s var(--bounce);}
   .nav-collections:hover{background:var(--bg-hover);color:var(--pink-deep);transform:translateY(-50%) scale(1.06);}
+  .nav-collections[hidden]{display:none;}
   .nav-collections.active{color:#fff;background:var(--grad-pink);box-shadow:0 3px 10px var(--glow-med);}
   .nav-collections.active:hover{color:#fff;}
   .nav-collections svg{width:18px;height:18px;display:block;}
