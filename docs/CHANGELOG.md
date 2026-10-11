@@ -2,6 +2,12 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 选中态/按钮配色还原（2026-10-11）
+
+- 用户要求将按钮选中态及同类颜色按钮还原为原品牌渐变：撤销 C04（`c9d357b`）的深色操作色方案，移除 `--action-bg/--action-fg/--action-mint-bg` 变量。
+- 还原范围（14 处）：侧栏 `.side-item.active`、导航 `.navbtn.active`、设置 tab `.nav-item.active`、收藏夹分组/分类 `.active`、分组展开按钮 hover、主按钮 `.pill-btn.primary`、空状态 `.primary`、FAB、运行徽标 `.card .running`、源芯片 `.src-chip.on`、管理项 `.mg-item.on`、标签 `.taglist .chip.on`——统一回到 `--grad-pink`/`--grad-mint` + `#fff`。
+- 说明：这些控件的白字对比度因此回到原值（低于 4.5:1 目标），为用户明确选择；后续如需可读性调整再单独讨论。图标改动不受影响。
+
 ## 前端图标全量 SVG 化（2026-10-11）
 
 - **新增 `ts/icons.ts`**（Bootstrap Icons 16×16、`currentColor`）并登记 `main.py::_JS_MANIFEST`（state 之后）；`ICON.*` 供卡片/收藏夹右键菜单、评分星、收藏按钮、排序箭头、窗口按钮等复用；静态图标（标题栏/侧栏/关闭按钮/关于页）在 HTML 内联同一路径。
