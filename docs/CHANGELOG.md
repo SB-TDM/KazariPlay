@@ -2,6 +2,13 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 收藏夹开关仅限「全部作品」视图（2026-10-11）
+
+- 副标题栏的收藏夹开关只在「全部作品」视图存在（nav=全部作品且未筛选收藏夹）；切到「我的收藏」或收藏夹筛选时隐藏，切回后恢复（保持原激活态）。
+- 隐藏只影响开关本身：抽屉若已打开保持原状，可用 Esc / 点遮罩收起。
+- 实现：`updateCollectionsEntry()` 由 `renderAll()` 链路统一维护；`hidden` 配合 `.nav-collections[hidden]{display:none}` 生效（覆盖 `display:flex`）。
+- 验证：离线对抗回归新增该项（可见性 / 切回恢复 / 抽屉保持原状），共 11 项全过；typecheck/build/verify_frontend/classic_boundary/ordering/bridge_contract 与图标一致性检查通过。
+
 ## 收藏夹入口移入副标题栏（2026-10-11）
 
 - 侧栏图标列的「收藏夹」按钮移除，移入主界面副标题栏：横向对齐原抽屉关闭按钮一带（抽屉右端）、垂直居中；收起/展开均可点击。
