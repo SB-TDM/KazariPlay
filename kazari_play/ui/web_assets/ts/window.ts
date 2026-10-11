@@ -6,16 +6,18 @@
 // ============================================================
 
 // 最大化 / 还原切换（HTML 标题栏按钮）
+// 以后端回传的真实窗口状态驱动 UI，避免前后端状态脱节导致按钮“点不动”
 function toggleMax(): void {
-  const b = document.getElementById('btnMax');
-  const willMax = !!b && b.dataset.mode !== 'max';
-  bridge.windowToggleMaximize();
-  document.body.classList.toggle('maximized', willMax);   // 最大化时隐藏缩放手柄
-  if (b) {
-    b.dataset.mode = willMax ? 'max' : 'restore';
-    b.setAttribute('aria-label', willMax ? '还原窗口' : '最大化');
-    b.innerHTML = willMax ? ICON.winRestore : ICON.winMax;
-  }
+  bridge.windowToggleMaximize(function (state: unknown, failed?: boolean) {
+    if (failed) return;   // 桥失败保持现状
+    const maximized = state === true;
+    document.body.classList.toggle('maximized', maximized);   // 最大化时隐藏缩放手柄
+    const b = document.getElementById('btnMax');
+    if (!b) return;
+    b.dataset.mode = maximized ? 'max' : 'restore';
+    b.setAttribute('aria-label', maximized ? '还原窗口' : '最大化');
+    b.innerHTML = maximized ? ICON.winRestore : ICON.winMax;
+  });
 }
 
 // ---------- 标题栏拖拽 ----------
