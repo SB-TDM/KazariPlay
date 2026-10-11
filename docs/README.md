@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-11 已归档 `feature/main-ui-redesign` 前端审查与修复参考；修复批次 `db17bfc` 完成代码与离线回归，待源码 GUI/DPI 验收；2026-10-07 develop 试用反馈按原记录单独维护。
+> 文档状态：2026-10-11 主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补。2026-10-07 试用三项反馈已修复（`36c17dc` 批次），待新试用包复验。
 >
 > 本页区分当前有效文档、历史记录和未实施方案。当前代码与运行行为以代码、测试结果和“当前有效”文档为准。
 
@@ -16,9 +16,9 @@
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
 | [WEBVIEW2_OPTIMIZATION.md](WEBVIEW2_OPTIMIZATION.md) | WebView2 参数决策、性能基线和后续优化原则 |
 | [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
-| [FRONTEND_REVIEW_REPAIR_PLAN_20261011.md](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md) | 主界面特性分支前端修复统一台账：`3e3f672` 基线、FR-01～FR-12 复现/根因/验收、原版对照、结构评价与分阶段建议；修复批次 `db17bfc` 已实施，离线回归通过，待源码 GUI/DPI 验收 |
+| [FRONTEND_REVIEW_REPAIR_PLAN_20261011.md](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md) | 主界面特性分支前端修复统一台账：`b5c8b8d` 基线、FR-01～FR-12 复现/根因/验收、原版对照、结构评价与分阶段建议；修复批次 `85e895a` 已实施并随 `develop` 推送（`154ea63`），离线回归通过，待源码 GUI/DPI 验收 |
 | [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) | 主界面设计与保护约束；主界面代码已实施，完整验收未完成；后续确认和修复状态以当前修复台账为准 |
-| [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界，尚未修复 |
+| [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界；三项已于 `36c17dc`/`d1b30fa` 修复（层级/取消反馈/命名），底层网络取消仍按既有超时返回，待新试用包复验 |
 | [COVER_DOWNLOAD_OPTIMIZATION.md](COVER_DOWNLOAD_OPTIMIZATION.md) | 元数据匹配与封面下载性能优化：封面与匹配解耦、短超时不重试、可配置与可视化 |
 | [SESSION_20261008.md](SESSION_20261008.md) | 2026-10-08 本轮改动说明（扫描整棵树 / 封面解耦与体验 / 搜索超时 / 候选字段勾选） |
 | [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
@@ -53,7 +53,7 @@
 | [HOOK_TRANSLATION_HANDOVER.md](HOOK_TRANSLATION_HANDOVER.md) | 仅适用于历史和 feature/hook-translation，原版不提供对应源码/API |
 | [UI_REVIEW_CONTROL_PANEL_HANDOVER.md](UI_REVIEW_CONTROL_PANEL_HANDOVER.md) | 2026-08 UI 审查和字幕控制面板交接记录；独立控制面板后来被合并进主设置页 |
 | [UI_REDESIGN_PLAN.md](UI_REDESIGN_PLAN.md) | 已完成 UI 改造批次及历史计划 |
-| [MAIN_UI_REDESIGN_G0_TRIAGE.md](MAIN_UI_REDESIGN_G0_TRIAGE.md) | 2026-10-10 G0 基线及早期实施记录；不能用其中的“已修/待做”代替 `3e3f672` 前端审查结论 |
+| [MAIN_UI_REDESIGN_G0_TRIAGE.md](MAIN_UI_REDESIGN_G0_TRIAGE.md) | 2026-10-10 G0 基线及早期实施记录；不能用其中的“已修/待做”代替 `b5c8b8d` 前端审查结论 |
 | [UI_OPTIMIZATION_DISCUSSION.md](UI_OPTIMIZATION_DISCUSSION.md) | 2026-10-07 评审证据与候选建议；设计承接见主界面计划，当前修复状态见 2026-10-11 前端台账，不自动全量授权实施 |
 
 ## 未实施方案
@@ -62,13 +62,13 @@
 
 | 文档 | 状态 |
 |---|---|
-| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.3：个人化聚合仪表盘（问候/继续游玩/统计/收藏夹快捷/空库引导）；工作分支 `feature/home-page`，已实施（离线回归通过，待源码 GUI 复验） |
+| [MAIN_UI_HOME_DESIGN.md](MAIN_UI_HOME_DESIGN.md) | 主页设计稿 v0.3：个人化聚合仪表盘（问候/继续游玩/统计/收藏夹快捷/空库引导）；工作分支 `feature/home-page`，已实施并随 `develop` 推送（`154ea63`，含复评整改 R1–R16），待最终实机验收 |
 | [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
 
 ## 当前验证边界
 
-`feature/main-ui-redesign` 在 `3e3f672` 的验证边界统一见 [前端修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)：关键离线缺陷已复现，Windows 原生 DPI、窗口拉伸、完整 GUI 和颜色矩阵仍待验收。以下为此前 develop/实验分支记录，不代表新主界面通过验收。
+主界面在 `b5c8b8d` 审查基线的验证边界统一见 [前端修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)：关键离线缺陷已修复并入 `develop`；Windows 原生 DPI、窗口拉伸、完整 GUI 和颜色矩阵仍待验收。以下为此前 develop/实验分支记录，不代表新主界面通过验收。
 
 P0/P1 已集成到本地原版 `develop`，公共修复选择性同步实验版；两版数据、前端、源码 GUI、x64/x86 构建和管道回归通过。P2 与新产物启用只在实验版，默认使用 runtime 双架构 EXE/DLL，受控请求、日志隐私、GUI HTTPS 拒绝、toast/字幕像素和 COM 成对释放回归通过。旧实验 EXE/DLL/OBJ 保留且哈希未变，显式配置仍优先；原版运行目录不变。真实 Hook、TLS/AI 服务、独占全屏、多显示器和实际打包尚未验收，本轮未推送或更新稳定 `main`。详细结果以 [开发待办](DEVELOPMENT_BACKLOG.md) 为准，运行与同步步骤见 [分支流程](BRANCH_WORKFLOW.md)。

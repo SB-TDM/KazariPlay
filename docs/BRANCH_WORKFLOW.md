@@ -99,3 +99,10 @@ P1 增量验证：两版 18 项数据/任务回归、Node 截图/进度隔离和
 develop 试用包已通过本地 PyInstaller onedir 构建与冻结包离线自检：`scripts/package_develop.py --output <新目录>`。包旁 `data/` 隔离数据库、配置、日志和截图；包内含原版前端/资源及 x64/x86 截图 Overlay，运行时不读取现有 `%APPDATA%/KazariPlay`。自检覆盖冻结 WebView、版本/关于页、SQLite 新增/编辑/删除、WGC/Pillow 截图、缩略图、重命名/删除、包内 Overlay 管道与零退出；不覆盖现有构建目录。实际 PyInstaller 警告中的可选平台模块未在 Windows 路径使用。
 
 2026-10-06 实验专属 P2 已本地完成，原版仅同步记录，详情见 [开发待办](DEVELOPMENT_BACKLOG.md)。实验 x64/x86 真实请求受控替身与日志隐私回归通过，随后默认运行目录启用为 `overlay/runtime/x64|x86`，bat/CMake 双架构构建、源码 GUI HTTPS 拒绝、toast/字幕预览像素和正常退出通过；字幕 COM 重复释放修复及计数回归通过。旧 EXE/DLL/OBJ 保留，显式 exe_path 仍优先；原版构建与路径不改变。P0/P1/P2 和启用提交尚未推送，稳定 `main` 未更新；真实游戏/TLS/AI 服务及实际打包仍未验收。
+
+## 2026-10-11 更新
+
+- 新增第三个本地工作区 `KazariPlay_main-ui`：`origin` 指向本机 `KazariPlay_main`（独立克隆），另配 `github` 远端 `git@github.com:SB-TDM/KazariPlay.git`；主界面重构、主页与评分半星制均在此完成，不触碰原工作区未提交改动。
+- `develop` 已推送 GitHub：`154ea63`（含 `feature/main-ui-redesign`、`feature/home-page`、评分改造全部提交）；两个特性分支也已推送。GitHub `main` 未动（`d0232a6`），`master` 保留，默认分支切换仍待处理。
+- 本会话 52 个提交按用户要求统一作者/提交者身份为 `SB-TDM <1564253259@qq.com>`（原 Gitee 邮箱署名），强推覆盖两个特性分支与 `develop`；提交内容、树与时间不变。旧对象保留在本克隆 `refs/original/` 备份，旧 SHA 仍可从该备份解析；文档中的旧 SHA 引用已改为重写后的等价 SHA。
+- 试用包 `trial-build-1.4.0-beta.1-r8` 在本克隆构建并通过冻结自检（含包内 x64/x86 Overlay）；按用户指示复制了本机数据副本进包，仅限本地测试，不得外传。

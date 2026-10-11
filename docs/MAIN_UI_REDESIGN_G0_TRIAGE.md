@@ -1,9 +1,9 @@
 # KazariPlay 主界面改造 G0 分诊记录
 
 > 日期：2026-10-10。实施工作区：`E:\文件夹\Launcher\KazariPlay_main-ui`（独立克隆），分支 `feature/main-ui-redesign`。
-> 基线提交：`e70d018`（其上是 `6388bca` 计划修订、`57ff38f` 初始计划与快照）。工作树干净，前端已 `npm ci` + `build`。
+> 基线提交：`b99b765`（其上是 `6388bca` 计划修订、`57ff38f` 初始计划与快照）。工作树干净，前端已 `npm ci` + `build`。
 > 关联：[MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) §4、§8。方法：静态源码走查（`file:line`）+ 既有 2026-10-07 测量；未运行真实 GUI 复现的条目已注明。
-> **历史记录提示（2026-10-11）：**本文保留 G0 基线和 §6 早期实施阶段的原始判断，不是当前待办。主界面 S1–S3、设置 label 及 `applyCandidate/saveConfigs` 契约后来已有实施；C08/C09/C10 等仍须按最新实测区分有效修复与缺口。`3e3f672` 的统一状态、FR 编号和验收条件见 [前端审查与修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)。
+> **历史记录提示（2026-10-11）：**本文保留 G0 基线和 §6 早期实施阶段的原始判断，不是当前待办。主界面 S1–S3、设置 label 及 `applyCandidate/saveConfigs` 契约后来已有实施；C08/C09/C10 等仍须按最新实测区分有效修复与缺口。`b5c8b8d` 的统一状态、FR 编号和验收条件见 [前端审查与修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)。
 
 ## 1. 基线门禁结果
 
@@ -61,12 +61,12 @@
 
 | 编号 | 状态 | 提交 |
 |---|---|---|
-| C03 批量栏越界 | 已修（限宽 + 折行；渲染验证留 S4） | `f87af8a` |
-| C04 对比度 | 正文 `--text-sub` 加深；白字控件改用 `--action-bg`/`--action-mint-bg`（装饰保留浅粉）。像素级复测与 `--text-disabled` 误用清理留 S4 | `aefe893`、`c9d357b` |
-| C08/C09 异步迟到 | 已修（request+gid 代际校验）；陈旧测试修复 + 新增 ordering 测试 | `6d2b191` |
-| C10 真实结果反馈 | 已修可用契约部分（launch/openFolder/copy/refresh）；`applyCandidate`/`saveConfigs` 无返回契约，仍待批 | `60e2742` |
-| C11 取消/任务阶段 | 最小修（取消等待锁定）；TaskProgress 状态机延期 | `64da3a7` |
-| C13 表单/设置 a11y | 部分：表单错误换行 + `aria-invalid`/`aria-describedby`、设置 tab `role`/`aria-selected`/方向键。设置字段 `<div class="label">` 转 `<label for>` 留待办 | `8c60c32` |
-| C16 主题/预览 | 已修（主题文案、截图预览反色 token） | `8c60c32` |
+| C03 批量栏越界 | 已修（限宽 + 折行；渲染验证留 S4） | `ff111bc` |
+| C04 对比度 | 正文 `--text-sub` 加深；白字控件改用 `--action-bg`/`--action-mint-bg`（装饰保留浅粉）。像素级复测与 `--text-disabled` 误用清理留 S4 | `ec0a9ff`、`948249f` |
+| C08/C09 异步迟到 | 已修（request+gid 代际校验）；陈旧测试修复 + 新增 ordering 测试 | `b622068` |
+| C10 真实结果反馈 | 已修可用契约部分（launch/openFolder/copy/refresh）；`applyCandidate`/`saveConfigs` 无返回契约，仍待批 | `9f6e1a1` |
+| C11 取消/任务阶段 | 最小修（取消等待锁定）；TaskProgress 状态机延期 | `d1b30fa` |
+| C13 表单/设置 a11y | 部分：表单错误换行 + `aria-invalid`/`aria-describedby`、设置 tab `role`/`aria-selected`/方向键。设置字段 `<div class="label">` 转 `<label for>` 留待办 | `cb5f50c` |
+| C16 主题/预览 | 已修（主题文案、截图预览反色 token） | `cb5f50c` |
 
 当时仍未做：S1–S3 主界面实施、S4 完整回归（真实 GUI/DPI/像素对比度）。截至 2026-10-11，S1–S3 已有代码实现，不能继续视为尚未开工；完整验收仍未完成，详见当前修复台账。
