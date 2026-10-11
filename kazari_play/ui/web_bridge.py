@@ -314,8 +314,7 @@ class WebBridge:
         self._ui = UISync()          # 界面更新总线（全部前端推送经它合并发出）
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
         self._drag_anchor = None
-        self._maximized = False      # 本地跟踪最大化状态（以 Win32 IsZoomed 为准，见 _is_zoomed）
-        self._hwnd = 0               # 窗口句柄缓存（_win32_hwnd 命中复用）
+        self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
         self._vndb_counter = 0       # VNDB 进度节流计数
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
@@ -1357,47 +1356,30 @@ class WebBridge:
             self._window.minimize()
 
     def windowToggleMaximize(self):
-        """切换最大化/还原：以窗口真实状态为准（pywebview 的 maximized 在 frameless 下不可靠），
-        并把结果状态返回给前端，由前端据此更新 .maximized 类与按钮图标。"""
         if not self._window:
-            return False
-        if self._is_zoomed():
+            return
+        if self._maximized:
             # pywebview 在 frameless 下 restore() 失效，改用 Win32 SW_RESTORE
             if not self._restore_win32():
                 try:
                     self._window.restore()
                 except Exception as e:
                     logger.warning("还原窗口失败: %s", e)
+            self._maximized = False
         else:
             try:
                 self._window.maximize()
+                self._maximized = True
             except Exception as e:
                 logger.warning("最大化失败: %s", e)
-        self._maximized = self._is_zoomed()
-        return self._maximized
-
-    def _is_zoomed(self) -> bool:
-        """窗口当前是否最大化（Win32 IsZoomed；拿不到句柄时退回本地跟踪值）"""
-        hwnd = self._win32_hwnd()
-        if not hwnd:
-            return self._maximized
-        try:
-            import ctypes
-            return bool(ctypes.windll.user32.IsZoomed(hwnd))
-        except Exception:
-            return self._maximized
 
     def _win32_hwnd(self):
-        """通过标题查找窗口句柄（pywebview 不直接暴露 hwnd）；命中缓存后复用"""
+        """通过标题查找窗口句柄（pywebview 不直接暴露 hwnd）"""
         if os.name != "nt":
             return 0
         try:
             import ctypes
-            user32 = ctypes.windll.user32
-            if self._hwnd and user32.IsWindow(self._hwnd):
-                return self._hwnd
-            self._hwnd = user32.FindWindowW(None, WINDOW_TITLE)
-            return self._hwnd
+            return ctypes.windll.user32.FindWindowW(None, WINDOW_TITLE)
         except Exception:
             return 0
 
@@ -1455,7 +1437,7 @@ class WebBridge:
         if not self._window or not self._rs_start:
             return
         try:
-            if self._is_zoomed():
+            if self._window.maximized:
                 return
             sx, sy, sw, sh = self._rs_start
             x, y, w, h = sx, sy, sw, sh
