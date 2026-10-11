@@ -2,6 +2,19 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 主页代码审查整改（R7–R14、R16，2026-10-11）
+
+- **R7**：抽 `compareLastPlayedDesc` 共用最近游玩比较器（games.ts 时间排序与主页继续游玩/统计，原 3 处重复）。
+- **R8**：抽 `cards.cardCols(width)`（含 `CARD_GAP` 常量）共用列数计算（列表窗口化 + 主页继续游玩）。
+- **R9**：主页统计改为**就地更新**静态骨架节点（不再整体 `innerHTML` 重建；跳转 `onclick` 初始化时绑定一次），节点身份与焦点保留。
+- **R10**：`renderHomeEmpty()` 具名化，与其余板块渲染函数一致。
+- **R11**：同步 home.ts 头注释与 modules.md 的 cards.ts/games.ts 定义（补 `syncCard`/`loadCardCover`/`cardCols`/`compareLastPlayedDesc`）。
+- **R12**：抽共享 `.btn-primary`（base.css）；删除 `.empty .primary` 与 `.home-empty .primary` 两处重复定义。唯一外观变化：列表空状态主按钮获得与主页一致的阴影与 hover。
+- **R13**：主页视图短路列表计算与渲染——`renderAll`/`applyGamesDelta`/收藏夹树回包先判 `onHome`，避免对隐藏列表的无效 filter/sort 与 nav 信息更新。
+- **R14**：去掉多余类型断言（改显式注解）。
+- **R16**：合并 `[hidden]` 规则；收藏夹 chips 无变化时跳过重建（保留焦点）。**R15**（合并两处 diff 循环）按评审结论保留记录、不实施。
+- 验证：主页离线回归新增“统计节点身份保留”断言；主页 2 场景、既有离线回归 11 项、typecheck/build/verify_frontend（178 id）/classic_boundary/ordering/bridge_contract/P1/图标一致性全部通过。
+
 ## 主页继续游玩块改为与列表同款复用渲染（R4，2026-10-11）
 
 - 用户要求主页图片采用与「全部作品」相同的方法。实现：`cards.ts` 抽出 `syncCard(card, g)`（列表复用分支的字段同步 + `cover_version` 失效检测、重置封面），列表与主页共用；主页「继续游玩」改为按 id 复用节点的 diff 渲染（`_homeContinueIds` + oldMap + anchor 挪位），不再整排重建。

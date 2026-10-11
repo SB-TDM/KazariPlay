@@ -65,7 +65,7 @@
 **定义**
 - 刷新：`refreshAll(force, done?)`（`getGames`+`getCollectionsTree`+`getRunning`；桥失败保留现有数据且不触发 `done`；游戏列表 `_gamesChanged` 判定后才 `renderAll`，树回包同步 `updateNavInfo/renderCards/renderEmpty`）、`applyGamesDelta(ids)`（增量：逐个 `getGame` 更新本地数组；桥失败不视为删除，只有后端返回空对象才移除）、`_gamesChanged`（比较影响显示的字段，**排除**派生的 `last_text/play_time_text`，避免每分钟误全量重渲染）、`syncCurrentGame`
 - 封面：`reloadCovers`（全部卡）、`reloadCover(id)`（单卡定向）、`applyCoverSize(size)`（`COVER_SIZES` small/medium/large → CSS 变量 `--card-w/h`，随后 `refreshWindow()` 重算窗口化）
-- 渲染：`renderAll`（保持滚动位置）、`filterGames`（nav/kw/collectionId/sort；时间排序对所有视图统一生效）、`renderEmpty`（收藏空/筛选空/库空三态）、`markRunning`、`setRunning`、`toggleSelect`、`setActiveCard`
+- 渲染：`renderAll`（保持滚动位置；主页视图短路，改由 `updateHomeView` 刷新）、`compareLastPlayedDesc`（最近游玩比较器，列表与主页共用）、`filterGames`（nav/kw/collectionId/sort；时间排序对所有视图统一生效）、`renderEmpty`（收藏空/筛选空/库空三态）、`markRunning`、`setRunning`、`toggleSelect`、`setActiveCard`
 
 ---
 
@@ -73,7 +73,7 @@
 
 **定位**：卡片 DOM + **虚拟窗口渲染** + 封面懒加载 + 卡片右键菜单。
 **依赖**：state / core / ui / games / detail / collections / form。
-**定义**：`buildCard(g)`、`renderCards(list)`（DOM diff + 窗口化）、`openCardMenu(g,x,y)`、`updateCoverProgress(states)`（环形进度）、`replayCoverFade`、`_playCoverFade`。
+**定义**：`buildCard(g)`、`syncCard(card, g)`（复用节点的字段同步 + 封面失效检测）、`loadCardCover(card)`（单卡封面加载，懒加载与主页共用）、`cardCols(width)`（列数计算，窗口化与主页共用）、`renderCards(list)`（DOM diff + 窗口化）、`openCardMenu(g,x,y)`、`updateCoverProgress(states)`（环形进度）、`replayCoverFade`、`_playCoverFade`。
 **关键逻辑**
 - 窗口化：`_winStart/_winEnd` + 上下 spacer（`_ensureSpacers/_updateSpacers`）+ 滚动 rAF（`_bindWindowScroll`）+ 容器尺寸 `ResizeObserver`（`_bindWindowResize`）；统一入口 `_recomputeWindow`，外部度量变化用 `refreshWindow()`。`_renderedIds` 做 diff，复用未变卡片（连同已加载封面）。
 - 懒加载：`coverObserver`（IntersectionObserver）滚动到附近才 `getCover`，响应按 `beginCoverRequest` 代际校验；`cover_version` 判断重载并作废在途旧响应。

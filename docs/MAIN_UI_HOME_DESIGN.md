@@ -219,3 +219,4 @@
 - **R3**：统计「作品总数/收藏数」按钮补 `aria-label`（含数量与去向），静态骨架同步。
 - **R6**：`_homeResizeBound` 声明顺序整理。
 - 复评方法：逐文件走查 + Playwright 定向探针（实测 R1/R2 两处复现与修复后转绿）+ 全量门禁与离线回归复跑；**R4 已修（与列表同款复用渲染）**：抽 `cards.syncCard` 供列表与主页共用，主页按 id 复用节点、字段就地同步，仅新卡/`cover_version` 变化才重载封面；顺带修正隐藏态测量宽度的问题；R5（主页抽屉策略）保持记录、未改代码。
+- **代码审查整改（R7–R14、R16）**：抽 `compareLastPlayedDesc` / `cardCols` / 共享 `.btn-primary` 消除重复；统计区改就地更新静态骨架；`renderHomeEmpty` 具名化；主页分支短路列表计算；chips 无变化跳过重建；合并 `[hidden]` 规则；文档同步。R15（合并两处 diff 循环）评估后不实施。
