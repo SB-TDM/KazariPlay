@@ -68,10 +68,10 @@ def main():
         "start \"KazariPlay develop\" \"%~dp0KazariPlay.exe\"\r\n",
         encoding="ascii", newline="")
     (package / "TRIAL_README.txt").write_text(
-        "KazariPlay develop 试用包\r\n\r\n"
+        "KazariPlay develop 自测包\r\n\r\n"
         "请双击 KazariPlay.exe 或 run_develop.cmd 启动。数据库、配置、日志和截图\r\n"
         "隔离在本目录 data\\ 下，不会读取现有 %APPDATA%\\KazariPlay。\r\n"
-        "这是本地 develop 试用构建，尚未发布；不含翻译/Hook/AI/字幕功能。\r\n"
+        "这是本地 develop 自测构建，仅限本机测试、不对外发布；不含翻译/Hook/AI/字幕功能。\r\n"
         "需要 Windows 10/11 x64 和 Microsoft Edge WebView2 Runtime，无需安装 Python/Node。\r\n"
         "请将整个 KazariPlay 文件夹保留在可写位置；不要单独移动 EXE。\r\n",
         encoding="utf-8", newline="")

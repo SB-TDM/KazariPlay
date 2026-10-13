@@ -1,8 +1,10 @@
 # KazariPlay 版本说明
 
-> 当前本地开发版：原版 `1.4.0-beta.1`，翻译实验版 `1.4.0-experimental.1`。本轮仅统一版本标识，没有创建标签或发布 Release；稳定 `main` 尚未接收本轮开发提交。规则见 [版本策略](docs/dev/VERSIONING.md)，分支状态见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
+> 当前开发版：原版 `1.0.0-beta.1`（新界面世代首个预发布；`-beta.N` 自测包不对外发布），翻译实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）。稳定 `main` 尚未接收本轮开发提交。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)，分支状态见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
 
 ## 1.4.0-beta.1 原版预发布说明
+
+> 编号说明：`1.4.0-beta.1` 标识已作废并按 [历史编号映射](docs/dev/VERSIONING.md) 拆分归入 `0.5.0-beta.1`（旧界面）与 `1.0.0` 线；以下原文保留。
 
 > 整理日期：2026-10-06；状态：本地开发/验收版本，尚未正式发布。
 
@@ -15,7 +17,7 @@
 
 # KazariPlay V1.3 历史发行说明
 
-> 以下原有日期与内容保留为历史文档记录，不作为新发布操作的证据；GitHub Release 状态未在本轮查询。
+> 以下原有日期与内容保留为历史文档记录，不作为新发布操作的证据；称呼对应新编号见 [历史编号映射](docs/dev/VERSIONING.md)（如 V1.3 = `0.4.0`）。
 
 > 发布日期：2026-09-12
 > 项目：KazariPlay

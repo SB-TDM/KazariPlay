@@ -45,6 +45,10 @@ def run():
     if any(value != VERSION for value in (package["version"], lock["version"],
                                          lock["packages"][""]["version"])):
         errors.append("前端构建元数据与版本来源不一致")
+    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "README.md"), encoding="utf-8") as stream:
+        if VERSION not in stream.read():
+            errors.append("README.md 未包含当前版本串（换版同步清单见 docs/dev/VERSIONING.md）")
     if '<div class="logo">☺</div>' in html or '<div class="a-logo">☺</div>' in html:
         errors.append("图标占位符未替换")
 
