@@ -1,6 +1,6 @@
 # KazariPlay → C++ 全栈重写方案书
 
-> **文档状态：未实施的历史方案。** 本仓库没有对应的 C++ 主程序工程；当前项目仍使用 Python + pywebview，C++ 仅负责独立 Overlay。本文保留为架构评估记录，不是当前构建入口。文档分类见 [docs/README.md](README.md)。
+> **文档状态：未实施的历史方案。** 本仓库没有对应的 C++ 主程序工程；当前项目仍使用 Python + pywebview，C++ 仅负责独立 Overlay。本文保留为架构评估记录，不是当前构建入口。文档分类见 [docs/README.md](../README.md)。
 
 > 版本：V1.1 · 2026-08-19（含 M0–M6 实施路线图）
 > 决策：**后端全部重写为 C++**，一步到位单原生 exe，取代「pywebview + Python 后端」；

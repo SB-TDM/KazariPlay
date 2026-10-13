@@ -18,7 +18,7 @@
 
 ## 唯一来源
 
-各 worktree 的 [kazari_play/version.py](../kazari_play/version.py) 是运行时版本与产品线的唯一来源：`VERSION`、`PRODUCT_LINE`，显示版本和标题从它们派生。入口、启动日志、HTML 标题栏和关于页直接使用，包导出 `kazari_play.__version__` 同样来自该文件；Win32 句柄查找共享标题。
+各 worktree 的 [kazari_play/version.py](../../kazari_play/version.py) 是运行时版本与产品线的唯一来源：`VERSION`、`PRODUCT_LINE`，显示版本和标题从它们派生。入口、启动日志、HTML 标题栏和关于页直接使用，包导出 `kazari_play.__version__` 同样来自该文件；Win32 句柄查找共享标题。
 
 README、规则入口和发行说明是文档快照；前端私有工具包的 package/lock 版本作为构建元数据同步。`tests/verify_frontend.py` 校验版本占位符已替换和显示一致。develop 试用 spec 从该模块生成 Windows EXE 的 FileVersion/ProductVersion，不另写版本常量，构建边界见 [打包说明](PACKAGING.md)。
 
@@ -33,4 +33,4 @@ README、规则入口和发行说明是文档快照；前端私有工具包的 p
 | V1.2、V1.2.1～V1.2.4 | 1.2.0～1.2.4 | 字幕控制面板、样式和预设修复 |
 | V1.3 | 1.3.0 | TypeScript、WGC、扫描与体验优化 |
 
-V1.2 在 changelog 有记录，但此前发行说明遗漏，现已补到 [版本说明](../RELEASE_NOTES.md)。2026-08-16 是已有开发记录日期，不是本轮核实的正式发布日期。映射用于阅读历史，不重命名现有 Git 标签。
+V1.2 在 changelog 有记录，但此前发行说明遗漏，现已补到 [版本说明](../../RELEASE_NOTES.md)。2026-08-16 是已有开发记录日期，不是本轮核实的正式发布日期。映射用于阅读历史，不重命名现有 Git 标签。

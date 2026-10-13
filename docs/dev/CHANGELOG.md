@@ -40,7 +40,7 @@
 
 ## 主页（默认视图）实施（2026-10-11）
 
-- 新增 `ts/home.ts`（登记 `_JS_MANIFEST`，位于 `app.js` 之前）与 `css/home.css`：主页头部（按时段问候 + 「日期 · 今天想玩点什么？」）、继续游玩（`last_played` 倒序，数量随宽度自适应 1~6，复用现有卡片/右键/运行角标）、统计（总数/收藏数点击跳转；总游玩时长/最近一次游玩只读，总时长与后端 `format_play_time` 同口径）、收藏夹快捷（树序前 8 chips，点击走 `selectCollection` 筛选）、空库扫描引导；设计依据见 [主页设计稿](MAIN_UI_HOME_DESIGN.md)。
+- 新增 `ts/home.ts`（登记 `_JS_MANIFEST`，位于 `app.js` 之前）与 `css/home.css`：主页头部（按时段问候 + 「日期 · 今天想玩点什么？」）、继续游玩（`last_played` 倒序，数量随宽度自适应 1~6，复用现有卡片/右键/运行角标）、统计（总数/收藏数点击跳转；总游玩时长/最近一次游玩只读，总时长与后端 `format_play_time` 同口径）、收藏夹快捷（树序前 8 chips，点击走 `selectCollection` 筛选）、空库扫描引导；设计依据见 [主页设计稿](../ui/MAIN_UI_HOME_DESIGN.md)。
 - 默认视图改为主页：侧栏首项「主页」(house)、「全部作品」换 `controller` 素材；`body.home-view` 由 `updateHomeView` 统一维护（主页时隐藏副标题栏与列表；批量栏、FAB 与任务进度保留）。
 - 接线：`renderAll`、`applyGamesDelta`、收藏夹树回包三条链路均挂主页刷新，主页时跳过列表渲染。
 - 数据零后端改动：全部派生自 `App.data.games` 与收藏夹树；`cards.ts` 抽出 `loadCardCover` 供懒加载与主页卡片共用。
@@ -94,7 +94,7 @@
 ## 扫描整棵树规则与元数据匹配/封面体验优化（2026-10-08）
 
 - **扫描整棵树规则**（`game_scanner.py`，`f5b2046`）：从扫描根向下，第一个含有效 exe 的目录视为游戏根；识别后剪枝其子树，同一游戏树下只识别一个游戏。父目录无 exe 时不剪枝，合集仍各自识别。eden\*（含 `eden PLUS MOSAIC` 特典子目录）识别为 1 个。
-- **封面下载与匹配解耦**（`vndb_client`/`metadata_matcher`/`game_manager`/`web_bridge`，`3e0356c`）：`match_single/match_batch` 新增 `cover_cb`，封面改由 `web_bridge` 后台线程池下载（不重试），完成写库并定向 `reloadCover`；匹配不再等待封面。实测 35 游戏匹配约 97s（此前含封面数分钟）。详见 [封面优化](COVER_DOWNLOAD_OPTIMIZATION.md)。
+- **封面下载与匹配解耦**（`vndb_client`/`metadata_matcher`/`game_manager`/`web_bridge`，`3e0356c`）：`match_single/match_batch` 新增 `cover_cb`，封面改由 `web_bridge` 后台线程池下载（不重试），完成写库并定向 `reloadCover`；匹配不再等待封面。实测 35 游戏匹配约 97s（此前含封面数分钟）。详见 [封面优化](../archive/COVER_DOWNLOAD_OPTIMIZATION.md)。
 - **单游戏匹配复用批量进度条 + 取消**：右键「元数据匹配」现显示进度条；批量模式下进度面板上移，避免遮挡底部批量工具栏。
 - **封面下载参数可在设置页配置**（`config.py`/`vndb_client`/`web_bridge`/`settings.html`/`settings.ts`）：新增「封面下载」设置组——下载超时下拉（默认 **90 秒**，即时生效）、最大并发下拉（默认 **4**，重启生效）。此前固定 8s 对 t.vndb.org（实测单张 15~35s）过短，导致多数封面超时失败；改为可配的 90s 默认。
 - **封面下载可视化**（`sync.py`/`web_bridge`/`state.ts`/`cards.ts`/`cards.css`）：新增 UISync `cover_progress` 域，封面下载中在**可见卡片**封面中心显示环形转圈，结束（成功/失败）收起；**失败不重试、不显示**。

@@ -1,6 +1,6 @@
 # KazariPlay Hook 实时翻译系统 — 交接文档
 
-> 原版分支提示：本文只适用于历史和 `feature/hook-translation`。原版没有下文的翻译源码/API，当前开发入口见 [BRANCH_WORKFLOW.md](BRANCH_WORKFLOW.md)。
+> 原版分支提示：本文只适用于历史和 `feature/hook-translation`。原版没有下文的翻译源码/API，当前开发入口见 [BRANCH_WORKFLOW.md](../dev/BRANCH_WORKFLOW.md)。
 
 > 生成时间：2026-08-15
 > 文档状态：历史交接记录。当前实现以 `README.md`、`AGENTS.md`、`docs/README.md` 和源码为准；本文中的旧路径、旧模块名和当时验证记录仅用于还原开发过程。

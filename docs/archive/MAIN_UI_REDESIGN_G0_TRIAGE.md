@@ -2,8 +2,8 @@
 
 > 日期：2026-10-10。实施工作区：`E:\文件夹\Launcher\KazariPlay_main-ui`（独立克隆），分支 `feature/main-ui-redesign`。
 > 基线提交：`b99b765`（其上是 `6388bca` 计划修订、`57ff38f` 初始计划与快照）。工作树干净，前端已 `npm ci` + `build`。
-> 关联：[MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) §4、§8。方法：静态源码走查（`file:line`）+ 既有 2026-10-07 测量；未运行真实 GUI 复现的条目已注明。
-> **历史记录提示（2026-10-11）：**本文保留 G0 基线和 §6 早期实施阶段的原始判断，不是当前待办。主界面 S1–S3、设置 label 及 `applyCandidate/saveConfigs` 契约后来已有实施；C08/C09/C10 等仍须按最新实测区分有效修复与缺口。`b5c8b8d` 的统一状态、FR 编号和验收条件见 [前端审查与修复参考](FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)。
+> 关联：[MAIN_UI_REDESIGN_PLAN.md](../ui/MAIN_UI_REDESIGN_PLAN.md) §4、§8。方法：静态源码走查（`file:line`）+ 既有 2026-10-07 测量；未运行真实 GUI 复现的条目已注明。
+> **历史记录提示（2026-10-11）：**本文保留 G0 基线和 §6 早期实施阶段的原始判断，不是当前待办。主界面 S1–S3、设置 label 及 `applyCandidate/saveConfigs` 契约后来已有实施；C08/C09/C10 等仍须按最新实测区分有效修复与缺口。`b5c8b8d` 的统一状态、FR 编号和验收条件见 [前端审查与修复参考](../ui/FRONTEND_REVIEW_REPAIR_PLAN_20261011.md)。
 
 ## 1. 基线门禁结果
 

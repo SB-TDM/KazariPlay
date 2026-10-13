@@ -4,7 +4,7 @@
 >
 > 本文保存全量 UI 评审、代码建议和验收目标，供后续确定范围与优先级；示例不是已落地实现，性能预算不是实测成绩。写入文档不表示授权改代码、重打包、合并分支或发布。
 >
-> **2026-10-09 承接说明**：主界面方向已按用户确认原型整合到 [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) V1.1。本文的 2026-10-07 测量与代码示例保留其历史时点；主界面冲突条目以新计划 §3～§4 的替代/承接规则为准。非主界面窗口不套用原型，但相关质量要求与缺陷核验不会因此作废；独立修复须先复验并确认范围。
+> **2026-10-09 承接说明**：主界面方向已按用户确认原型整合到 [MAIN_UI_REDESIGN_PLAN.md](../ui/MAIN_UI_REDESIGN_PLAN.md) V1.1。本文的 2026-10-07 测量与代码示例保留其历史时点；主界面冲突条目以新计划 §3～§4 的替代/承接规则为准。非主界面窗口不套用原型，但相关质量要求与缺陷核验不会因此作废；独立修复须先复验并确认范围。
 
 ## 一、快速诊断
 
@@ -21,15 +21,15 @@
 
 | 优先级 | 问题 | 影响 | 判断依据 |
 |---|---|---|---|
-| P0 | 快速切换详情，旧响应覆盖新目标 | 显示与后续操作对象可能错误 | GUI 实测 A 慢/B 快后 currentGame 与标题回到 A；[detail.ts](../kazari_play/ui/web_assets/ts/detail.ts) 的 openDetail、[core.ts](../kazari_play/ui/web_assets/ts/core.ts) 的 loadCoverTo 未核验目标/代际 |
-| P0 | 900×620 下批量工具栏超出主区 | 右侧命令可能不可见或不能点击 | 实测工具栏约 869px，主区仅 760px，右边界约 955px；[widgets.css](../kazari_play/ui/web_assets/css/widgets.css) 的 .batchbar |
-| P0 | 成功提示先于真实写入结果 | 用户误以为保存或复制成功 | 静态确认：[settings.ts](../kazari_play/ui/web_assets/ts/settings.ts) 的 save、[screenshots.ts](../kazari_play/ui/web_assets/ts/screenshots.ts) 的 copyShot、[form.ts](../kazari_play/ui/web_assets/ts/form.ts) 的候选应用；本轮未注入磁盘失败 |
-| P0（键盘路径） | 模态无焦点隔离，关闭层级遗漏确认/输入/定位 | 键盘可能操作后台或关闭错误层 | GUI 设置打开后焦点仍为 searchInput；调用 closeTopSheet 时确认仍显示而详情已关闭；[ui.ts](../kazari_play/ui/web_assets/ts/ui.ts) 的 showSheet/closeTopSheet |
-| P1 | 卡片无游戏标题和明确可访问名称 | 无封面/相似封面时难以辨识 | [cards.ts](../kazari_play/ui/web_assets/ts/cards.ts) 的 buildCard 仅显示开发商/星级；GUI 中 aria-label 与 title 为空，读屏实际播报未测试 |
-| P1 | 取消反馈改善，但在途请求仍可能等待 | 用户难判断任务阶段和剩余等待 | `36c17dc` 已有“正在取消”和 Event.wait；[vndb_client.py](../kazari_play/utils/vndb_client.py) 的在途 urllib 请求仍等待，本轮未测真实取消耗时 |
+| P0 | 快速切换详情，旧响应覆盖新目标 | 显示与后续操作对象可能错误 | GUI 实测 A 慢/B 快后 currentGame 与标题回到 A；[detail.ts](../../kazari_play/ui/web_assets/ts/detail.ts) 的 openDetail、[core.ts](../../kazari_play/ui/web_assets/ts/core.ts) 的 loadCoverTo 未核验目标/代际 |
+| P0 | 900×620 下批量工具栏超出主区 | 右侧命令可能不可见或不能点击 | 实测工具栏约 869px，主区仅 760px，右边界约 955px；[widgets.css](../../kazari_play/ui/web_assets/css/widgets.css) 的 .batchbar |
+| P0 | 成功提示先于真实写入结果 | 用户误以为保存或复制成功 | 静态确认：[settings.ts](../../kazari_play/ui/web_assets/ts/settings.ts) 的 save、[screenshots.ts](../../kazari_play/ui/web_assets/ts/screenshots.ts) 的 copyShot、[form.ts](../../kazari_play/ui/web_assets/ts/form.ts) 的候选应用；本轮未注入磁盘失败 |
+| P0（键盘路径） | 模态无焦点隔离，关闭层级遗漏确认/输入/定位 | 键盘可能操作后台或关闭错误层 | GUI 设置打开后焦点仍为 searchInput；调用 closeTopSheet 时确认仍显示而详情已关闭；[ui.ts](../../kazari_play/ui/web_assets/ts/ui.ts) 的 showSheet/closeTopSheet |
+| P1 | 卡片无游戏标题和明确可访问名称 | 无封面/相似封面时难以辨识 | [cards.ts](../../kazari_play/ui/web_assets/ts/cards.ts) 的 buildCard 仅显示开发商/星级；GUI 中 aria-label 与 title 为空，读屏实际播报未测试 |
+| P1 | 取消反馈改善，但在途请求仍可能等待 | 用户难判断任务阶段和剩余等待 | `36c17dc` 已有“正在取消”和 Event.wait；[vndb_client.py](../../kazari_play/utils/vndb_client.py) 的在途 urllib 请求仍等待，本轮未测真实取消耗时 |
 | P1 | 浅色有效文本与主按钮对比度不足 | 开发商、简介、说明和操作文字难读 | CSS 计算：副文本/白底约 2.96:1，浅说明/白底约 1.82:1，白字/粉色渐变端点约 1.68～2.15:1 |
-| P1 | 元数据候选、封面没有统一迟到响应保护 | 结果可能覆盖新的检索或游戏上下文 | [form.ts](../kazari_play/ui/web_assets/ts/form.ts) 的 searchMetadata、[core.ts](../kazari_play/ui/web_assets/ts/core.ts) 的 loadCoverTo；截图模块已有保护，其他场景为静态判断 |
-| P1 | 表单错误挤在输入行右侧，无字段错误语义 | 输入区缩窄、提示换行费力，读屏不知无效字段 | GUI 中 fExeRow 错误约 129×52px；[form.css](../kazari_play/ui/web_assets/css/form.css) 未给错误独立行，aria-invalid/describedby 为空 |
+| P1 | 元数据候选、封面没有统一迟到响应保护 | 结果可能覆盖新的检索或游戏上下文 | [form.ts](../../kazari_play/ui/web_assets/ts/form.ts) 的 searchMetadata、[core.ts](../../kazari_play/ui/web_assets/ts/core.ts) 的 loadCoverTo；截图模块已有保护，其他场景为静态判断 |
+| P1 | 表单错误挤在输入行右侧，无字段错误语义 | 输入区缩窄、提示换行费力，读屏不知无效字段 | GUI 中 fExeRow 错误约 129×52px；[form.css](../../kazari_play/ui/web_assets/css/form.css) 未给错误独立行，aria-invalid/describedby 为空 |
 | P2 | 样式/状态局部散落，性能没有测量预算 | 易再次出现层级、尺寸和状态不一致 | gap、z-index、色值硬编码，卡片常驻 will-change；package.json 只有 build/watch/typecheck，静态判断 |
 
 已有基础应保留：字符串 Game.id、App.data/App.ui 状态收敛、DOM 窗口化、封面/截图 IntersectionObserver 懒加载、200ms 搜索防抖、固定卡片尺寸、focus-visible、prefers-reduced-motion、保存失败保留输入和截图请求代际保护。
@@ -40,7 +40,7 @@
 
 ### 1. 设计系统与视觉一致性
 
-- **现状问题**：[variables.css](../kazari_play/ui/web_assets/css/variables.css) 有亮暗主题 token，但 text-sub/text-disabled 用于有效信息，白字主操作直接叠浅粉渐变；危险色、菜单阴影、边框和层级仍有硬编码。进度 z-index 已从 300 改为 90，不重复当成尚未改动。
+- **现状问题**：[variables.css](../../kazari_play/ui/web_assets/css/variables.css) 有亮暗主题 token，但 text-sub/text-disabled 用于有效信息，白字主操作直接叠浅粉渐变；危险色、菜单阴影、边框和层级仍有硬编码。进度 z-index 已从 300 改为 90，不重复当成尚未改动。
 - **影响**：信息难读，组件层级依赖经验。收益高，成本低到中，约 0.5～1 天加主题回归。
 - **改动建议**：品牌粉色保留为装饰，增加可读文本、主操作、焦点和层级 token；有效说明不使用 disabled token。圆角先统一职责，进度、模态、模态内菜单、toast 明确层级。
 - **具体 CSS 示例**：下列颜色在白底计算通过，其他实际背景仍需测量。
@@ -64,7 +64,7 @@
 
 ### 2. 布局与响应式
 
-- **现状问题**：[layout.css](../kazari_play/ui/web_assets/css/layout.css) 的搜索绝对居中，与命令区独立排版；batchbar 不换行、无 max-width。900×620 实测搜索与按钮约重叠 8px，工具栏超视口约 55px。详情 640px 断点无法覆盖应用 900×620 的最小窗口。
+- **现状问题**：[layout.css](../../kazari_play/ui/web_assets/css/layout.css) 的搜索绝对居中，与命令区独立排版；batchbar 不换行、无 max-width。900×620 实测搜索与按钮约重叠 8px，工具栏超视口约 55px。详情 640px 断点无法覆盖应用 900×620 的最小窗口。
 - **影响**：核心命令被裁剪。收益高，成本中，约 1 天；改变卡片尺寸要联动虚拟列表度量。
 - **改动建议**：搜索与命令参与同一 Flex/Grid，主区 min-width:0；批量栏限制宽度，普通命令折行或聚合到更多菜单，危险操作保持清楚。实际工具栏高度写入 CSS 变量，给列表与进度面板动态留底部空间，不只依赖固定 bottom:92px。
 - **具体 CSS 示例**：需同时取消现有搜索居中 transform。
@@ -83,7 +83,7 @@
 
 ### 3. 信息层级与排版
 
-- **现状问题**：首页只有封面、开发商、评分，无游戏名；默认封面下多张卡难辨识。[detail.css](../kazari_play/ui/web_assets/css/detail.css) 将简介限制在 96px 的独立滚动区，信息固定三列。
+- **现状问题**：首页只有封面、开发商、评分，无游戏名；默认封面下多张卡难辨识。[detail.css](../../kazari_play/ui/web_assets/css/detail.css) 将简介限制在 96px 的独立滚动区，信息固定三列。
 - **影响**：查找需要反复开详情，小窗口嵌套滚动影响阅读。收益高，成本中，约 0.5～1 天。
 - **主界面修订（2026-10-09）**：按已确认原型，卡片底部保留单行信息区，左侧游戏名省略号、右侧数字评分；不增加“两行标题+开发商次行”。完整名称放 title/accessible name，保留原版三档卡片尺寸并联动 WindowCalculator。开发商字段和搜索能力保留，仅不再展示在卡片信息行。
 - **详情建议的状态**：保留一个主要滚动区、简介自然布局或展开/收起仍是待确认的独立优化；不按主界面原型更换详情抽屉，处置见新计划 C14。
@@ -104,7 +104,7 @@ card.title = g.title;
 
 ### 4. 交互与反馈
 
-- **现状问题**：取消已有即时文案，任务却没有集中生命周期；hide/new progress 更新可能重新启用取消按钮。[app.ts](../kazari_play/ui/web_assets/ts/app.ts) 刷新立即报“已刷新”，launchGame 忽略返回 ok，部分保存/复制也先报成功。主题实际即时持久化，说明却写“保存后生效”。
+- **现状问题**：取消已有即时文案，任务却没有集中生命周期；hide/new progress 更新可能重新启用取消按钮。[app.ts](../../kazari_play/ui/web_assets/ts/app.ts) 刷新立即报“已刷新”，launchGame 忽略返回 ok，部分保存/复制也先报成功。主题实际即时持久化，说明却写“保存后生效”。
 - **影响**：不能区分请求提交与实际完成。收益高，成本中；持久化结果需少量后端契约协同，不是纯 CSS。
 - **改动建议**：TaskProgress 集中 idle/running/cancelling/completed/failed；取消不释放后台门禁，收到真实结束才恢复。启动、刷新、保存按结果提示，长任务展示阶段/来源；保留已完成数据和现有迟到进度隔离。
 - **具体 TypeScript 示例**：task/renderTask 是待实现的状态模型，不是现有全局变量。
@@ -126,7 +126,7 @@ async function requestCancel(): Promise<void> {
 
 - **现状问题**：openDetail/getGame 和 loadCoverTo 缺目标核验，候选搜索无请求序号；bridge 的异常 fallback [] 可能把网络错误呈现为“未找到”。错误文本挤在输入行右侧，无字段错误关联。
 - **影响**：详情乱序已受控复现，用户可能在错误对象上继续操作；断网与空结果难区分。收益高，成本中；详情隔离是小改，统一错误契约更大。
-- **改动建议**：沿用 [screenshots.ts](../kazari_play/ui/web_assets/ts/screenshots.ts) 的 generation+gid 规则，推广至详情、封面、候选和收藏夹管理。loading/empty/error 分开，失败保留输入及旧内容并可重试；保存 busy 防重复提交，错误占独立行。
+- **改动建议**：沿用 [screenshots.ts](../../kazari_play/ui/web_assets/ts/screenshots.ts) 的 generation+gid 规则，推广至详情、封面、候选和收藏夹管理。loading/empty/error 分开，失败保留输入及旧内容并可重试；保存 busy 防重复提交，错误占独立行。
 - **具体 TypeScript / CSS 示例**：放入 openDetail 对应请求路径，关闭时也使代际失效。
 
 ```ts
@@ -149,7 +149,7 @@ bridge.getGame(gid, raw => {
 
 ### 6. 可访问性
 
-- **现状问题**：模态缺 role/aria-modal/labelledby、进入/限制/返回焦点；评分 span、截图/候选 div、来源 span、选择器 p-item 不可完整键盘操作；设置 label 为 div。[base.css](../kazari_play/ui/web_assets/css/base.css) 已有 focus-visible，管理游戏行已有 checkbox 语义，应继续覆盖核心路径。
+- **现状问题**：模态缺 role/aria-modal/labelledby、进入/限制/返回焦点；评分 span、截图/候选 div、来源 span、选择器 p-item 不可完整键盘操作；设置 label 为 div。[base.css](../../kazari_play/ui/web_assets/css/base.css) 已有 focus-visible，管理游戏行已有 checkbox 语义，应继续覆盖核心路径。
 - **影响**：键盘/读屏用户不能完整操作，后台可能误触。收益高，成本中，约 1～2 天含嵌套层回归。
 - **改动建议**：ui.ts 的 ModalManager 维护栈与 opener，只有栈顶可交互，后台及下层 inert；Esc 先关栈顶再退出批量。设置 tab 补 tablist/selected 和方向键，截图/候选/来源用 button，评分用原生 radio/button；输入有 label 和错误描述。
 - **具体 HTML / API 示例**：仅添加属性不能替代完整焦点管理。
@@ -190,7 +190,7 @@ observer.observe(grid);
 
 ### 8. 组件架构与代码质量
 
-- **现状问题**：manifest 顺序共享全局，App 已收敛，但模态、任务与错误处理散落。[core.ts](../kazari_play/ui/web_assets/ts/core.ts) 的 bridge 在回调失败时返回 []，失败/空结果语义混淆，设置保存也不能识别哪项失败。
+- **现状问题**：manifest 顺序共享全局，App 已收敛，但模态、任务与错误处理散落。[core.ts](../../kazari_play/ui/web_assets/ts/core.ts) 的 bridge 在回调失败时返回 []，失败/空结果语义混淆，设置保存也不能识别哪项失败。
 - **影响**：易多处复制竞态或反馈错误。收益中到高，成本中；不建议迁移 React/Vite/Tailwind 来解决局部问题。
 - **改动建议**：在现有模块补 ModalManager（ui.ts）、TaskProgress（batch.ts）、BridgeService（core.ts）。query 失败抛错，command 解析既有 bool/ok；无结果写操作需最小返回契约调整，await None 不能证明磁盘成功。保留 App、manifest、Python js_api。
 - **具体 TypeScript 示例**：使用原生 API Promise 保留失败语义。
@@ -208,7 +208,7 @@ if (!result.ok) toast(result.msg || '启动失败');
 
 ### 9. 主题与多端
 
-- **现状问题**：危险 hover、占位、开关和菜单混入硬编码亮色；[screenshots.css](../kazari_play/ui/web_assets/css/screenshots.css) 预览固定深表面却使用 root text，浅色主题可能深字深底。language 配置存在不等于 UI 已国际化。
+- **现状问题**：危险 hover、占位、开关和菜单混入硬编码亮色；[screenshots.css](../../kazari_play/ui/web_assets/css/screenshots.css) 预览固定深表面却使用 root text，浅色主题可能深字深底。language 配置存在不等于 UI 已国际化。
 - **影响**：暗色组件局部刺眼，预览控件可读性差；主题即时持久化与说明不一致。收益中，成本低到中；i18n/RTL 全支持需产品确认。
 - **改动建议**：预览独立 inverse-surface/text token；danger/field/placeholder 语义化，pickTheme 实际行为与文案一致。用逻辑属性为后续适配留空间，但最低 WebView2 版本需核实，不能预设所有 inert/容器查询都兼容。
 - **具体 CSS 示例**：
@@ -286,7 +286,7 @@ performance.measure('library-render', 'library-render:start', 'library-render:en
 | 性能 | 同机固定 fixture，滚动帧、bridge-ready、首次主要内容、筛选/排序延迟、DOM/占位和 resize 一致性 |
 | 打包 | BUILD_INFO 指向验收提交，新输出不覆盖 data/旧产物，真实冻结 WebView/桥/库/截图/Overlay；用户试用后再决定合并发布 |
 
-本次评审没有真实 LCP/CLS/INP、万条长库、屏幕阅读器、真实网络取消或多显示器成绩；测试预算不写成通过。源码/打包操作遵循 [DEV_RULES.md](DEV_RULES.md) 和 [PACKAGING.md](PACKAGING.md)。
+本次评审没有真实 LCP/CLS/INP、万条长库、屏幕阅读器、真实网络取消或多显示器成绩；测试预算不写成通过。源码/打包操作遵循 [DEV_RULES.md](../dev/DEV_RULES.md) 和 [PACKAGING.md](../dev/PACKAGING.md)。
 
 ## 五、假设与待确认
 
@@ -324,9 +324,9 @@ performance.measure('library-render', 'library-render:start', 'library-render:en
 ### 与其他文档的关系
 
 - [TRIAL_FEEDBACK_20261007.md](TRIAL_FEEDBACK_20261007.md) 保存原用户三项反馈的报告基线；`36c17dc` 是后续代码修复，两者时间状态需区分，验收与归档更新由修复负责人处理。
-- [DEVELOPMENT_BACKLOG.md](DEVELOPMENT_BACKLOG.md) 继续作为项目主待办，本讨论草案的建议未自动转为已授权任务。
+- [DEVELOPMENT_BACKLOG.md](../dev/DEVELOPMENT_BACKLOG.md) 继续作为项目主待办，本讨论草案的建议未自动转为已授权任务。
 - 工作区另有独立的 `COVER_DOWNLOAD_OPTIMIZATION.md` 草案，由其他任务维护；其中的封面耗时和网络结论不属于本次 UI 评审实测，也未作为本讨论的验收证据。
 - [UI_REDESIGN_PLAN.md](UI_REDESIGN_PLAN.md) 为历史改造记录，本次新评审不覆盖它。
-- [MAIN_UI_REDESIGN_PLAN.md](MAIN_UI_REDESIGN_PLAN.md) 为 2026-10-09 主界面整合计划；其承接矩阵逐项说明本文建议的去向，主界面冲突以确认原型为准，质量要求不因原型而自动降级。
+- [MAIN_UI_REDESIGN_PLAN.md](../ui/MAIN_UI_REDESIGN_PLAN.md) 为 2026-10-09 主界面整合计划；其承接矩阵逐项说明本文建议的去向，主界面冲突以确认原型为准，质量要求不因原型而自动降级。
 
 后续按新计划 G0 核对基线、资源、工作区隔离和未复验缺陷，再分阶段实施；本文件的历史评审结果不能当成新界面生产验收成绩。

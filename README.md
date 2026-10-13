@@ -1,8 +1,8 @@
 # KazariPlay V1.4.0 Beta 1 原版
 
-本版本用于 `main` / `develop`，基于 V1.3 的无翻译原版进入 `V1.4.0 Beta 1` 验收阶段，保留游戏库、扫描、重新定位、元数据与截图功能，不包含翻译前后端、Hook 注入或字幕。翻译实验版保留在 `feature/hook-translation`，分支和工作区使用见 [开发流程](docs/BRANCH_WORKFLOW.md)。
+本版本用于 `main` / `develop`，基于 V1.3 的无翻译原版进入 `V1.4.0 Beta 1` 验收阶段，保留游戏库、扫描、重新定位、元数据与截图功能，不包含翻译前后端、Hook 注入或字幕。翻译实验版保留在 `feature/hook-translation`，分支和工作区使用见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
 
-当前本地 `develop` 版本号为 `1.4.0-beta.1`；稳定 `main` 尚未接收本轮开发提交，未创建新标签或 Release。编号与版本来源见 [版本策略](docs/VERSIONING.md)。
+当前本地 `develop` 版本号为 `1.4.0-beta.1`；稳定 `main` 尚未接收本轮开发提交，未创建新标签或 Release。编号与版本来源见 [版本策略](docs/dev/VERSIONING.md)。
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
@@ -103,9 +103,9 @@ KazariPlay_main/
 ## 文档
 
 - [文档索引](docs/README.md)：区分当前有效文档、历史记录和未实施方案
-- [分支开发流程](docs/BRANCH_WORKFLOW.md)：原版与实验版的边界、公共修复同步和远端待办
-- [工作约束](docs/DEV_RULES.md)：修改代码、打包、提交前必读
-- [变更日志](docs/CHANGELOG.md)：开发改动与验证记录
+- [分支开发流程](docs/dev/BRANCH_WORKFLOW.md)：原版与实验版的边界、公共修复同步和远端待办
+- [工作约束](docs/dev/DEV_RULES.md)：修改代码、打包、提交前必读
+- [变更日志](docs/dev/CHANGELOG.md)：开发改动与验证记录
 - [第三方组件声明](THIRD_PARTY.md)：依赖和许可证说明
 
 ## 开源许可

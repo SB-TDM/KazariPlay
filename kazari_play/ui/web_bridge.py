@@ -1306,7 +1306,7 @@ class WebBridge:
             _cover_cache_invalidate(g.cover_path)
         self._ui.invalidate("cover", str(game_id))
 
-    # ---------- 封面异步下载（与匹配解耦，见 docs/COVER_DOWNLOAD_OPTIMIZATION.md）----------
+    # ---------- 封面异步下载（与匹配解耦，见 docs/archive/COVER_DOWNLOAD_OPTIMIZATION.md）----------
     def _queue_cover(self, game_id: str, cover_url: str, dest: str):
         """match_single 的封面回调：入队后台下载，不阻塞匹配流程"""
         try:

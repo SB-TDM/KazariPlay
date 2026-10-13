@@ -3,7 +3,7 @@
 > 状态：修复已完成并随 `develop` 推送（`154ea63`）；FR-01～FR-12 与复评整改 R1–R16 已实施、离线回归通过，源码 GUI/DPI 验收（含 V-01～V-06）待补。
 > 适用分支：`feature/main-ui-redesign`；审查代码基线：`b5c8b8ddf43faa565e0939fcf17b7b5c534315ae`。
 > 原版参照：`ee5f4e6a5d6a3a025b81476134a4c1ae5c4c0ad0`，仅用于辨别历史问题、回归和有效修复，不是界面回退目标。
-> 本文是本分支本轮前端修复的统一台账。旧设计依据见 [主界面计划](MAIN_UI_REDESIGN_PLAN.md)，早期实施记录见 [G0 分诊](MAIN_UI_REDESIGN_G0_TRIAGE.md)。冲突时，以用户后续确认、当前源码和新鲜验证结果为准。
+> 本文是本分支本轮前端修复的统一台账。旧设计依据见 [主界面计划](MAIN_UI_REDESIGN_PLAN.md)，早期实施记录见 [G0 分诊](../archive/MAIN_UI_REDESIGN_G0_TRIAGE.md)。冲突时，以用户后续确认、当前源码和新鲜验证结果为准。
 
 ## 1. 使用方式与修改边界
 
@@ -17,7 +17,7 @@
 - 修复不能以恢复旧 flex 搜索、删除筛选能力、复制原型假数据或全量重建卡片作为捷径。其他窗口不按主界面原型重设计。
 - 当前审查范围为前端消费桥契约、数据流、交互、布局及相关测试；未审查后端业务、数据库或 Overlay。若修复确实需要变更后端契约，先列出现有契约与缺口，再单独确定范围；不能为了前端问题直接扩展 API。
 - 既有 `applyCandidate` / `saveConfigs` 返回契约已在此前经授权调整；不要按早期 G0 文档把它们仍视为“无返回、尚未实施”。这不等于前端失败路径已经完整。
-- 遵守 [DEV_RULES.md](DEV_RULES.md)。测试使用隔离数据和模拟桥，不读取真实游戏库、不调用真实扫描/启动/写配置，不驱动用户正在试用的 GUI。提交与推送分别遵守当前授权，不把归档视为发布授权。
+- 遵守 [DEV_RULES.md](../dev/DEV_RULES.md)。测试使用隔离数据和模拟桥，不读取真实游戏库、不调用真实扫描/启动/写配置，不驱动用户正在试用的 GUI。提交与推送分别遵守当前授权，不把归档视为发布授权。
 
 ## 2. 证据基线与结论等级
 
@@ -74,7 +74,7 @@
 
 ### FR-01：桥失败语义
 
-**位置：**[core.ts](../kazari_play/ui/web_assets/ts/core.ts) 11–24（`bridge`）；[games.ts](../kazari_play/ui/web_assets/ts/games.ts) 56–98（`refreshAll/applyGamesDelta`）；[screenshots.ts](../kazari_play/ui/web_assets/ts/screenshots.ts) 181–185（`copyShot`）。
+**位置：**[core.ts](../../kazari_play/ui/web_assets/ts/core.ts) 11–24（`bridge`）；[games.ts](../../kazari_play/ui/web_assets/ts/games.ts) 56–98（`refreshAll/applyGamesDelta`）；[screenshots.ts](../../kazari_play/ui/web_assets/ts/screenshots.ts) 181–185（`copyShot`）。
 
 - **触发与实际：**令 `getGames` reject，再执行 FAB 刷新：240 条变为 0 条，toast 为“已刷新”。恢复 fixture，令增量 `getGame` reject：240 条变 239 条，目标被移除。令复制截图 reject：仍提示“已复制到剪贴板”。让成功业务回调自身抛错：同一回调依次收到 `success` 和 `'[]'`。
 - **根因：**缺方法与调用失败都退化为字符串 `'[]'`；调用方分别当作合法空列表、对象不存在或 truthy 成功值。Promise 的 catch 同时捕获业务回调异常，再调用同一个回调；同步 `.apply()` 抛错没有一致处理。
@@ -85,7 +85,7 @@
 
 ### FR-02：卡片复用旧对象
 
-**位置：**[cards.ts](../kazari_play/ui/web_assets/ts/cards.ts) 129–142、185–215、251；[form.ts](../kazari_play/ui/web_assets/ts/form.ts) 39–47、100–121。
+**位置：**[cards.ts](../../kazari_play/ui/web_assets/ts/cards.ts) 129–142、185–215、251；[form.ts](../../kazari_play/ui/web_assets/ts/form.ts) 39–47、100–121。
 
 - **触发与实际：**渲染卡片后，用 `applyGamesDelta` 给同一 ID 返回新标题；确认原 DOM 节点被复用、卡片与 `App.data.games` 均显示新标题。右键该卡片选择编辑，表单仍显示“游戏 0000”。原版同样复现。
 - **根因：**DOM 字段更新了，点击、键盘和右键闭包仍保存创建卡片时的 `g`。`openEdit` 直接填入该快照，不像详情那样随后重新请求。
@@ -95,7 +95,7 @@
 
 ### FR-03：设置保存快照与会话
 
-**位置：**[settings.ts](../kazari_play/ui/web_assets/ts/settings.ts) 113–147（`save`）。
+**位置：**[settings.ts](../../kazari_play/ui/web_assets/ts/settings.ts) 113–147（`save`）。
 
 - **触发与实际 A：**热键为 F9 时保存，延迟 `saveConfigs` 返回；期间改为 F10；成功返回后记录显示配置提交 F9、热键注册 F10。原版对照注册 F9。
 - **触发与实际 B：**保存请求在途时关闭并重新打开设置；旧请求成功返回后，新窗口从可见变为关闭。原版对照新窗口保持打开。
@@ -105,7 +105,7 @@
 
 ### FR-04：热键捕获生命周期
 
-**位置：**[settings.ts](../kazari_play/ui/web_assets/ts/settings.ts) 158–185（`bindHotkey`）。
+**位置：**[settings.ts](../../kazari_play/ui/web_assets/ts/settings.ts) 158–185（`bindHotkey`）。
 
 - **触发与实际：**依次聚焦“紧急隐藏”和“全屏切换”，按 F8；前一个字段变 F8，当前字段显示冲突。关闭设置后按 E，隐藏的字段仍变为 E。原版同样复现。
 - **根因：**每次 focus 注册 document 监听，仅捕获成功时移除；blur、取消、关闭和重新捕获不清理旧监听，冲突恢复计时器也不绑定会话。
@@ -114,7 +114,7 @@
 
 ### FR-05：抽屉键盘与关闭层级
 
-**位置：**[app.ts](../kazari_play/ui/web_assets/ts/app.ts) 107–112、143–156；[ui.ts](../kazari_play/ui/web_assets/ts/ui.ts) 40–74；设置另有独立 Esc 监听。
+**位置：**[app.ts](../../kazari_play/ui/web_assets/ts/app.ts) 107–112、143–156；[ui.ts](../../kazari_play/ui/web_assets/ts/ui.ts) 40–74；设置另有独立 Esc 监听。
 
 - **触发与实际 A：**打开收藏夹抽屉，焦点放到排序按钮，按 Tab 一次进入卡片，Enter 打开详情；抽屉与详情同时可见。
 - **触发与实际 B：**抽屉内打开“新建收藏夹”输入框后按 Esc，抽屉被关闭而输入框仍可见。
@@ -125,7 +125,7 @@
 
 ### FR-06：迟到配置覆盖主题
 
-**位置：**[settings.ts](../kazari_play/ui/web_assets/ts/settings.ts) 52–75、104–110；[app.ts](../kazari_play/ui/web_assets/ts/app.ts) 19–24。
+**位置：**[settings.ts](../../kazari_play/ui/web_assets/ts/settings.ts) 52–75、104–110；[app.ts](../../kazari_play/ui/web_assets/ts/app.ts) 19–24。
 
 - **触发与实际：**打开设置但延迟 `getConfig`；选择 dark，模拟桥记录 `setTheme('dark')`；旧 light 配置返回后，界面从 dark 变回 light。原版同样复现。
 - **根因：**配置加载无会话/新旧状态判断，无条件重设 `savedTheme/pendingTheme` 与页面；初始化和主题即时保存还有不同状态入口。
@@ -135,7 +135,7 @@
 
 ### FR-07：固定居中搜索重叠
 
-**位置：**[layout.css](../kazari_play/ui/web_assets/css/layout.css) 9–28（`.nav-view/.search/.navbtns`）。搜索宽度为 `min(460px,55%)`，独立于两侧占位。
+**位置：**[layout.css](../../kazari_play/ui/web_assets/css/layout.css) 9–28（`.nav-view/.search/.navbtns`）。搜索宽度为 `min(460px,55%)`，独立于两侧占位。
 
 | CSS 视口 | 场景 | 左侧与搜索重叠 | 搜索与右侧重叠 |
 |---|---|---|---|
@@ -155,7 +155,7 @@
 
 ### FR-08：虚拟列表尺寸变化
 
-**位置：**[cards.ts](../kazari_play/ui/web_assets/ts/cards.ts) 45–114；[games.ts](../kazari_play/ui/web_assets/ts/games.ts) 48–52。
+**位置：**[cards.ts](../../kazari_play/ui/web_assets/ts/cards.ts) 45–114；[games.ts](../../kazari_play/ui/web_assets/ts/games.ts) 48–52。
 
 - **触发与实际：**240 条 fixture、medium，在 900×620 渲染 20 张；不滚动，放大为 1920×1080，仍仅 20 张，而 `_windowRange` 应覆盖 70 张；最后一张底边约 556px，视口底为 1080px。滚动 1px 后恢复 70 张。原版同样复现。
 - **根因：**窗口化重算绑定滚动，未监听容器尺寸/卡片档位变化；布局列数变了，缓存范围和 spacer 没有一起失效。
@@ -164,7 +164,7 @@
 
 ### FR-09：封面请求身份不足
 
-**位置：**[core.ts](../kazari_play/ui/web_assets/ts/core.ts) 67–76；[games.ts](../kazari_play/ui/web_assets/ts/games.ts) 13–41；[cards.ts](../kazari_play/ui/web_assets/ts/cards.ts) 220–239。
+**位置：**[core.ts](../../kazari_play/ui/web_assets/ts/core.ts) 67–76；[games.ts](../../kazari_play/ui/web_assets/ts/games.ts) 13–41；[cards.ts](../../kazari_play/ui/web_assets/ts/cards.ts) 220–239。
 
 - **已验证有效：**A→B 请求，B 新结果先回、A 旧结果后回，当前 `loadCoverTo` 保持 B；原版被 A 覆盖。
 - **仍复现：**A→B→A，最后一次 A 先返回，第一次 A 最后返回，当前图变为旧 A。同 ID 连续两次 `reloadCover`，新先旧后，最终也是旧封面。
@@ -174,7 +174,7 @@
 
 ### FR-10：收藏夹派生显示
 
-**位置：**[games.ts](../kazari_play/ui/web_assets/ts/games.ts) 69–72、192–205；[collections.ts](../kazari_play/ui/web_assets/ts/collections.ts) 91–105；[app.ts](../kazari_play/ui/web_assets/ts/app.ts) 107–112。
+**位置：**[games.ts](../../kazari_play/ui/web_assets/ts/games.ts) 69–72、192–205；[collections.ts](../../kazari_play/ui/web_assets/ts/collections.ts) 91–105；[app.ts](../../kazari_play/ui/web_assets/ts/app.ts) 107–112。
 
 - **触发与实际 A：**选中分组，强制刷新，游戏响应先到，重命名后的树后到；树显示“已重命名的分组”，副标题仍为“测试分组”，再次选择才更新。
 - **触发与实际 B：**抽屉展开时选中收藏夹，抽屉仍显示且 `aria-expanded=true`，入口 `.active` 却被清除。
@@ -184,7 +184,7 @@
 
 ### FR-11：收藏夹内排序语义
 
-**位置：**[games.ts](../kazari_play/ui/web_assets/ts/games.ts) 185–187、209–213。
+**位置：**[games.ts](../../kazari_play/ui/web_assets/ts/games.ts) 185–187、209–213。
 
 - **触发与实际：**收藏夹内准备两条日期分别为 `2026-01-01` 和 `2026-10-01` 的游戏，按旧在前的顺序输入；按钮显示“排序：最近游玩”，结果仍旧在前。
 - **根因：**时间排序只在 `collectionId === null` 时执行，而按钮始终显示统一时间文案。原版排序条件未变，本轮更名不能证明各视图语义都已对齐。
@@ -194,7 +194,7 @@
 
 ### FR-12：乱序测试判别力
 
-**位置：**[test_ui_ordering.cjs](../tests/test_ui_ordering.cjs) 20–31。
+**位置：**[test_ui_ordering.cjs](../../tests/test_ui_ordering.cjs) 20–31。
 
 - **现有方式：**发出 A、B 后，先 resolve A，再 resolve B，只断言最终 B。
 - **已验证：**临时脚本在内存中移除 `coverGid` 保护后，原测试仍输出 PASS；没有修改仓库生产文件或原测试。

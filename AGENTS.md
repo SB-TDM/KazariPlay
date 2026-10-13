@@ -54,15 +54,15 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 - `kazari_play/ui/web_assets/`：`ts/` = TypeScript 源（唯一真相），`js/` = 编译产物（勿手改），`css/`、`partials/`、`index.html`
 - 新增前端模块：`ts/` 建文件 → 登记 `main.py` 的 `_JS_MANIFEST`（顺序即依赖顺序，两处同步）
 - `overlay/`：截图 toast 源码；`tests/`：原版回归与边界检查
-- 文档：`README.md`（怎么用）、`docs/README.md`（文档索引）、`docs/DEV_RULES.md`（**工作约束，改代码/打包/提交前必读**）、`docs/CHANGELOG.md`（改动历史）、`docs/*_PLAN.md`（设计/迁移方案，未实施方案需以索引标注为准）
-- 架构文档（改代码前先看；按板块拆分）：`docs/ARCHITECTURE.md`（总体架构/数据流/核心对象）、`docs/backend/`（core/database/ui/utils 逐模块）、`docs/frontend/`（ts 模块与构建/内联约定）、`docs/overlay.md`（C++ overlay 与管道协议）、`docs/testing.md`（测试分类与改动验证）
+- 文档：`README.md`（怎么用）、`docs/README.md`（文档索引）、`docs/dev/DEV_RULES.md`（**工作约束，改代码/打包/提交前必读**）、`docs/dev/CHANGELOG.md`（改动历史）；`docs/` 按 `dev/`（流程与记录）、`ui/`（界面线）、`archive/`（历史）、`plans/`（未实施方案）归类
+- 架构文档（改代码前先看；按板块拆分）：`docs/ARCHITECTURE.md`（总体架构/数据流/核心对象）、`docs/backend/`（core/database/ui/utils 逐模块）、`docs/frontend/`（ts 模块与构建/内联约定）、`docs/overlay.md`（C++ overlay 与管道协议）、`docs/dev/testing.md`（测试分类与改动验证）
 
 ## 当前状态与下一步
 
-- 最新改动见 `docs/CHANGELOG.md`；P0/P1/P2 本地修复与未验收项以 `docs/DEVELOPMENT_BACKLOG.md` 为准
+- 最新改动见 `docs/dev/CHANGELOG.md`；P0/P1/P2 本地修复与未验收项以 `docs/dev/DEVELOPMENT_BACKLOG.md` 为准
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
 - 当前本地版本 `1.4.0-beta.1`（基于 V1.3 的原版可靠性验收）；历史版本见 `RELEASE_NOTES.md`
 - `scripts/package_develop.py` 生成隔离的 onedir 试用包，运行时数据在包旁 `data/`；不覆盖现有构建目录，打包前需先完成 Overlay x64/x86 构建。
 - 主界面重构、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；本目录 `KazariPlay_main-ui` 为独立克隆（`origin`=本机 `KazariPlay_main`，`github`=SB-TDM/KazariPlay）。
-- 分支职责见 `docs/BRANCH_WORKFLOW.md`；不将实验分支整分支合入原版，不混用两版生成物，不删除用户数据或旧实验字段。
+- 分支职责见 `docs/dev/BRANCH_WORKFLOW.md`；不将实验分支整分支合入原版，不混用两版生成物，不删除用户数据或旧实验字段。

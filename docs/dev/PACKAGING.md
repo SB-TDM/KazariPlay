@@ -22,7 +22,7 @@ python scripts/package_develop.py --output trial-build-1.4.0-beta.1-win64
 
 新输出的父目录须已存在，输出本身必须不存在。脚本只操作全新目录，不使用 --clean、不清空旧输出，失败现场保留；重复构建用新目录，不覆盖用户试用数据。源码 js/node_modules、旧 Overlay、`KazariPlay_V1.0_build` 和用户库不清理。
 
-脚本执行类型检查、TS 构建、前端组装、原版边界检查，再按 [develop.spec](../scripts/develop.spec) 打包。Windows 版本资源从 version.py 生成。资源清单只包含运行前端、图标、默认封面与两个截图 Overlay EXE，不递归打包截图、config、数据库或实验 Textractor DLL。
+脚本执行类型检查、TS 构建、前端组装、原版边界检查，再按 [develop.spec](../../scripts/develop.spec) 打包。Windows 版本资源从 version.py 生成。资源清单只包含运行前端、图标、默认封面与两个截图 Overlay EXE，不递归打包截图、config、数据库或实验 Textractor DLL。
 
 产物为 `<output>/dist/KazariPlay/`，BUILD_INFO.json 记录提交、构建时工作区状态、Python 和实际依赖版本；该文件比口头版本判断优先。本机验证环境使用 PyInstaller 6.21.0、pywebview 6.2.1、Python 3.11.9、Pillow 12.3.0、pywin32 312、windows-capture 2.0.1；Pillow/pywin32 与 requirements 固定版本存在差异，未在本轮重装全局依赖。
 

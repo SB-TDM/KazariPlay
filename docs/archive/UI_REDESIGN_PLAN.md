@@ -1,6 +1,6 @@
 # KazariPlay UI 改造计划书
 
-> **文档状态：历史计划，主要阶段已完成。** 当前 UI 行为以源码、`README.md` 和 `docs/CHANGELOG.md` 为准；本文保留阶段目标、验收标准和历史决策，不是新的待办清单。文档分类见 [README.md](README.md)。
+> **文档状态：历史计划，主要阶段已完成。** 当前 UI 行为以源码、`README.md` 和 `docs/CHANGELOG.md` 为准；本文保留阶段目标、验收标准和历史决策，不是新的待办清单。文档分类见 [README.md](../README.md)。
 
 > 版本：V1.0（计划稿）
 > 日期：2026-08-16

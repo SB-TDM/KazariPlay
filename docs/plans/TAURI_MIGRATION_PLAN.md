@@ -1,6 +1,6 @@
 # KazariPlay → Tauri 外壳迁移方案（路线 B）
 
-> **文档状态：未实施的历史方案。** 当前仓库没有 Tauri/Rust sidecar 工程，现行运行方式仍是 Python + pywebview + C++ Overlay。本文只保留方案评估，不是当前构建入口。文档分类见 [README.md](README.md)。
+> **文档状态：未实施的历史方案。** 当前仓库没有 Tauri/Rust sidecar 工程，现行运行方式仍是 Python + pywebview + C++ Overlay。本文只保留方案评估，不是当前构建入口。文档分类见 [README.md](../README.md)。
 
 > 版本：V1.0 · 2026-08-19
 > 目标：保留原有 Python 后端业务，用 **Tauri 原生壳 + Python 后端 sidecar** 换掉 pywebview，
@@ -81,7 +81,7 @@ KazariPlay_V2.0/
 - **请求通路**：JS → Rust `invoke('api', ...)` → HTTP → Python。Python 仍以「同名方法 + JSON 字符串参数」被调用，`server.py` 用反射把 WebBridge 方法按名字分发，业务层不改。
 - **推送通路**：原来 UISync 调 `window.evaluate_js(cmd)`，改为 `fake_window.evaluate_js(cmd)` 内部经 WebSocket 发送 `{type:'eval', code:cmd}`，前端收到后 `eval` 执行（保持与 pywebview 一致的执行语义）。这样 `ui/sync.py` 等推送代码零改动。
 - **端口**：Python 启动时绑定 `127.0.0.1` 随机空闲端口，把端口通过 stdout 或文件告知 Rust sidecar；避免写死占用冲突。
-- **生命周期**：Rust 启动时拉起 sidecar 进程，窗口关闭时结束 sidecar + 退出 overlay.exe（对齐原 [main.py](../kazari_play/main.py) 的清理逻辑）。
+- **生命周期**：Rust 启动时拉起 sidecar 进程，窗口关闭时结束 sidecar + 退出 overlay.exe（对齐原 [main.py](../../kazari_play/main.py) 的清理逻辑）。
 
 ---
 
@@ -106,7 +106,7 @@ KazariPlay_V2.0/
 ### 4.3 Rust 壳（薄）
 - 新建 `src-tauri`，`tauri init`+ 配置：
   - `frontendDist: "../src/web"`（无 bundler，静态目录直接服务）；
-  - `frameless: true`、`resizable`、大小/位置对齐原 [main.py](../kazari_play/main.py#L250-L263)（0.82 屏幕宽、最小 900x620）。
+  - `frameless: true`、`resizable`、大小/位置对齐原 [main.py](../../kazari_play/main.py#L250-L263)（0.82 屏幕宽、最小 900x620）。
 - Rust 命令：
   - `spawn_backend`：拉起 Python sidecar 进程（开发期 `python server.py`；发布期跑打包的 exe）。
   - `api(method, args)`：HTTP 转发到 sidecar。
