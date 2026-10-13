@@ -48,7 +48,13 @@ python kazari_play/main.py     # 在对应工作区根目录下
 python scripts/package_develop.py --output trial-build-1.0.0-beta.1
 ```
 
-完成后运行 `trial-build-1.0.0-beta.1/dist/KazariPlay/run_develop.cmd`，自测包的数据库、配置、日志和截图均隔离在包旁 `data/`。
+打正式发布资产（干净包 `KazariPlay-win64.zip` + `SHA256SUMS.txt`，要求工作区干净）：
+
+```powershell
+python scripts/package_develop.py --output trial-build-1.0.0-beta.1 --release
+```
+
+完成后运行 `trial-build-1.0.0-beta.1/dist/KazariPlay/run_develop.cmd`，自测包的数据库、配置、日志和截图均隔离在包旁 `data/`。解压运行请放在非系统盘的用户可写目录（不要在 `Program Files` 等需要管理员权限的位置）。
 
 ## 构建 C++ Overlay（可选）
 

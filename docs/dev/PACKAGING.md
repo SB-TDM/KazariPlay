@@ -4,7 +4,7 @@
 
 本轮产物是 Windows x64 的 PyInstaller onedir 文件夹版，版本 `1.0.0-beta.1`，仅无翻译原版；自测包不对外发布。需要 Windows 10/11 x64、Microsoft Edge WebView2 Runtime 和系统 .NET Framework，运行不要求安装 Python 或 Node。
 
-解压整个 KazariPlay 文件夹到可写位置，双击 `KazariPlay.exe` 或 `run_develop.cmd`。保留同目录 `_internal/`，不能只移动 EXE。运行时默认使用包旁 `data/` 保存 games.db、config.json、covers、logs 和 screenshots；首次运行是空库，不读取现有 `%APPDATA%/KazariPlay` 或迁移旧库。
+解压整个 KazariPlay 文件夹到用户可写位置（建议非系统盘；不要放在 `Program Files` 等需要管理员权限的位置），双击 `KazariPlay.exe` 或 `run_develop.cmd`。保留同目录 `_internal/`，不能只移动 EXE。运行时默认使用包旁 `data/` 保存 games.db、config.json、covers、logs 和 screenshots；首次运行是空库，不读取现有 `%APPDATA%/KazariPlay` 或迁移旧库。
 
 `KAZARIPLAY_DATA_DIR` 可显式指定独立数据目录；指定目录不可写会报错，不静默退回正式库。源码直接启动且未设置该变量时维持既有数据策略。试用配置与正式库隔离，便于重复测试。
 
@@ -25,6 +25,21 @@ python scripts/package_develop.py --output trial-build-1.0.0-beta.1
 脚本执行类型检查、TS 构建、前端组装、原版边界检查，再按 [develop.spec](../../scripts/develop.spec) 打包。Windows 版本资源从 version.py 生成。资源清单只包含运行前端、图标、默认封面与两个截图 Overlay EXE，不递归打包截图、config、数据库或实验 Textractor DLL。
 
 产物为 `<output>/dist/KazariPlay/`，BUILD_INFO.json 记录提交、构建时工作区状态、Python 和实际依赖版本；该文件比口头版本判断优先。本机验证环境使用 PyInstaller 6.21.0、pywebview 6.2.1、Python 3.11.9、Pillow 12.3.0、pywin32 312、windows-capture 2.0.1；Pillow/pywin32 与 requirements 固定版本存在差异，未在本轮重装全局依赖。
+
+### 发布构建（--release）
+
+仅在打正式 Release 时使用，要求工作区干净（`git status` 为空）：
+
+```powershell
+python scripts/package_develop.py --output trial-build-1.0.0-beta.1 --release
+```
+
+除自测包外，额外产出发布三件套中的两件：
+
+- `<output>/KazariPlay-win64.zip`——**干净包**（固定名、不带版本；zip 内 `BUILD_INFO.json` 含版本与 platform/arch），作为 GitHub Release 资产上传；
+- `<output>/SHA256SUMS.txt`——zip 的 SHA256（更新器下载后校验）。
+
+第三件是 Release 正文（更新说明，即应用内更新弹层展示的来源）；三件齐备后由维护者本地上传（不引入 CI）。包内 `TRIAL_README.txt` 在 `--release` 模式下写为发布版说明（安装位置建议、数据目录、应用内更新说明）。
 
 ## 验证
 
