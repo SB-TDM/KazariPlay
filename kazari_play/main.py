@@ -214,6 +214,12 @@ def _apply_window_extras(bridge):
     import threading
 
     def _do():
+        try:
+            from utils.path_utils import get_app_data_dir
+            from utils.update_apply import mark_startup_success
+            mark_startup_success(get_app_data_dir())   # 窗口加载成功 = 新版首启确认（两段确认）
+        except Exception:
+            pass
         hwnd = bridge._win32_hwnd()
         if hwnd:
             _ensure_minimize_style(hwnd)
@@ -249,8 +255,26 @@ def main():
     )
     logger.info("启动 KazariPlay %s (%s, pywebview)", DISPLAY_VERSION, PRODUCT_LINE)
 
+    # WebView2 依赖显式检测（缺失时给明确指引，避免 pywebview 原始报错）
+    from utils.path_utils import get_app_data_dir
+    from utils.update_apply import (cleanup_update_cache, ensure_webview2,
+                                    relaunch_and_exit, startup_self_heal)
+    if not ensure_webview2():
+        return
+
+    # 更新残留自愈：替换中断回滚 / 新版确认计数 / 回滚提示（见 docs/dev/AUTO_UPDATE_DESIGN.md §6）
+    update_notice, restart_exe = startup_self_heal(get_app_data_dir())
+    if restart_exe:
+        relaunch_and_exit(restart_exe)   # 回滚后以旧版重启（内部直接退出本进程）
+    cleanup_update_cache(get_app_data_dir())
+
     manager = GameManager()
     bridge = WebBridge(manager)
+    if update_notice:
+        try:
+            bridge.set_update_notice(update_notice)
+        except Exception:
+            pass
 
     _start_screenshot_hotkey(bridge)
 
@@ -273,6 +297,11 @@ def main():
     # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时退出 overlay.exe，
     # 避免独立 overlay 进程残留
     def _on_window_closing():
+        try:
+            if bridge.apply_pending_update_on_exit():   # 「退出时更新」：关闭前拉起替换助手
+                pass
+        except Exception:
+            pass
         try:
             overlay = getattr(bridge, "_overlay_client", None)
             if overlay is not None:
@@ -298,4 +327,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--apply-update" in sys.argv:
+        # 替换助手模式（由更新流程拉起；无窗口、不进入常规启动）
+        from utils.update_apply import run_apply_update
+        sys.exit(run_apply_update(sys.argv))
     main()

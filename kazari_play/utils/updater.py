@@ -10,9 +10,11 @@ import json
 import os
 import platform as _platform
 import re
+import shutil
 import threading
 import time
 import urllib.request
+import zipfile
 from typing import List, Optional
 
 from utils.config import Config
@@ -124,6 +126,20 @@ def parse_sha256sums(text: str, filename: str) -> Optional[str]:
     return None
 
 
+def extract_package(zip_path: str, dest: str) -> None:
+    """解压更新包到 dest（清空重建；拒绝路径穿越条目）"""
+    dest_abs = os.path.abspath(dest)
+    if os.path.isdir(dest_abs):
+        shutil.rmtree(dest_abs, ignore_errors=True)
+    os.makedirs(dest_abs, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as zf:
+        for info in zf.infolist():
+            target = os.path.abspath(os.path.join(dest_abs, info.filename))
+            if target != dest_abs and not target.startswith(dest_abs + os.sep):
+                raise RuntimeError("更新包内路径越界：" + info.filename)
+        zf.extractall(dest_abs)
+
+
 def _http_get_json(url: str, opener=None, timeout: int = REQUEST_TIMEOUT) -> Optional[dict]:
     """GET JSON（失败返回 None 并记日志；检查更新走直连，不套镜像）"""
     try:
@@ -192,6 +208,7 @@ class Updater:
         self._lock = threading.RLock()
         self._release: Optional[ReleaseInfo] = None
         self._downloaded_path = ""
+        self._extract_dir = ""
         self._state = {
             "state": "idle", "error": "",
             "latest_version": "", "notes": "", "published_at": "",
@@ -272,6 +289,7 @@ class Updater:
             snap = dict(self._state)
         snap["current_version"] = CURRENT_VERSION
         snap["downloaded_path"] = self._downloaded_path
+        snap["extract_dir"] = self._extract_dir
         snap["skipped_version"] = self._cfg_get("update.skipped_version", "") or ""
         snap["last_check"] = self._cfg_get("update.last_check", "") or ""
         return snap
@@ -349,6 +367,7 @@ class Updater:
                 return False
             if self._state["state"] not in ("available", "failed"):
                 return False
+            self._extract_dir = ""
             self._set(state="downloading", error="", percent=0.0,
                       downloaded=0.0, speed_mb=0.0, eta_seconds=0)
         threading.Thread(target=self._download_worker, args=(opener,),
@@ -389,9 +408,12 @@ class Updater:
                 raise RuntimeError("更新包 SHA256 校验失败（可能下载损坏或被篡改）")
 
             os.replace(part, dest)
+            extract_dir = os.path.join(self.cache_root(), "extract")
+            extract_package(dest, extract_dir)
             self._downloaded_path = dest
+            self._extract_dir = extract_dir
             self._set(state="ready", percent=100.0)
-            logger.info("更新包已下载并通过校验：%s", dest)
+            logger.info("更新包已下载、通过校验并解压：%s", dest)
         except Exception as e:
             logger.warning("更新下载失败：%s", e)
             self._set(state="failed", error=str(e))

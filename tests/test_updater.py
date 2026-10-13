@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import time
+import zipfile
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -65,6 +66,14 @@ def make_release(tag="v1.0.1", notes="修复若干问题", assets=None):
         "assets": [{"name": n, "browser_download_url": u, "size": s}
                    for n, u, s in (assets or [])],
     }
+
+
+def make_zip_bytes(files):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in files.items():
+            zf.writestr(name, data)
+    return buf.getvalue()
 
 
 def new_updater(tmp, cfg=None):
@@ -240,7 +249,7 @@ def _run_download(up, fake):
 
 
 def test_download_success_with_mirror():
-    payload = b"fake-zip-bytes" * 2000
+    payload = make_zip_bytes({"KazariPlay.exe": b"NEW-EXE", "_internal/x.dll": b"dll"})
     digest = hashlib.sha256(payload).hexdigest()
     sums_text = f"{digest}  KazariPlay-win64.zip\n".encode()
     with tempfile.TemporaryDirectory() as tmp:
@@ -254,10 +263,12 @@ def test_download_success_with_mirror():
         assert st["percent"] == 100.0
         path = st["downloaded_path"]
         assert os.path.isfile(path) and U.sha256_file(path) == digest
+        extract = st["extract_dir"]
+        assert extract and os.path.isfile(os.path.join(extract, "KazariPlay.exe"))
         assert any(u.startswith("https://gh-proxy.com/") for u in calls)
         leftovers = [n for n in os.listdir(tmp) if n.endswith(".part")]
         assert not leftovers, leftovers
-    print("[下载-镜像回退+校验成功] OK")
+    print("[下载-镜像回退+校验+解压成功] OK")
 
 
 def test_download_checksum_mismatch():
@@ -299,6 +310,26 @@ def test_download_all_candidates_fail():
     print("[下载-全候选失败] OK")
 
 
+def test_extract_package_guard():
+    with tempfile.TemporaryDirectory() as tmp:
+        evil = os.path.join(tmp, "evil.zip")
+        with open(evil, "wb") as f:
+            f.write(make_zip_bytes({"../evil.txt": b"x"}))
+        try:
+            U.extract_package(evil, os.path.join(tmp, "out"))
+            raise AssertionError("应拒绝路径穿越条目")
+        except RuntimeError:
+            pass
+        good = os.path.join(tmp, "good.zip")
+        with open(good, "wb") as f:
+            f.write(make_zip_bytes({"KazariPlay.exe": b"x", "_internal/a.dll": b"y"}))
+        dest = os.path.join(tmp, "out2")
+        U.extract_package(good, dest)
+        assert os.path.isfile(os.path.join(dest, "KazariPlay.exe"))
+        assert os.path.isfile(os.path.join(dest, "_internal", "a.dll"))
+    print("[解压-路径穿越防护] OK")
+
+
 def test_cleanup():
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
@@ -325,5 +356,6 @@ if __name__ == "__main__":
     test_download_success_with_mirror()
     test_download_checksum_mismatch()
     test_download_all_candidates_fail()
+    test_extract_package_guard()
     test_cleanup()
     print("UPDATER TEST PASS")

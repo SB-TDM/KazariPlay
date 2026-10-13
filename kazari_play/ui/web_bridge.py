@@ -904,47 +904,98 @@ class WebBridge:
         g = self.manager.get_running_game()
         return g.id if g else ""
 
-    # ---------- 应用内更新（阶段 B：检查 / 下载 / 跳过；应用替换在阶段 C 接入）----------
+    # ---------- 应用内更新（见 docs/dev/AUTO_UPDATE_DESIGN.md；替换与数据保护在 utils/update_apply.py）----------
+
+    def _update_payload(self, payload: dict) -> str:
+        """统一更新响应；附带一次性的启动自愈提示（回滚/中断恢复）"""
+        notice = getattr(self, "_update_notice", "") or ""
+        if notice:
+            self._update_notice = ""
+            payload["notice"] = notice
+        return json.dumps(payload, ensure_ascii=False)
+
+    def set_update_notice(self, text: str) -> None:
+        """启动自愈提示（main 在窗口创建前写入，前端首次状态请求时消费）"""
+        self._update_notice = text or ""
 
     def getUpdateState(self) -> str:
         try:
-            return json.dumps(get_updater().state(), ensure_ascii=False)
+            return self._update_payload(get_updater().state())
         except Exception as e:
             logger.error("getUpdateState 失败: %s", e)
-            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+            return self._update_payload({"state": "failed", "error": str(e)})
 
     def checkUpdate(self, force: bool = False) -> str:
         try:
             if not getattr(sys, "frozen", False):
-                return json.dumps({"state": "unsupported",
-                                   "reason": "源码运行模式；请使用发布包获得自动更新"},
-                                  ensure_ascii=False)
+                return self._update_payload({"state": "unsupported",
+                                             "reason": "源码运行模式；请使用发布包获得自动更新"})
             if not bool(force) and is_prerelease(VERSION):
-                return json.dumps({"state": "auto_disabled",
-                                   "reason": "预发布版本默认不自动检查更新"},
-                                  ensure_ascii=False)
-            return json.dumps(get_updater().check(force=bool(force)), ensure_ascii=False)
+                return self._update_payload({"state": "auto_disabled",
+                                             "reason": "预发布版本默认不自动检查更新"})
+            return self._update_payload(get_updater().check(force=bool(force)))
         except Exception as e:
             logger.error("checkUpdate 失败: %s", e)
-            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+            return self._update_payload({"state": "failed", "error": str(e)})
 
     def downloadUpdate(self) -> str:
         try:
-            return json.dumps({"ok": get_updater().download()}, ensure_ascii=False)
+            return self._update_payload({"ok": get_updater().download()})
         except Exception as e:
             logger.error("downloadUpdate 失败: %s", e)
-            return json.dumps({"ok": False, "msg": str(e)}, ensure_ascii=False)
+            return self._update_payload({"ok": False, "msg": str(e)})
 
     def skipUpdate(self) -> str:
         try:
-            return json.dumps(get_updater().skip_current(), ensure_ascii=False)
+            return self._update_payload(get_updater().skip_current())
         except Exception as e:
             logger.error("skipUpdate 失败: %s", e)
-            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+            return self._update_payload({"state": "failed", "error": str(e)})
 
     def applyUpdate(self, mode: str = "now") -> str:
-        # 阶段 C 接入：校验 Ready → 数据备份 → 拉起替换助手 → 退出应用
-        return json.dumps({"ok": False, "msg": "更新应用尚未接入（开发中）"}, ensure_ascii=False)
+        """应用更新：mode=now 立即拉起助手并退出；mode=exit 在窗口关闭时执行"""
+        try:
+            from utils import update_apply
+            st = get_updater().state()
+            if st.get("state") != "ready":
+                return self._update_payload({"ok": False, "msg": "更新包未就绪"})
+            extract_dir = st.get("extract_dir") or ""
+            if not extract_dir or not os.path.isdir(extract_dir):
+                return self._update_payload({"ok": False, "msg": "更新包解压目录缺失，请重新下载"})
+            target = update_apply.current_install_dir()
+            if not target:
+                return self._update_payload({"ok": False, "msg": "当前运行方式不支持自动更新"})
+            if mode == "exit":
+                self._update_on_exit = True
+                return self._update_payload({"ok": True, "msg": "将在退出时自动更新"})
+            ok, msg = update_apply.begin_apply(extract_dir, target, get_app_data_dir(), os.getpid())
+            if not ok:
+                return self._update_payload({"ok": False, "msg": msg})
+            win = getattr(self, "_window", None)
+            if win is not None:
+                win.destroy()
+            return self._update_payload({"ok": True, "msg": "正在更新…"})
+        except Exception as e:
+            logger.error("applyUpdate 失败: %s", e)
+            return self._update_payload({"ok": False, "msg": str(e)})
+
+    def apply_pending_update_on_exit(self) -> bool:
+        """「退出时更新」：窗口关闭钩子调用；成功拉起替换助手返回 True"""
+        if not getattr(self, "_update_on_exit", False):
+            return False
+        try:
+            from utils import update_apply
+            st = get_updater().state()
+            extract_dir = st.get("extract_dir") or ""
+            target = update_apply.current_install_dir()
+            if st.get("state") != "ready" or not extract_dir or not target:
+                return False
+            ok, _msg = update_apply.begin_apply(extract_dir, target,
+                                                get_app_data_dir(), os.getpid())
+            return ok
+        except Exception as e:
+            logger.warning("退出时更新失败: %s", e)
+            return False
 
     def openReleasePage(self) -> bool:
         try:
