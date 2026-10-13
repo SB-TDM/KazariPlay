@@ -76,9 +76,9 @@ python -B tests/smoke_screenshots.py
 
 2026-10-05 已推送 `main`、`develop`、`feature/hook-translation`，本地分支分别跟踪同名远端分支。原版分离代码已在 `main/develop`，翻译实验版已在对应远端分支。
 
-GitHub 默认分支仍为 `master`：本机 `gh` 未登录，修改仓库设置被认证阻塞，用户明确选择暂缓切换。旧 `master` 保留，不自动删除；在默认分支调整前访问 GitHub 首页仍看到旧版，应主动选择对应版本分支。
+GitHub 默认分支原为 `master`；2026-10-13 用户经网页设置将其切换为 **`main`**，旧 `master` 按归档规则改名 **`archive/master-legacy`**（同一提交 `b3a571e`，远端与本地一致），旧名已删除。`main` 当前为 UI 线（`b310740`，含主界面/主页/评分等改动，不含应用内更新器）；`develop`（`d257ebe`）领先 `main`，含应用内更新器。
 
-后续先完成 GitHub CLI 授权，再切换默认分支到 `main`，最后单独决定旧 `master` 是否删除。保护规则/Rulesets、编译期开关、正式 Release 保持待定，本轮均未操作；Git SSH 推送权限不等于仓库设置 API 权限。
+`gh` 仍未登录（默认分支切换经网页完成）；保护规则/Rulesets、编译期开关、正式 Release 保持待定；Git SSH 推送权限不等于仓库设置 API 权限。
 
 ## 当前实施与验证
 
@@ -112,3 +112,4 @@ develop 试用包已通过本地 PyInstaller onedir 构建与冻结包离线自�
 - 版本号体系重新定义（见 [版本策略](VERSIONING.md) 与 [ADR-0001](../adr/0001-version-renumbering.md)）：`0.x` = KazariPlay 初代世代、`1.0.0` = 新界面世代；核心号随 `main` 发布定稿，`develop` 期间只用 `-beta.N` 自测包计数；取消 `-rN` 构建批次；实验版后缀改用 `-exp.N`。
 - `v1.0.0` 标签改名 `v0.1.0`（同提交、内容零变化）；GitHub 上附于旧标签的 V1.0 Release 已按明确授权删除，正文保留于 `RELEASE_NOTES.md`。
 - 文档目录归类为 `dev/`、`ui/`、`archive/`、`plans/`（全量链接修复）；新增 `GLOSSARY.md` 领域术语表。
+- 远端收口：GitHub 默认分支由 `master` 切换为 `main`；旧 `master` 改名 `archive/master-legacy` 留档（`b3a571e`）；`main` 更新为 UI 线 `b310740`（不含更新器），`develop` 保持领先（含更新器 `d257ebe`）。
