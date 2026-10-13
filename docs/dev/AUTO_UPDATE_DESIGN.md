@@ -1,6 +1,6 @@
 # KazariPlay 自动更新设计
 
-> 状态：**v0.4 设计定案（2026-10-13），未实施**（v0.3 采纳"更新后健康检查（两段确认）"与"WebView2 显式检测"；v0.4 补平台接缝：资产命名参数化 / 更新核心平台中立 / 发布按平台附加资产）。决策依据为 2026-10-13 逐轮问答与三份开源参考的对照（见 §0）。
+> 状态：**v0.5（2026-10-13），未实施**（v0.4 设计定案；v0.5 追加 §11 实施计划供过目）。决策依据为 2026-10-13 逐轮问答与三份开源参考的对照（见 §0）。
 > **最高原则**：**① 用户数据保护第一**——更新流程任何环节都不得损坏、丢失或搬移用户数据；**② 原生无感体验**——更新存在感尽量低、界面融入应用自身视觉，不做第三方工具风格的独立窗口。
 > 质量标准：按**对外多人分发**设计（清晰错误、可回滚、不静默失败）。
 > 范围：应用内自动更新（检查 / 提示 / 下载 / 替换 / 回滚）；目标形态为便携文件夹版（PyInstaller onedir，数据在包旁 `data/`）。
@@ -119,3 +119,70 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 - 抢先体验渠道；安装器形态。
 - 完整性修复（缺文件时从 `releases/tags/v{当前版本}/download/KazariPlay-win64.zip` 重下当前版本，镜像模式思路）。
 - 源码运行模式的图片数据不入 `%APPDATA%` 的数据路径优化。
+
+## 11. 实施计划（2026-10-13，待过目）
+
+> 前置约束：自动更新必须随 `1.0.0` 发布（第一个正式版内置更新器）。在 `develop` 分支按阶段实施、按阶段提交；**不新增第三方依赖**（网络用现有 urllib + proxy opener 体系，测试用 stdlib `unittest` + mock）。
+
+### 阶段 A — 更新核心（平台无关，后端）｜规模：中
+文件：`kazari_play/utils/updater.py`（新增）、`tests/test_updater.py`（新增）
+
+- A1 版本比较（三元组；预发布规则）与平台标签映射（运行时 → `win64`，接缝函数）
+- A2 GitHub API 检查（proxy opener、超时、按平台匹配资产、说明摘要；24h 缓存读写）
+- A3 下载器（直连 → 镜像回退候选链；分块读 + 进度：百分比/速度/ETA；整体重试 2 次）
+- A4 SHA256 校验（解析 `SHA256SUMS.txt`；不符即终止）
+- A5 状态机 + 状态持久化（`update.last_check` / `skipped_version` / `mirror_prefixes`）
+
+门禁：`python tests/test_updater.py`（mock 网络：无新版/有新版/资产缺失/SHA256 不符/直连失败走镜像/版本比较边界）+ py_compile
+验收：单测全过，全部状态迁移有断言。
+
+### 阶段 B — 桥 + 前端（体验层）｜规模：中
+文件：`ui/web_bridge.py`、`ts/updater.ts`（新增，登记 `_JS_MANIFEST`）、`ts/settings.ts`、`partials/update.html`（弹层）、对应 `css`、`index.html`（如需）
+
+- B1 桥方法：`checkUpdate` / `downloadUpdate` / `applyUpdate` / `getUpdateState`（轮询式进度，数据形状对齐批量进度条组件）
+- B2 关于页：版本行 + 检查按钮 + 状态文案（已是最新 / 发现 vX / 下载中 / 失败）
+- B3 更新弹层：版本/大小/说明摘要 + [跳过此版本][稍后][下载并更新]；下载中禁止关闭；完成 [立即重启更新][退出时更新]；失败 [重试][打开发布页][退出]
+- B4 启动后台检查（24h 缓存；发现新版只提示一次）
+
+门禁：`npm run build` + typecheck + `verify_frontend.py`（模块登记/ID 交叉）+ 离线 Playwright harness（无更新零打扰 / 有更新弹层 / 跳过写入 config / 进度显示 / 失败三键）
+验收：离线 harness 断言全过；关于页手动检查可用（mock）。
+
+### 阶段 C — 助手与数据保护（Windows 替换器）｜规模：大（最难）
+文件：`kazari_play/main.py`（`--apply-update` 入口）、`utils/updater.py`（apply 部分，或拆 `utils/update_apply.py`）、`tests/test_update_apply.py`（新增，临时目录两版本演练）
+
+- C1 `--apply-update --pid --target` 入口（无窗口；不进入常规启动流程）
+- C2 替换器：等待进程树退出（超时强杀）→ **数据备份（滚动 3）** → 白名单 + 路径断言（data/screenshots/logs 命中即中止）→ `_old\<时间戳>\` 移入 → 复制新程序文件 → 失败回滚 → 拉起（成功新版 / 失败旧版）
+- C3 健康检查两段确认（新版首启成功写标记；标记缺失 → 回滚；启动自愈清理残留）
+- C4 WebView2 显式检测与安装指引（启动前）
+
+门禁：`python tests/test_update_apply.py`（临时目录演练：正常替换 / 回滚 / 健康检查 / 备份滚动 / 断言拒绝 data 路径 / 故障注入中断）+ py_compile
+验收：演练全过；更新前后 `data/` 内容哈希一致；普通账户全程无 UAC。
+
+### 阶段 D — 发布配套｜规模：小
+文件：`scripts/package_develop.py`（`--release`）、BUILD_INFO 生成处、`docs/dev/PACKAGING.md`、包内 README 文案
+
+- D1 `--release`：拒绝脏工作区 → 生成 `KazariPlay-<平台标签>.zip`（不含 `data/` 与构建缓存）+ `SHA256SUMS.txt`
+- D2 `BUILD_INFO.json` 增 platform/arch
+- D3 文档同步（发布清单三件套、安装提示"非系统盘"、更新说明）
+
+门禁：干净 tree 跑 `--release`；产物结构校验（zip 无 `data/`、checksum 正确）
+验收：产物可直接作为 Release 资产上传。
+
+### 阶段 E — 真实闭环｜规模：小
+
+- E1 冻结冒烟扩展：`--smoke-test` 增加更新模块存在性与桥方法检查
+- E2 发布 `1.0.0` 后，发布 `1.0.1` 时由 `1.0.0` 完成一次真实自动更新（人工验证并记录到 CHANGELOG）
+- E3 用户文档定稿（更新说明、SmartScreen 已知限制、安装位置建议）
+
+### 提交与验证纪律
+
+- 每阶段一个提交（中文信息），只含本阶段文件；门禁全过才提交；
+- 现有全量回归（typecheck / build / verify_frontend / classic_boundary / 离线 harness 全套）在 B、D 完成后各跑一遍；
+- 不改动既有游戏管理逻辑（更新模块与 `core` 零耦合，仅桥与入口接线）。
+
+### 风险清单
+
+- **C2 文件锁与进程时序**（最大风险）：超时强杀进程树 + 集成演练覆盖 + 失败回滚兜底；
+- GitHub API 未认证限流：24h 缓存已覆盖；
+- 首个正式版必须内置更新器（顺序约束，不可省）；
+- SmartScreen / 杀软误报：已文档化，观察真实用户反馈。
