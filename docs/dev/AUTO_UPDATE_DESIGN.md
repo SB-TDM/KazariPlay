@@ -1,6 +1,6 @@
 # KazariPlay 自动更新设计
 
-> 状态：**v0.3 设计定案（2026-10-13），未实施**（v0.3 采纳"更新后健康检查（两段确认）"与"WebView2 显式检测"）。决策依据为 2026-10-13 逐轮问答与三份开源参考的对照（见 §0）。
+> 状态：**v0.4 设计定案（2026-10-13），未实施**（v0.3 采纳"更新后健康检查（两段确认）"与"WebView2 显式检测"；v0.4 补平台接缝：资产命名参数化 / 更新核心平台中立 / 发布按平台附加资产）。决策依据为 2026-10-13 逐轮问答与三份开源参考的对照（见 §0）。
 > **最高原则**：**① 用户数据保护第一**——更新流程任何环节都不得损坏、丢失或搬移用户数据；**② 原生无感体验**——更新存在感尽量低、界面融入应用自身视觉，不做第三方工具风格的独立窗口。
 > 质量标准：按**对外多人分发**设计（清晰错误、可回滚、不静默失败）。
 > 范围：应用内自动更新（检查 / 提示 / 下载 / 替换 / 回滚）；目标形态为便携文件夹版（PyInstaller onedir，数据在包旁 `data/`）。
@@ -44,10 +44,11 @@
 - 检查：`GET https://api.github.com/repos/SB-TDM/KazariPlay/releases/latest`（未认证；遵守系统代理；24h 缓存；60 次/小时限流足够）。
   - 读取：`tag_name`（`v1.0.1` → `1.0.1`）、`body`（更新说明）、`assets[]`。
 - **镜像回退链**：**直连优先**，失败后依次尝试**镜像前缀候选**（候选列表放 `config.` 可更新，避免死域名锁死旧客户端）；所有通道下载完成后以 **SHA256** 兜底防篡改。
-- 发布资产（固定命名）：
-  - `KazariPlay-win64.zip`：干净包（程序文件 + 包内资源；**不含** `data/`、构建缓存、会话产物）。
-  - `SHA256SUMS.txt`：含 zip 的 SHA256。
+- 发布资产（固定命名，**按平台参数化**）：
+  - `KazariPlay-<平台标签>.zip`：干净包（程序文件 + 包内资源；**不含** `data/`、构建缓存、会话产物）；当前平台标签仅 `win64`，对外文件名不变。
+  - `SHA256SUMS.txt`：含各平台 zip 的 SHA256。
   - 备用直链（不依赖 API）：`https://github.com/SB-TDM/KazariPlay/releases/latest/download/KazariPlay-win64.zip`。
+  - **平台接缝**：更新器按运行时平台（`platform.system()` + 架构）选择资产；`BUILD_INFO.json` 记录 platform/arch；将来新增平台（`macos-arm64`、`linux-x64` 等）只**增加**资产文件，旧客户端只查找自己平台的资产名——**不破坏旧客户端**（无需先升级更新器）。
 - 版本比较：`主.次.修订` 三元组；预发布后缀版本默认视为"不提示更新"。
 
 ## 5. 流程状态机
@@ -86,10 +87,10 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 
 ## 7. 发布流程配套（增补到 PACKAGING 清单）
 
-每次正式发布产出三件套：
+每次正式发布产出三件套（**按平台**）：
 
-1. `KazariPlay-win64.zip`——干净包（固定名，不带版本；zip 内 `BUILD_INFO.json` 含真实版本）；
-2. `SHA256SUMS.txt`——zip 的 SHA256；
+1. `KazariPlay-<平台标签>.zip`——干净包（固定名，不带版本；zip 内 `BUILD_INFO.json` 含真实版本与 platform/arch）；当前只产 `win64`，未来新平台按需**追加**资产，不改既有平台文件名；
+2. `SHA256SUMS.txt`——各平台 zip 的 SHA256；
 3. Release 正文——更新说明（更新器展示的摘要来源）。
 
 `scripts/package_develop.py --release`：在自测包构建之外，额外生成 ①+②（从干净 tree 构建；拒绝工作区脏状态）。发布与推送仍由维护者在本地执行（不引入 CI）。
@@ -99,6 +100,7 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 - 后端：`kazari_play/utils/updater.py`（检查/镜像回退下载/SHA256/状态机）；`ui/web_bridge.py` 暴露 `checkUpdate` / `downloadUpdate` / `applyUpdate` / `getUpdateState`；`main.py` 增加 `--apply-update` 入口、关闭钩子联动与启动自愈。
 - 前端：`ts/settings.ts` 关于页接线；新增 `ts/updater.ts`（登记 `main.py::_JS_MANIFEST`）；进度复用批量进度条组件。
 - 配置：`update.enabled`（预留）、`update.last_check`、`update.skipped_version`、`update.mirror_prefixes`（镜像候选）。
+- **平台中立与接缝**：更新核心（检查 / 镜像回退 / SHA256 / 状态机）保持平台无关；替换助手按平台实现并注册（Windows 先行：退出后替换；Unix 系可直接原地替换）；"运行时 → 平台标签"的映射独立成函数，便于后续扩平台。
 
 ## 9. 验收（草案）
 
