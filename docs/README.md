@@ -27,6 +27,7 @@
 | [BRANCH_WORKFLOW.md](dev/BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](dev/VERSIONING.md) | 版本编号体系（世代 / 核心号 / 自测包 / 正式发布）、唯一版本来源与历史编号映射 |
 | [PACKAGING.md](dev/PACKAGING.md) | develop 文件夹自测包的构建、隔离数据、冻结验收与合并边界 |
+| [AUTO_UPDATE_DESIGN.md](dev/AUTO_UPDATE_DESIGN.md) | 应用内自动更新设计（GitHub API 更新源、便携包替换/回滚、发布资产契约）；v0.1 设计定案，未实施 |
 | [testing.md](dev/testing.md) | 测试分类、运行方式与改动验证建议 |
 | [CHANGELOG.md](dev/CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
 | [DEVELOPMENT_BACKLOG.md](dev/DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
