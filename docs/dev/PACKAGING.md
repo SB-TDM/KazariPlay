@@ -17,7 +17,7 @@
 cmd /c build.bat
 cmd /c build32.bat
 # 以下在 worktree 根目录运行
-python scripts/package_develop.py --output trial-build-1.0.0-beta.1
+python scripts/package_develop.py --output trial-build-1.0.0-beta.2
 ```
 
 新输出的父目录须已存在，输出本身必须不存在。脚本只操作全新目录，不使用 --clean、不清空旧输出，失败现场保留；重复构建用新目录，不覆盖自测数据。源码 js/node_modules、旧 Overlay、`KazariPlay_V1.0_build` 和用户库不清理。
@@ -31,7 +31,7 @@ python scripts/package_develop.py --output trial-build-1.0.0-beta.1
 仅在打正式 Release 时使用，要求工作区干净（`git status` 为空）：
 
 ```powershell
-python scripts/package_develop.py --output trial-build-1.0.0-beta.1 --release
+python scripts/package_develop.py --output trial-build-1.0.0-beta.2 --release
 ```
 
 除自测包外，额外产出发布三件套中的两件：

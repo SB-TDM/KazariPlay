@@ -2,6 +2,11 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.0.0-beta.2 自测包（2026-10-13）
+
+- 自测包计数递增（同一开发周期的新一轮交付）：首个包含**应用内自动更新**的自测包（实现见下一节）。
+- 换版同步点已更新：`version.py`、前端构建元数据、`README.md`、`RELEASE_NOTES.md`、`docs/README.md` 索引、`AGENTS.md`（清单见 [版本策略](VERSIONING.md)）。
+
 ## 应用内自动更新（2026-10-13，feature/auto-update）
 
 - **更新核心**（`utils/updater.py`）：GitHub `releases/latest` 检查（24h 缓存；仓库尚无 Release 视为最新）；镜像回退下载（直连优先，候选列表 config 可配，SHA256 兜底）；分块进度（百分比/速度/ETA）；`SHA256SUMS.txt` 校验（失败即终止）；下载后解压（防路径穿越）；状态机 `idle / checking / up_to_date / available / skipped / downloading / ready / failed`。
