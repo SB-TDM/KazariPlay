@@ -1,98 +1,38 @@
-# KazariPlay V1.3
+# KazariPlay
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
-原名 Minato Launcher，V1.0 起正式更名为 **KazariPlay**。V1.01 引入**收藏夹文件夹系统**；V1.02 引入**游戏内截图提示（C++ Overlay）**与 Steam 式截图管理；V1.1 引入 **Hook 实时翻译（实验性）**；V1.3 完成**前端 TypeScript 迁移**、截图内核升级为 **WGC 三级回退 + 双保存**、扫描功能优化。
+> **本分支（`master`）为历史遗留分支**：这里保留的是更名前后的旧版源码与旧默认分支。**当前开发线与最新说明在 [`develop`](https://github.com/SB-TDM/KazariPlay/tree/develop) 分支**；稳定线为 `main`；含 Hook/翻译的实现保留在 `feature/hook-translation`。
 
-## 特性
+原名 Minato Launcher，V1.0（现编号 `0.1.0`）起正式更名为 **KazariPlay**。当前无翻译原版进入新界面世代（`1.0.0` 线）自测——主界面重构、主页与评分半星制等已并入 `develop`。
 
-- **Hook 实时翻译（V1.1 新增，⚠️ 实验性）**：Hook 提取游戏对话文本（基于 Textractor，支持 KRKR/Ren'Py/Unity/RPGMaker 等）+ C++ 内部 AI 翻译（OpenAI 兼容 API，默认 DeepSeek），字幕先显示原文、AI 翻译完成后替换为译文；含过滤器链文本清洗（去重/注音/标签/乱码）、每游戏独立清洗配置、字幕窗口跟随游戏窗口、实时翻译开关联动
-  > ⚠️ **实验性功能，使用隐患**：Hook 兼容性依游戏与 Hook 点而异，可能出现文本抓取不完整/错乱；AI 翻译质量不保证、可能误译人名与专有名词；实时翻译会调用第三方 AI API（如 DeepSeek）并产生实际费用；文本清洗过滤器可能误伤正常字幕（默认保守策略，激进过滤器需手动开启）。请在理解这些风险后使用。
-- **Kawaii Minimal 视觉**：UI 为 HTML/CSS/TypeScript（源 `kazari_play/ui/web_assets/ts/`，tsc 编译到 `js/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
-- **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
-- **截图内核（三级回退）**：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底；每次截图保存**原图 + 统一尺寸缩略图**（等比留边、随原图存放），删除/重命名联动
-- **Steam 式截图管理**：详情页截图卡片左键**全屏预览原图**、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），缩略图懒加载
-- **收藏夹系统（V1.01 新增）**：树形分组→分类、游戏多对多归类、手风琴侧边栏、拖拽排序、管理游戏对话框
-- **游戏库主界面**：自适应卡片网格、星级评分、收藏角标、真实封面（base64 内联）
-- **详情底部抽屉（Modal Bottom Sheet）**：点击卡片底部上拉，信息栏 3 列、收藏夹路径 chips、简介
-- **批量选择模式**：卡片圆形勾选框 + 批量工具栏（全选/批量加入收藏夹/批量移除/从库移除）
-- **设置窗口**：居中模态，常规/主题（即时预览）/快捷键/伪装/关于
-- 搜索 / 排序 / 收藏 / 继续游玩 导航、无边框窗口 + HTML 标题栏拖拽
-- 启动游戏、游玩时长统计、VNDB/Bangumi 元数据匹配与多源搜索
-- 前后端经 **pywebview js_api**（`kazari_play/ui/web_bridge.py`）桥接
+## 当前状态
 
-## 前置要求
+| 产品线 | 分支 | 编号 |
+|---|---|---|
+| 无翻译原版（当前开发） | `develop` | `1.0.0-beta.N`（自测包计数，不对外发布） |
+| 无翻译原版（稳定） | `main` | 下一次发布并入后更新 |
+| Hook/翻译实验版 | `feature/hook-translation` | `1.4.0-experimental.1`（下次交付起 `1.0.0-exp.N`） |
 
-- Python 3.8+
-- **Microsoft Edge WebView2 Runtime**（Windows 10/11 一般已内置；缺失时用 winget 安装）：
-  ```bash
-  winget install --id Microsoft.EdgeWebView2Runtime -e
-  ```
+版本编号体系（世代 / 自测包 / 正式发布）与历史编号映射见 [版本策略](https://github.com/SB-TDM/KazariPlay/blob/develop/docs/dev/VERSIONING.md)；完整安装、运行与打包说明见 [develop 的 README.md](https://github.com/SB-TDM/KazariPlay/blob/develop/README.md)。
 
-## 运行
+## 主要特性（无翻译原版）
+
+- **游戏库管理**：扫描文件夹批量导入（引擎识别、跨文件夹去重、进度与取消）、手动添加、自适应卡片网格、星级评分（0.5 半星）、收藏、搜索/排序
+- **详情与操作**：底部抽屉详情、启动与游玩时长统计、编辑、批量选择、批量重新定位
+- **收藏夹**：树形分组→分类、游戏多对多归类、手风琴侧边栏、拖拽排序
+- **元数据**：VNDB / Bangumi / YMGal 多源匹配（单条、批量、扫描后自动）
+- **截图**：WGC 三级回退截图（原图 + 缩略图）、Steam 式截图管理、游戏内 C++ Overlay toast（命名管道）
+- **界面**：Kawaii 双主题（浅/深）、无边框窗口、设置（主题/快捷键/伪装/关于）
+- **技术栈**：Python 3.11 + pywebview 6 + SQLite；前端 TypeScript 内联为单 HTML；C++ Overlay
+
+## 运行（源码）
 
 ```bash
 pip install -r requirements.txt
-python kazari_play/main.py     # 在 KazariPlay_V1.0 目录下
+npm --prefix kazari_play/ui/web_assets ci
+npm --prefix kazari_play/ui/web_assets run build
+python kazari_play/main.py
 ```
 
-## 构建 C++ Overlay（可选）
-
-游戏内截图提示由独立进程 `overlay/bin/overlay.exe` 提供，首次运行前需编译（需要 MSVC Build Tools，含 C++ 工作负载）：
-
-```bat
-cd overlay
-build.bat        # 产物：overlay/bin/overlay.exe
-```
-
-overlay.exe 缺失或编译失败时，截图提示自动降级（不影响截图主功能）。
-
-## 目录结构
-
-```
-KazariPlay_V1.0/
-├── kazari_play/
-│   ├── main.py                # pywebview 入口（无边框窗口 + js_api；html/js/css 启动时内联）
-│   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
-│   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
-│   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi/标题归一化）
-│   ├── ui/
-│   │   ├── web_bridge.py      # pywebview js_api 桥（后端能力暴露给前端）
-│   │   ├── sync.py            # 界面更新总线（数据变化 → 前端刷新的统一推送/合并）
-│   │   └── web_assets/        # 前端源码（详见 web_assets/README.md）
-│   │       ├── index.html     # 应用壳（侧边栏/主区/窗口手柄 + PARTIALS/SCRIPTS 占位符）
-│   │       ├── css/style.css
-│   │       ├── ts/            # TypeScript 源（17 个模块，渐进迁移完成）
-│   │       ├── js/            # tsc 编译产物（由 ts/ 生成，gitignore；main.py 按 _JS_MANIFEST 内联）
-│   │       └── partials/      # 各窗口/对话框分块 HTML（_PARTIAL_MANIFEST）
-│   └── resources/
-├── overlay/                   # C++ 游戏内截图 overlay（Direct2D + 命名管道 IPC）
-│   ├── src/                   # main / toast_window / pipe_server / protocol
-│   ├── third_party/           # nlohmann/json 单头文件
-│   ├── build.bat              # MSVC 编译脚本
-│   └── bin/overlay.exe        # 编译产物（git 忽略）
-├── screenshots/               # 截图存放（按游戏分文件夹，git 忽略）
-└── tests/
-```
-
-## 数据
-
-- 数据库：`%APPDATA%\KazariPlay\games.db`
-- 配置：`%APPDATA%\KazariPlay\config.json`（默认浅色 Kawaii 主题）
-- 截图：`KazariPlay_V1.0/screenshots/{game_id}/`
-- 从旧版 Minato Launcher 升级时，`%APPDATA%\MinatoLauncher` 下已有的数据会自动迁移
-
-## 文档
-
-- [文档索引](docs/README.md)：区分当前有效文档、历史记录和未实施方案
-- [工作约束](docs/DEV_RULES.md)：修改代码、打包、提交前必读
-- [变更日志](docs/CHANGELOG.md)：开发改动与验证记录
-- [第三方组件声明](THIRD_PARTY.md)：依赖和许可证说明
-
-## 开源许可
-
-本项目以 **GNU General Public License v3.0（GPL-3.0）** 授权，详见 [LICENSE](LICENSE)。
-
-- **`overlay/` 部分（C++ overlay.exe）因静态链接 [Textractor](https://github.com/Artikash/Textractor)（GPL-3.0）而受 GPL-3.0 约束**，其源码与构建脚本（`overlay/build.bat`、`overlay/build32.bat`、`overlay/CMakeLists.txt`）随项目提供。
-- 第三方组件（pywebview / Pillow / keyboard / pywin32 / numpy / nlohmann-json 等）的使用与许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
-- 完整源码：https://github.com/SB-TDM/KazariPlay
+> 以上步骤请在 `develop` 分支执行；`master` 分支为旧版源码，仅供参考。
