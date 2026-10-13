@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-13 文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；2026-10-07 试用三项反馈已修复（`36c17dc` 批次），待新试用包复验。
+> 文档状态：2026-10-13 版本号体系重新定义（`0.x` = 初代世代、`1.0.0` = 新界面世代，当前开发线 `1.0.0-beta.1`，见 [版本策略](dev/VERSIONING.md) 与 [ADR-0001](adr/0001-version-renumbering.md)）；文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；试用三项反馈已修复（`36c17dc` 批次），待新自测包复验。
 >
 > 目录约定：`dev/` 工程流程与记录 · `ui/` 界面线 · `backend/`、`frontend/` 架构模块 · `plans/` 未实施方案 · `archive/` 历史记录。
 >
@@ -12,7 +12,9 @@
 |---|---|
 | [README.md](../README.md) | 用户安装、运行、功能和当前版本说明；当前版本以 `kazari_play/version.py` 为准 |
 | [AGENTS.md](../AGENTS.md) | Agent/协作者工作入口、目录约定和验证命令 |
+| [GLOSSARY.md](../GLOSSARY.md) | 领域术语表（世代 / 核心号 / 预发布标识 / 自测包 / 正式发布等） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 总体架构：分层、核心对象、主要数据流、生命周期、前端内联机制 |
+| [adr/](adr/) | 架构决策记录（ADR），当前：[0001 版本号重新定义](adr/0001-version-renumbering.md) |
 | [overlay.md](overlay.md) | C++ overlay：管道协议、分层窗口、动画与 Python 对接 |
 | [RELEASE_NOTES.md](../RELEASE_NOTES.md) | 面向用户的版本发行说明 |
 | [THIRD_PARTY.md](../THIRD_PARTY.md) | 第三方组件和许可证说明 |
@@ -24,7 +26,7 @@
 | [DEV_RULES.md](dev/DEV_RULES.md) | 改代码、打包、提交和用户数据保护约束 |
 | [BRANCH_WORKFLOW.md](dev/BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](dev/VERSIONING.md) | 版本编号体系（世代 / 核心号 / 自测包 / 正式发布）、唯一版本来源与历史编号映射 |
-| [PACKAGING.md](dev/PACKAGING.md) | develop 文件夹试用包的构建、隔离数据、冻结验收与合并边界 |
+| [PACKAGING.md](dev/PACKAGING.md) | develop 文件夹自测包的构建、隔离数据、冻结验收与合并边界 |
 | [testing.md](dev/testing.md) | 测试分类、运行方式与改动验证建议 |
 | [CHANGELOG.md](dev/CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
 | [DEVELOPMENT_BACKLOG.md](dev/DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |

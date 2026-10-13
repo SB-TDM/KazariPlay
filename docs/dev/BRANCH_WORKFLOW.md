@@ -12,7 +12,7 @@
 
 名称中的 `feature/` 不表示必须整分支合并：此分支是长期实验产品线，不整体合入原版。稳定主线的身份是无翻译版，不恢复到 `4c10c12` 历史源码。
 
-当前本地预发布标识：`develop` 为 `1.4.0-beta.1`，实验版为 `1.4.0-experimental.1`；稳定 `main` 尚未接收本轮版本提交。两版运行时从 `kazari_play/version.py` 读取，历史编号与发布规则见 [版本策略](VERSIONING.md)。版本改号不等于标签或 Release 发布。
+当前编号（规则见 [版本策略](VERSIONING.md)）：`develop` 为 `1.0.0-beta.N`（自测包计数，不对外发布），实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）；稳定 `main` 尚未接收本轮版本提交。两版运行时从 `kazari_play/version.py` 读取。版本改号不等于标签或 Release 发布。
 
 ## 工作区
 
@@ -106,3 +106,9 @@ develop 试用包已通过本地 PyInstaller onedir 构建与冻结包离线自�
 - `develop` 已推送 GitHub：`154ea63`（含 `feature/main-ui-redesign`、`feature/home-page`、评分改造全部提交）；两个特性分支也已推送。GitHub `main` 未动（`d0232a6`），`master` 保留，默认分支切换仍待处理。
 - 本会话 52 个提交按用户要求统一作者/提交者身份为 `SB-TDM <1564253259@qq.com>`（原 Gitee 邮箱署名），强推覆盖两个特性分支与 `develop`；提交内容、树与时间不变。旧对象保留在本克隆 `refs/original/` 备份，旧 SHA 仍可从该备份解析；文档中的旧 SHA 引用已改为重写后的等价 SHA。
 - 试用包 `trial-build-1.4.0-beta.1-r8` 在本克隆构建并通过冻结自检（含包内 x64/x86 Overlay）；按用户指示复制了本机数据副本进包，仅限本地测试，不得外传。
+
+## 2026-10-13 更新
+
+- 版本号体系重新定义（见 [版本策略](VERSIONING.md) 与 [ADR-0001](../adr/0001-version-renumbering.md)）：`0.x` = KazariPlay 初代世代、`1.0.0` = 新界面世代；核心号随 `main` 发布定稿，`develop` 期间只用 `-beta.N` 自测包计数；取消 `-rN` 构建批次；实验版后缀改用 `-exp.N`。
+- `v1.0.0` 标签改名 `v0.1.0`（同提交、内容零变化）；GitHub 上附于旧标签的 V1.0 Release 已按明确授权删除，正文保留于 `RELEASE_NOTES.md`。
+- 文档目录归类为 `dev/`、`ui/`、`archive/`、`plans/`（全量链接修复）；新增 `GLOSSARY.md` 领域术语表。

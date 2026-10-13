@@ -1,8 +1,8 @@
-# develop 试用包
+# develop 自测包
 
 ## 使用
 
-本轮产物是 Windows x64 的 PyInstaller onedir 文件夹版，版本 `1.4.0-beta.1`，仅无翻译原版。需要 Windows 10/11 x64、Microsoft Edge WebView2 Runtime 和系统 .NET Framework，运行不要求安装 Python 或 Node。
+本轮产物是 Windows x64 的 PyInstaller onedir 文件夹版，版本 `1.0.0-beta.1`，仅无翻译原版；自测包不对外发布。需要 Windows 10/11 x64、Microsoft Edge WebView2 Runtime 和系统 .NET Framework，运行不要求安装 Python 或 Node。
 
 解压整个 KazariPlay 文件夹到可写位置，双击 `KazariPlay.exe` 或 `run_develop.cmd`。保留同目录 `_internal/`，不能只移动 EXE。运行时默认使用包旁 `data/` 保存 games.db、config.json、covers、logs 和 screenshots；首次运行是空库，不读取现有 `%APPDATA%/KazariPlay` 或迁移旧库。
 
@@ -17,10 +17,10 @@
 cmd /c build.bat
 cmd /c build32.bat
 # 以下在 worktree 根目录运行
-python scripts/package_develop.py --output trial-build-1.4.0-beta.1-win64
+python scripts/package_develop.py --output trial-build-1.0.0-beta.1
 ```
 
-新输出的父目录须已存在，输出本身必须不存在。脚本只操作全新目录，不使用 --clean、不清空旧输出，失败现场保留；重复构建用新目录，不覆盖用户试用数据。源码 js/node_modules、旧 Overlay、`KazariPlay_V1.0_build` 和用户库不清理。
+新输出的父目录须已存在，输出本身必须不存在。脚本只操作全新目录，不使用 --clean、不清空旧输出，失败现场保留；重复构建用新目录，不覆盖自测数据。源码 js/node_modules、旧 Overlay、`KazariPlay_V1.0_build` 和用户库不清理。
 
 脚本执行类型检查、TS 构建、前端组装、原版边界检查，再按 [develop.spec](../../scripts/develop.spec) 打包。Windows 版本资源从 version.py 生成。资源清单只包含运行前端、图标、默认封面与两个截图 Overlay EXE，不递归打包截图、config、数据库或实验 Textractor DLL。
 
@@ -34,4 +34,4 @@ python scripts/package_develop.py --output trial-build-1.4.0-beta.1-win64
 
 PyInstaller 报告包含可选平台模块、pycparser lextab/yacctab 和 importlib_resources.trees 警告；上述 Windows 冻结流程已通过，但不能据此称所有可选路径都验证。未进行代码签名、安装器构建、另一台干净 Windows 验证、真实游戏/网络元数据、多显示器或独占全屏验收。
 
-用户试用通过后，再核对从 develop 到 main 和旧 master 的合并范围、发布与推送授权；本轮不合并这些分支，也不创建 Release/tag。
+自测复验通过后，再核对从 develop 到 main 和旧 master 的合并范围、发布与推送授权；本轮不合并这些分支，也不创建 Release/tag。
