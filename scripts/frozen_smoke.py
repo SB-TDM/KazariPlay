@@ -56,6 +56,18 @@ def install():
                 wait("App.data.games[0].title==='Frozen package edit'")
                 report["checks"].append("frozen UI add/edit and SQLite persistence")
 
+                from utils import update_apply as update_apply_mod
+                from utils import updater as updater_mod
+                assert updater_mod.platform_tag() == "win64"
+                assert update_apply_mod.current_install_dir(), "冻结包应能解析安装目录"
+                for name in ("getUpdateState", "checkUpdate", "downloadUpdate",
+                             "skipUpdate", "applyUpdate", "openReleasePage"):
+                    assert callable(getattr(bridge, name, None)), f"缺少更新桥方法: {name}"
+                update_state = json.loads(bridge.getUpdateState())
+                assert update_state.get("state") == "idle", update_state
+                assert "extract_dir" in update_state
+                report["checks"].append("frozen update modules and bridge API")
+
                 game_exe = os.environ.get("KAZARIPLAY_SMOKE_GAME", "")
                 if game_exe:
                     game.exe_path = game_exe

@@ -205,6 +205,15 @@ def test_check_asset_missing():
     print("[检查-资产缺失] OK")
 
 
+def test_check_no_releases():
+    with tempfile.TemporaryDirectory() as tmp:
+        up = new_updater(tmp)
+        with mock.patch.object(U, "_http_get_json", return_value={}):
+            st = up.check(force=True)
+        assert st["state"] == "up_to_date", st
+    print("[检查-仓库尚无 Release 视为最新] OK")
+
+
 def test_check_network_fail_stale_cache():
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
@@ -352,6 +361,7 @@ if __name__ == "__main__":
     test_check_up_to_date()
     test_check_skipped_and_skip_current()
     test_check_asset_missing()
+    test_check_no_releases()
     test_check_network_fail_stale_cache()
     test_download_success_with_mirror()
     test_download_checksum_mismatch()

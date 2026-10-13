@@ -2,6 +2,15 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 应用内自动更新（2026-10-13，feature/auto-update）
+
+- **更新核心**（`utils/updater.py`）：GitHub `releases/latest` 检查（24h 缓存；仓库尚无 Release 视为最新）；镜像回退下载（直连优先，候选列表 config 可配，SHA256 兜底）；分块进度（百分比/速度/ETA）；`SHA256SUMS.txt` 校验（失败即终止）；下载后解压（防路径穿越）；状态机 `idle / checking / up_to_date / available / skipped / downloading / ready / failed`。
+- **替换助手与数据保护**（`utils/update_apply.py`）：`--apply-update` 模式（等待进程树退出、超时强杀 → 数据备份滚动 3 份 → 程序文件备份 → **白名单 + 路径断言**替换 → 失败回滚拉起旧版 / 成功写"待验证"拉起新版）；**启动自愈**（`applying` 中断恢复、`verify_pending` 两振未确认自动回滚、`rolled_back` 提示）；**两段确认**（新版窗口加载成功才清理旧文件）；WebView2 缺失显式提示（注册表检测 + winget 指引）。
+- **前端**（`ts/updater.ts` + 更新弹层）：关于页「检查更新」；启动静默检查（只提示一次、不打扰）；下载进度含速度/剩余时间；**下载中锁定弹层**（`ui.ts::setSheetLocked`）；失败三键（重试 / 打开发布页 / 退出）；「跳过此版本」记入 config；「立即重启更新 / 退出时更新」。
+- **发布配套**（`scripts/package_develop.py --release`）：干净树构建出固定名 `KazariPlay-win64.zip` + `SHA256SUMS.txt`；`BUILD_INFO.json` 增 `platform`/`arch`；发布版包内说明（安装位置建议）。
+- 验证：`tests/test_updater.py`（19 项 0 网络单测）、`tests/test_update_apply.py`（9 项双版本演练：替换/回滚/中断恢复/两振回滚/断言拒绝/备份滚动/进程强杀）；离线 harness「更新验证」6 场景；冻结自检扩展（更新模块与桥 API）；既有全部回归通过。设计见 [自动更新设计](AUTO_UPDATE_DESIGN.md)。
+- 待办：E2 真实更新演练（发布 `1.0.0` 后由 `1.0.1` 完成一次真实自动更新并记录）。
+
 ## 版本号体系重新定义（2026-10-13）
 
 - **世代模型**：`0.x` = KazariPlay 初代（旧界面，历史 `V1.x` 全量映射）；`1.x` = 新界面世代（当前开发线 `1.0.0-beta.1`）；MinatoLauncher 不编号。`1.0.0` 起严格 semver，核心号随 `main` 发布定稿。规则与历史映射见 [版本策略](VERSIONING.md)。

@@ -13,6 +13,7 @@ import re
 import shutil
 import threading
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from typing import List, Optional
@@ -141,13 +142,18 @@ def extract_package(zip_path: str, dest: str) -> None:
 
 
 def _http_get_json(url: str, opener=None, timeout: int = REQUEST_TIMEOUT) -> Optional[dict]:
-    """GET JSON（失败返回 None 并记日志；检查更新走直连，不套镜像）"""
+    """GET JSON；404（仓库尚无 Release）返回空 dict；其他失败返回 None 并记日志"""
     try:
         op = opener or get_opener()
         req = urllib.request.Request(url, headers={
             "User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
         with op.open(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8", errors="replace"))
+    except urllib.error.HTTPError as e:
+        if getattr(e, "code", 0) == 404:
+            return {}
+        logger.warning("检查更新请求失败：%s", e)
+        return None
     except Exception as e:
         logger.warning("检查更新请求失败：%s", e)
         return None
@@ -306,7 +312,11 @@ class Updater:
         rel: Optional[ReleaseInfo] = None if force else self._load_cache()
         if rel is None:
             data = _http_get_json(API_LATEST_URL, opener=opener)
-            if data and data.get("tag_name"):
+            if data is not None and not data.get("tag_name"):
+                # 仓库尚无 Release（404）：视为已是最新
+                self._set(state="up_to_date", error="", latest_version="")
+                return self.state()
+            if data:
                 rel = ReleaseInfo(data)
                 self._save_cache(rel)
                 self._cfg_set("update.last_check", time.strftime("%Y-%m-%dT%H:%M:%S"))
