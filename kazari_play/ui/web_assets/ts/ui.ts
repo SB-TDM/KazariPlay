@@ -1,12 +1,12 @@
 // ============================================================
 // ui.ts — Sheet / 通用对话框 / 右键菜单基础设施
 // 依赖：core.ts（esc）/ icons.ts（ICON）
-// 定义：showSheet / closeSheet / closeTopSheet /
+// 定义：showSheet / closeSheet / closeTopSheet / setSheetLocked /
 //       showConfirmDialog / confirmOk / showInputDialog / inputOk /
 //       openPicker / showContextMenu / makeStarSlider
 // 被依赖：games.ts（卡片右键菜单）、collections.ts（收藏夹右键菜单）、
 //         batch.ts（openPicker）、detail.ts / screenshots.ts（对话框）、
-//         detail.ts / form.ts（星级滑条）
+//         detail.ts / form.ts（星级滑条）、updater.ts（更新弹层锁定）
 // ============================================================
 
 /** 确认对话框选项 */
@@ -38,6 +38,14 @@ type ContextMenuEntry =
   | 'sep';
 
 // ---------- Sheet（底部抽屉 / 居中弹层）----------
+const sheetLocks = new Set<string>();
+
+// 弹层锁定：锁定期间遮罩点击 / Esc / 关闭按钮都不生效（更新下载中禁止关闭）
+function setSheetLocked(id: string, locked: boolean): void {
+  if (locked) sheetLocks.add(id);
+  else sheetLocks.delete(id);
+}
+
 function showSheet(id: string): void {
   const o = document.getElementById(id);
   if (!o) return;
@@ -46,6 +54,7 @@ function showSheet(id: string): void {
 }
 
 function closeSheet(id: string, instant?: boolean): void {
+  if (sheetLocks.has(id)) return;
   const o = document.getElementById(id);
   if (!o) return;
   if (instant) {

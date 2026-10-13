@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import shutil
+import sys
 import threading
 from collections import OrderedDict
 from typing import Optional, Dict, Any
@@ -25,7 +26,8 @@ from utils.config import Config
 from utils.path_utils import get_app_data_dir
 from utils.logger import get_logger
 from utils.rating_utils import normalize_rating
-from version import WINDOW_TITLE
+from utils.updater import GITHUB_REPO, get_updater, is_prerelease
+from version import VERSION, WINDOW_TITLE
 
 logger = get_logger()
 
@@ -901,6 +903,56 @@ class WebBridge:
     def getRunning(self) -> str:
         g = self.manager.get_running_game()
         return g.id if g else ""
+
+    # ---------- 应用内更新（阶段 B：检查 / 下载 / 跳过；应用替换在阶段 C 接入）----------
+
+    def getUpdateState(self) -> str:
+        try:
+            return json.dumps(get_updater().state(), ensure_ascii=False)
+        except Exception as e:
+            logger.error("getUpdateState 失败: %s", e)
+            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+
+    def checkUpdate(self, force: bool = False) -> str:
+        try:
+            if not getattr(sys, "frozen", False):
+                return json.dumps({"state": "unsupported",
+                                   "reason": "源码运行模式；请使用发布包获得自动更新"},
+                                  ensure_ascii=False)
+            if not bool(force) and is_prerelease(VERSION):
+                return json.dumps({"state": "auto_disabled",
+                                   "reason": "预发布版本默认不自动检查更新"},
+                                  ensure_ascii=False)
+            return json.dumps(get_updater().check(force=bool(force)), ensure_ascii=False)
+        except Exception as e:
+            logger.error("checkUpdate 失败: %s", e)
+            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+
+    def downloadUpdate(self) -> str:
+        try:
+            return json.dumps({"ok": get_updater().download()}, ensure_ascii=False)
+        except Exception as e:
+            logger.error("downloadUpdate 失败: %s", e)
+            return json.dumps({"ok": False, "msg": str(e)}, ensure_ascii=False)
+
+    def skipUpdate(self) -> str:
+        try:
+            return json.dumps(get_updater().skip_current(), ensure_ascii=False)
+        except Exception as e:
+            logger.error("skipUpdate 失败: %s", e)
+            return json.dumps({"state": "failed", "error": str(e)}, ensure_ascii=False)
+
+    def applyUpdate(self, mode: str = "now") -> str:
+        # 阶段 C 接入：校验 Ready → 数据备份 → 拉起替换助手 → 退出应用
+        return json.dumps({"ok": False, "msg": "更新应用尚未接入（开发中）"}, ensure_ascii=False)
+
+    def openReleasePage(self) -> bool:
+        try:
+            os.startfile(f"https://github.com/{GITHUB_REPO}/releases")
+            return True
+        except Exception as e:
+            logger.warning("打开发布页失败: %s", e)
+            return False
 
     # ---------- 游戏截图（Steam 式）----------
     def updateScreenshotHotkey(self, hotkey: str = "") -> bool:

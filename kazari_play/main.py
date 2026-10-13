@@ -74,6 +74,7 @@ _JS_MANIFEST = [
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
     "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
+    "updater.js",      # 应用内更新（关于页接线 / 更新弹层 / 启动检查）
     "home.js",         # 主页视图（问候/继续游玩/统计/收藏夹快捷，默认视图）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
 ]
@@ -85,6 +86,7 @@ _PARTIAL_MANIFEST = [
     "collections.html", # 收藏夹管理 + 管理游戏对话框
     "form.html",        # 编辑 / 添加表单
     "settings.html",    # 设置窗口
+    "update.html",      # 应用内更新弹层
     "relocate.html",    # 批量重新定位预览对话框
     "meta_apply.html",  # 元数据候选字段选择对话框
     "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）

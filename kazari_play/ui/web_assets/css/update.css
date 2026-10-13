@@ -1,0 +1,25 @@
+/* ============================================================
+   update.css — 应用内更新弹层与关于页更新行（阶段 B）
+   设计见 docs/dev/AUTO_UPDATE_DESIGN.md
+   ============================================================ */
+
+  .dialog.update{max-width:480px;width:100%;padding:18px 22px 12px;}
+  .dialog.update .up-body{display:flex;flex-direction:column;gap:10px;
+    padding:6px 2px 8px;max-height:52vh;overflow:auto;}
+  .dialog.update .up-line{font-size:13.5px;color:var(--text);}
+  .dialog.update .up-line b{color:var(--pink-deep);}
+  .dialog.update .up-notes{font-size:12.5px;color:var(--text-sub);line-height:1.8;
+    white-space:pre-wrap;word-break:break-word;background:var(--bg-hover);
+    border-radius:12px;padding:10px 12px;max-height:200px;overflow:auto;}
+  .dialog.update .up-notes:empty{display:none;}
+  .dialog.update .up-prog{display:flex;flex-direction:column;gap:6px;}
+  .dialog.update .up-bar{height:8px;border-radius:50px;background:var(--glow-soft);overflow:hidden;}
+  .dialog.update .up-fill{height:100%;width:0;border-radius:50px;background:var(--grad-pink);
+    transition:width .2s var(--soft);}
+  .dialog.update .up-prog-text{font-size:12px;color:var(--text-sub);
+    font-variant-numeric:tabular-nums;}
+  .dialog.update .up-error{font-size:12.5px;color:#e0566f;line-height:1.7;}
+
+  /* 关于页：检查更新行 */
+  .about .a-update{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;}
+  .about .a-update-status{font-size:12px;color:var(--text-sub);}

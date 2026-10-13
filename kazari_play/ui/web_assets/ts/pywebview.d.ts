@@ -80,6 +80,15 @@ interface PyWebViewApi {
   previewRelocate(ids_json: string): Promise<string>;
   applyRelocate(mapping_json: string): Promise<string>;
   setRating(game_id: string, rating: number): Promise<boolean>;
+
+  // ---- 应用内更新 ----
+  getUpdateState(): Promise<string>;
+  checkUpdate(force?: boolean): Promise<string>;
+  downloadUpdate(): Promise<string>;
+  skipUpdate(): Promise<string>;
+  applyUpdate(mode?: string): Promise<string>;
+  openReleasePage(): Promise<boolean>;
+
   getRunning(): Promise<string>;
   updateScreenshotHotkey(hotkey?: string): Promise<boolean>;
 

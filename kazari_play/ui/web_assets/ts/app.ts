@@ -1,7 +1,7 @@
 // ============================================================
 // app.ts — 启动引导（最后加载）
 // 职责：初始化入口 / 导航 / 搜索 / 筛选下拉 / FAB / 全局点击与键盘处理
-// 依赖：state.ts / core.ts / ui.ts / window.ts / games.ts / collections.ts / batch.ts / form.ts
+// 依赖：state.ts / core.ts / ui.ts / window.ts / games.ts / collections.ts / batch.ts / form.ts / updater.ts
 // 注意：本文件只负责「粘合」各模块与全局事件，不承载业务逻辑。
 // ============================================================
 
@@ -25,6 +25,7 @@ function init(): void {
       } catch (e) { }
     });
     refreshAll(true);
+    updaterStartupCheck();   // 启动静默检查更新（24h 缓存；发现新版只提示一次）
     setInterval(() => refreshAll(false), 30000);   // 长轮询兜底（数据无变化时不重建）
   };
 
