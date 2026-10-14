@@ -2,6 +2,9 @@
 
 - 更新源：GitHub releases/latest（公开仓库，未认证 API；结果缓存 24h 到 update_cache/latest.json）
 - 资产契约：`KazariPlay-<平台标签>.zip` + `SHA256SUMS.txt`（固定命名，见 docs/dev/AUTO_UPDATE_DESIGN.md）
+- 校验信任：优先使用发布元数据（API）中的 sha256 摘要；否则仅接受官方源直连的
+  SHA256SUMS（镜像只承担文件传输）；可信校验值不可得时不降级为信任镜像自报值。
+- 包结构：进入 ready 前校验解压内容的安装结构（唯一程序根 + `_internal` 运行资源）。
 - 本模块保持平台无关；替换助手（--apply-update）与桥接层在其它模块接线。
 - 不新增第三方依赖：HTTP 走 utils.proxy_utils.get_opener（系统代理）；测试注入桩网络。
 """
@@ -40,8 +43,13 @@ USER_AGENT = "KazariPlay-Updater"
 # 可用 config `update.mirror_prefixes` 覆盖，避免失效域名锁死旧客户端。
 DEFAULT_MIRROR_PREFIXES = ["https://gh-proxy.com/", "https://ghfast.top/"]
 
+# 更新包禁用区（预检）：程序根目录出现这些条目即拒绝
+PACKAGE_FORBIDDEN_DIRS = {"data", "screenshots", "logs"}
+
 _VERSION_RE = re.compile(
     r"^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.\-]+))?(?:\+[0-9A-Za-z.\-]+)?$")
+
+_DIGEST_RE = re.compile(r"^sha256:([0-9a-fA-F]{64})$")
 
 
 # ---------- 版本比较 ----------
@@ -127,6 +135,44 @@ def parse_sha256sums(text: str, filename: str) -> Optional[str]:
     return None
 
 
+def trusted_digest(asset: dict) -> str:
+    """发布元数据（GitHub API）中资产的 sha256 摘要；不可用时返回空串
+
+    摘要来自检查更新时的 API 响应，属可信来源；镜像只承担文件传输，
+    不得用镜像自报的校验文本充当校验信任。
+    """
+    m = _DIGEST_RE.match(str((asset or {}).get("digest") or ""))
+    return m.group(1).lower() if m else ""
+
+
+def resolve_package_root(extract_dir: str) -> str:
+    """校验解压内容的安装结构并定位程序根目录（进入 ready 前的结构预检）
+
+    - 根目录直接含 `KazariPlay.exe`，或恰有一层包裹目录（兼容旧资产布局）时
+      定位到唯一程序根目录；
+    - 程序根必须含 `_internal` 运行资源；含 data/screenshots/logs 的包直接拒绝。
+    """
+    def _has_app(path: str) -> bool:
+        return os.path.isfile(os.path.join(path, "KazariPlay.exe"))
+
+    root = ""
+    if _has_app(extract_dir):
+        root = extract_dir
+    else:
+        entries = [e for e in os.listdir(extract_dir) if not e.startswith(".")]
+        if len(entries) == 1 and os.path.isdir(os.path.join(extract_dir, entries[0])) \
+                and _has_app(os.path.join(extract_dir, entries[0])):
+            root = os.path.join(extract_dir, entries[0])
+    if not root:
+        raise RuntimeError("更新包结构不符（未找到唯一的程序根目录 KazariPlay.exe）")
+    if not os.path.isdir(os.path.join(root, "_internal")):
+        raise RuntimeError("更新包缺少 _internal 运行资源")
+    for name in os.listdir(root):
+        if name.lower() in PACKAGE_FORBIDDEN_DIRS:
+            raise RuntimeError(f"更新包包含用户数据目录，已拒绝：{name}")
+    return root
+
+
 def extract_package(zip_path: str, dest: str) -> None:
     """解压更新包到 dest（清空重建；拒绝路径穿越条目）"""
     dest_abs = os.path.abspath(dest)
@@ -183,14 +229,16 @@ class ReleaseInfo:
             name = str(a.get("name") or "")
             url = str(a.get("browser_download_url") or "")
             if name and url:
-                assets[name] = {"url": url, "size": int(a.get("size") or 0)}
+                assets[name] = {"url": url, "size": int(a.get("size") or 0),
+                                "digest": str(a.get("digest") or "")}
         self.assets = assets
 
     def to_cache(self) -> dict:
         return {
             "tag_name": self.tag, "body": self.notes,
             "published_at": self.published_at,
-            "assets": [{"name": n, "browser_download_url": v["url"], "size": v["size"]}
+            "assets": [{"name": n, "browser_download_url": v["url"], "size": v["size"],
+                        "digest": v.get("digest", "")}
                        for n, v in self.assets.items()],
         }
 
@@ -389,19 +437,24 @@ class Updater:
             rel = self._release
             tag = platform_tag()
             asset_name = f"KazariPlay-{tag}.zip"
-            zip_url = (rel.assets.get(asset_name) or {}).get("url", "")
+            asset = rel.assets.get(asset_name) or {}
+            zip_url = asset.get("url", "")
             sums_url = (rel.assets.get(ASSET_SUMS_NAME) or {}).get("url", "")
             if not zip_url:
                 raise RuntimeError("缺少更新包资产")
-            if not sums_url:
-                raise RuntimeError("缺少校验文件（SHA256SUMS.txt）")
 
-            sums = self._download_bytes(sums_url, opener)
-            if sums is None:
-                raise RuntimeError("无法获取校验文件")
-            expected = parse_sha256sums(sums.decode("utf-8", errors="replace"), asset_name)
+            # 可信校验值：优先取发布元数据（API）中的 sha256 摘要；不可用时仅接受
+            # 官方源直连获取的 SHA256SUMS（镜像只承担文件传输，不参与校验信任）
+            expected = trusted_digest(asset)
             if not expected:
-                raise RuntimeError("校验文件中缺少更新包记录")
+                if not sums_url:
+                    raise RuntimeError("缺少可信校验值（发布元数据无摘要且无校验文件）")
+                sums = self._download_bytes(sums_url, opener, direct_only=True)
+                if sums is None:
+                    raise RuntimeError("无法从官方源获取校验文件（不接受镜像自报校验值）")
+                expected = parse_sha256sums(sums.decode("utf-8", errors="replace"), asset_name)
+                if not expected:
+                    raise RuntimeError("校验文件中缺少更新包记录")
 
             dest = os.path.join(self.cache_root(), asset_name)
             part = dest + ".part"
@@ -420,6 +473,7 @@ class Updater:
             os.replace(part, dest)
             extract_dir = os.path.join(self.cache_root(), "extract")
             extract_package(dest, extract_dir)
+            extract_dir = resolve_package_root(extract_dir)   # 安装结构预检 + 规范化
             self._downloaded_path = dest
             self._extract_dir = extract_dir
             self._set(state="ready", percent=100.0)
@@ -428,9 +482,10 @@ class Updater:
             logger.warning("更新下载失败：%s", e)
             self._set(state="failed", error=str(e))
 
-    def _download_bytes(self, url: str, opener) -> Optional[bytes]:
-        """小文件整体下载（校验文件）；同样走镜像回退链"""
-        candidates = build_download_candidates(url, self.mirror_prefixes())
+    def _download_bytes(self, url: str, opener, direct_only: bool = False) -> Optional[bytes]:
+        """小文件整体下载（校验文件）；direct_only=True 时只走官方源直连（不经镜像）"""
+        candidates = build_download_candidates(
+            url, [] if direct_only else self.mirror_prefixes())
         for attempt in range(DOWNLOAD_RETRIES + 1):
             for candidate in candidates:
                 try:

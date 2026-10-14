@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-13 版本号体系重新定义（`0.x` = 初代世代、`1.0.0` = 新界面世代，当前开发线 `1.0.0-beta.2`，见 [版本策略](dev/VERSIONING.md) 与 [ADR-0001](adr/0001-version-renumbering.md)）；文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；试用三项反馈已修复（`36c17dc` 批次），待新自测包复验。
+> 文档状态：2026-10-13 版本号体系重新定义（`0.x` = 初代世代、`1.0.0` = 新界面世代，当前开发线 `1.0.0-beta.2`，见 [版本策略](dev/VERSIONING.md) 与 [ADR-0001](adr/0001-version-renumbering.md)）；文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；试用三项反馈已修复（`36c17dc` 批次），待新自测包复验。2026-10-14：自动更新代码审查（UPD-REV-01～13）完成修复并纳入离线回归，见 [审查报告](dev/AUTO_UPDATE_CODE_REVIEW_20261014.md)。
 >
 > 目录约定：`dev/` 工程流程与记录 · `ui/` 界面线 · `backend/`、`frontend/` 架构模块 · `plans/` 未实施方案 · `archive/` 历史记录。
 >
@@ -27,7 +27,8 @@
 | [BRANCH_WORKFLOW.md](dev/BRANCH_WORKFLOW.md) | 原版 main/develop 与翻译实验分支的开发、构建和同步规则 |
 | [VERSIONING.md](dev/VERSIONING.md) | 版本编号体系（世代 / 核心号 / 自测包 / 正式发布）、唯一版本来源与历史编号映射 |
 | [PACKAGING.md](dev/PACKAGING.md) | develop 文件夹自测包的构建、隔离数据、冻结验收与合并边界 |
-| [AUTO_UPDATE_DESIGN.md](dev/AUTO_UPDATE_DESIGN.md) | 应用内自动更新设计 v0.5（GitHub API 更新源、数据保护最高原则、镜像回退、健康检查、平台接缝、实施计划）；未实施 |
+| [AUTO_UPDATE_DESIGN.md](dev/AUTO_UPDATE_DESIGN.md) | 应用内自动更新设计 v0.7（GitHub API 更新源、数据保护最高原则、镜像回退、健康检查、平台接缝、实施计划）；已实施，E2 真实更新演练待首次正式发布后执行 |
+| [AUTO_UPDATE_CODE_REVIEW_20261014.md](dev/AUTO_UPDATE_CODE_REVIEW_20261014.md) | 自动更新代码审查（13 项问题，UPD-REV-01～13）；2026-10-14 已修复并纳入离线回归，真实发布资产与冻结包全流程仍待验收 |
 | [testing.md](dev/testing.md) | 测试分类、运行方式与改动验证建议 |
 | [CHANGELOG.md](dev/CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
 | [DEVELOPMENT_BACKLOG.md](dev/DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |

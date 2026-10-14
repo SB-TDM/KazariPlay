@@ -18,6 +18,8 @@ python tests/test_cover_cache.py
 python tests/test_cover_thumb.py
 python tests/test_game_process.py
 python tests/test_trial_paths.py
+python tests/test_updater.py           # 自动更新核心（检查/下载/可信校验/包结构，0 网络）
+python -B tests/test_update_apply.py   # 替换助手/回滚助手/启动自愈（含真实文件锁）
 
 # 需显示环境 / 编译 overlay 的冒烟
 python tests/smoke_screenshots.py
@@ -27,6 +29,7 @@ python tests/smoke_collections.py
 # 前端单测（node，需先 npm run build）
 node tests/test_p0_frontend.cjs
 node tests/test_p1_frontend.cjs
+node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢复/轮询乱序/notice
 ```
 
 ## 分类与覆盖
@@ -37,6 +40,7 @@ node tests/test_p1_frontend.cjs
 | `verify_frontend.py` | `main.py::_load_html` 组装链路：`PARTIALS/SCRIPTS` 占位符全替换、script 块数 = `_JS_MANIFEST`、JS 引用的元素 id 全部存在于组装 HTML 且不重复。**新增模块漏登记清单会立刻报错**。 |
 | `test_p0_frontend.cjs` | 前端 P0（node + vm 沙箱） |
 | `test_p1_frontend.cjs` | 前端 P1（截图区 DOM 行为） |
+| `test_update_ui.cjs` | 更新弹层状态与轮询：就绪重开、双失败解锁、串行轮询与迟到响应丢弃、notice 展示 |
 
 ### 后端数据 / 业务
 | 文件 | 覆盖 |
@@ -52,6 +56,8 @@ node tests/test_p1_frontend.cjs
 | `test_cover_thumb.py` | 封面缩略图：首次生成、磁盘缓存命中、mtime 变化重建、data URI |
 | `test_game_process.py` | 启动目标与关闭：模拟竞态 + Windows 真实父子进程 |
 | `test_trial_paths.py` | `KAZARIPLAY_DATA_DIR` 覆盖不落到已安装用户库 |
+| `test_updater.py` | 更新核心：版本比较、镜像候选、可信摘要、检查状态机、下载（摘要/官方源校验文件/镜像自报拒绝）、包结构预检（0 网络） |
+| `test_update_apply.py` | 替换/回滚助手与启动自愈：备份/状态失败中止、拉起异常与早退回滚、两振回滚、真实文件锁等待、安装锁、桥接原子占用 |
 
 ### 冒烟（真实 Windows / overlay）
 | 文件 | 覆盖 |
@@ -81,6 +87,7 @@ node tests/test_p1_frontend.cjs
 | 桥 / UISync | `test_ui_sync.py` + `test_p0_frontend.cjs` |
 | 封面缓存 / 缩略图 | `test_cover_cache.py` + `test_cover_thumb.py` |
 | 多源搜索 | `test_multi_source.py` |
+| 更新 / 替换助手 / 弹层 | `test_updater.py` + `test_update_apply.py` + `test_update_ui.cjs`（+ 前端 `npm run build`） |
 | overlay / 截图 | `smoke_screenshots.py` + `smoke_overlay.py` + `test_overlay_lifecycle.py` |
 | 打包 | `package_develop.py` 流程 + `frozen_smoke.py` |
 

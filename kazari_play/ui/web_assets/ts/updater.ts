@@ -10,6 +10,7 @@ interface UpdateState {
   state: string;
   error?: string;
   reason?: string;
+  notice?: string;
   current_version?: string;
   latest_version?: string;
   notes?: string;
@@ -22,7 +23,8 @@ interface UpdateState {
   downloaded_path?: string;
 }
 
-let updatePollTimer: ReturnType<typeof setInterval> | null = null;
+let updatePollTimer: ReturnType<typeof setTimeout> | null = null;
+let updatePollGen = 0;                    // 轮询代际：停止 / 重启即作废在途回调
 let updatePrompted = false;               // 启动检查只提示一次
 let updateCurrent: UpdateState | null = null;
 
@@ -36,6 +38,14 @@ function updaterParse(raw: unknown): UpdateState | null {
     return st && typeof st.state === 'string' ? st : null;
   } catch (e) {
     return null;
+  }
+}
+
+// 一次性提示（启动自愈的回滚 / 中断恢复）：后端在首个响应中带出，前端负责展示
+function updaterShowNotice(st: UpdateState | null): void {
+  if (st && st.notice) {
+    toast(String(st.notice));
+    st.notice = '';
   }
 }
 
@@ -62,8 +72,9 @@ function updaterAboutStatus(text: string): void {
 // ---------- 弹层阶段 ----------
 
 function updateStopPolling(): void {
+  updatePollGen++;
   if (updatePollTimer !== null) {
-    clearInterval(updatePollTimer);
+    clearTimeout(updatePollTimer);
     updatePollTimer = null;
   }
 }
@@ -107,18 +118,26 @@ function updateSetStage(stage: 'available' | 'downloading' | 'ready' | 'failed')
         : stage === 'failed' ? '更新失败' : '发现新版本';
 }
 
+// 串行轮询：上一请求返回后才发下一个；代际不符的迟到响应直接丢弃
+// （固定间隔允许请求重叠，晚发先回的响应会把就绪界面改回下载中）
 function updateStartPolling(): void {
   updateStopPolling();
-  updatePollTimer = setInterval(() => {
+  const gen = updatePollGen;
+  const tick = function (): void {
+    if (gen !== updatePollGen) return;
+    updatePollTimer = null;
     bridge.getUpdateState(function (raw: unknown, failed?: boolean) {
-      if (failed) return;
+      if (gen !== updatePollGen) return;   // 迟到 / 旧代际响应：不得覆盖当前状态
+      if (failed) { schedule(); return; }
       const st = updaterParse(raw);
-      if (!st) return;
+      if (!st) { schedule(); return; }
       updateCurrent = st;
+      updaterShowNotice(st);
       updaterAboutStatus(updaterStatusText(st));
       if (st.state === 'downloading') {
         updateSetStage('downloading');
         updateRenderProgress(st);
+        schedule();
         return;
       }
       updateStopPolling();
@@ -127,7 +146,12 @@ function updateStartPolling(): void {
       else if (st.state === 'failed') updateSetStage('failed');
       else if (st.state === 'available') updateSetStage('available');
     });
-  }, 500);
+  };
+  const schedule = function (): void {
+    if (gen !== updatePollGen) return;
+    updatePollTimer = setTimeout(tick, 500);
+  };
+  tick();
 }
 
 function openUpdateModal(st?: UpdateState): void {
@@ -162,6 +186,15 @@ function closeUpdateModal(): void {
 
 // ---------- 动作 ----------
 
+// 下载发起与状态补查都失败：解除锁定并给出重试入口（避免永久停在锁定的下载界面）
+function updaterDownloadRecover(): void {
+  updateStopPolling();
+  updateSetLocked(false);
+  updateSetStage('failed');
+  const err = updaterById('updateError');
+  if (err) err.textContent = '下载请求失败，无法获取更新状态，请重试';
+}
+
 function updaterStartDownload(): void {
   if (!updateCurrent || updateCurrent.state !== 'downloading') {
     updateSetStage('downloading');
@@ -172,12 +205,14 @@ function updaterStartDownload(): void {
     let ok = false;
     try { ok = !!JSON.parse(String(raw || '{}')).ok; } catch (e) { }
     if (failed || !ok) {
-      // 未真正开始（已就绪 / 已在下载 / 状态不符）：立刻按后端真实状态纠正界面
+      // 未真正开始（已就绪 / 已在下载 / 状态不符）：立刻按后端真实状态纠正界面；
+      // 补查也失败时恢复为可重试的失败态，不锁死弹层
       bridge.getUpdateState(function (raw2: unknown, failed2?: boolean) {
-        if (failed2) return;
+        if (failed2) { updaterDownloadRecover(); return; }
         const st = updaterParse(raw2);
-        if (!st) return;
+        if (!st) { updaterDownloadRecover(); return; }
         updateCurrent = st;
+        updaterShowNotice(st);
         updaterAboutStatus(updaterStatusText(st));
         if (st.state === 'downloading') {
           updateSetStage('downloading');
@@ -200,9 +235,10 @@ function updaterApply(mode: 'now' | 'exit'): void {
   const btn = mode === 'now' ? updaterById<HTMLButtonElement>('updateApplyNow') : updaterById<HTMLButtonElement>('updateApplyExit');
   if (btn) btn.disabled = true;
   bridge.applyUpdate(mode, function (raw: unknown, failed?: boolean) {
-    let result: { ok?: boolean; msg?: string } = {};
+    let result: { ok?: boolean; msg?: string; notice?: string } = {};
     try { result = JSON.parse(String(raw || '{}')); } catch (e) { }
     const okNow = !failed && !!result.ok && mode === 'now';
+    updaterShowNotice(result as UpdateState);
     // 「立即重启」成功时应用即将退出：保持按钮禁用，防止重复发起（后端亦有单次防护）
     if (btn && !okNow) btn.disabled = false;
     if (failed || !result.ok) toast(result.msg || '更新应用失败，请重试');
@@ -221,6 +257,7 @@ function updaterCheck(force: boolean, silent: boolean): void {
     const st = updaterParse(raw);
     if (!st) return;
     updateCurrent = st;
+    updaterShowNotice(st);
     updaterAboutStatus(updaterStatusText(st));
     if (st.state === 'available') {
       if (!silent) { openUpdateModal(st); return; }
@@ -228,6 +265,11 @@ function updaterCheck(force: boolean, silent: boolean): void {
         updatePrompted = true;
         setTimeout(() => openUpdateModal(st), 1200);   // 启动提示：不打扰首屏渲染
       }
+      return;
+    }
+    // 手动检查：按真实状态恢复对应操作界面（就绪弹层关闭后仍可重新打开）
+    if (!silent && (st.state === 'ready' || st.state === 'downloading')) {
+      openUpdateModal(st);
     }
   });
 }
@@ -244,7 +286,7 @@ function updaterBindModal(): void {
     bridge.skipUpdate(function (raw: unknown, failed?: boolean) {
       if (failed) { toast('操作失败，请重试'); return; }
       const st = updaterParse(raw);
-      if (st) updaterAboutStatus(updaterStatusText(st));
+      if (st) { updaterShowNotice(st); updaterAboutStatus(updaterStatusText(st)); }
       closeUpdateModal();
       toast('已跳过该版本');
     });

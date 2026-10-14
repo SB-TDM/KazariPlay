@@ -61,7 +61,8 @@ def install():
                 assert updater_mod.platform_tag() == "win64"
                 assert update_apply_mod.current_install_dir(), "冻结包应能解析安装目录"
                 for name in ("getUpdateState", "checkUpdate", "downloadUpdate",
-                             "skipUpdate", "applyUpdate", "openReleasePage"):
+                             "skipUpdate", "applyUpdate", "openReleasePage",
+                             "updateFrontendReady"):
                     assert callable(getattr(bridge, name, None)), f"缺少更新桥方法: {name}"
                 update_state = json.loads(bridge.getUpdateState())
                 assert update_state.get("state") == "idle", update_state

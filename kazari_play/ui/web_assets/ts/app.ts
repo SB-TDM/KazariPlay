@@ -24,7 +24,10 @@ function init(): void {
         applyCoverSize(cfg.cover_size || 'medium');
       } catch (e) { }
     });
-    refreshAll(true);
+    refreshAll(true, function () {
+      // 更新后首启确认：首屏数据加载成功才算"界面就绪"（未更新时为空操作）
+      bridge.updateFrontendReady();
+    });
     updaterStartupCheck();   // 启动静默检查更新（24h 缓存；发现新版只提示一次）
     setInterval(() => refreshAll(false), 30000);   // 长轮询兜底（数据无变化时不重建）
   };

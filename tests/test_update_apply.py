@@ -1,15 +1,19 @@
-"""更新替换助手与启动自愈单测（全程临时目录，不碰真实数据）
+"""更新替换助手、回滚助手与启动自愈单测（全程临时目录，不碰真实数据）
 
 覆盖：正常替换（含镜像清理/数据保全/备份滚动）/ 替换失败回滚 /
-更新包含数据目录拒绝 / 启动自愈（applying 中断恢复、verify_pending 两振回滚、
-rolled_back 提示）/ 进程等待与强杀。
+数据备份失败中止 / 状态不可写中止与回滚 / 拉起异常回滚 / 新版早退回滚 /
+数据包断言拒绝 / 启动自愈（applying 中断、verify_pending 两振、rolled_back 提示）/
+回滚助手（真实文件锁等待、安装锁互斥）/ 进程等待与强杀失败中止 /
+桥接层更新任务原子占用。
 用法：python tests/test_update_apply.py
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from unittest import mock
 
@@ -69,8 +73,11 @@ class Drill:
         write_tree(self.source, NEW_TREE)
         self.launched = []
 
-    def apply(self, patch_replace=None):
-        kwargs = dict(launch=self.launched.append, wait_timeout=0.5)
+    def exe(self):
+        return os.path.join(self.target, "KazariPlay.exe")
+
+    def apply(self, patch_replace=None, launch=None):
+        kwargs = dict(launch=launch or self.launched.append, wait_timeout=0.5)
         if patch_replace is not None:
             with mock.patch.object(UA, "_copy_new_files", side_effect=patch_replace):
                 return UA.apply_update(0, self.target, self.source, self.data_dir, **kwargs)
@@ -79,6 +86,11 @@ class Drill:
     def state(self):
         with open(os.path.join(self.data_dir, UA.STATE_FILE), encoding="utf-8") as f:
             return json.load(f)
+
+    def write_state(self, state):
+        os.makedirs(self.data_dir, exist_ok=True)
+        with open(os.path.join(self.data_dir, UA.STATE_FILE), "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False)
 
     def close(self):
         self.tmp.cleanup()
@@ -111,7 +123,7 @@ def test_apply_success():
         assert st["phase"] == UA.STATE_VERIFY and st["attempts"] == 0
         assert st["target"] == os.path.abspath(d.target)
         assert st["backup_program"] and os.path.isdir(st["backup_program"])
-        assert d.launched == [os.path.join(d.target, "KazariPlay.exe")]
+        assert d.launched == [d.exe()]
         # 两段确认收尾
         UA.mark_startup_success(d.data_dir)
         assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
@@ -135,7 +147,7 @@ def test_apply_rollback_on_failure():
         assert read_bytes(os.path.join(d.data_dir, "games.db")) == b"db-bytes"
         st = d.state()
         assert st["phase"] == UA.STATE_ROLLED_BACK and "boom" in st["msg"]
-        assert d.launched == [os.path.join(d.target, "KazariPlay.exe")]
+        assert d.launched == [d.exe()]
         print("[替换-失败回滚] OK")
     finally:
         d.close()
@@ -149,9 +161,136 @@ def test_apply_refuses_data_in_package():
         assert rc == 1
         assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
         assert not os.path.exists(os.path.join(d.target, "_old"))
-        assert not os.path.exists(os.path.join(d.data_dir, "backup", "")) or True
-        assert d.launched == [os.path.join(d.target, "KazariPlay.exe")]   # 未开始替换，直接拉起旧版
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "未执行" in st["msg"]
+        assert d.launched == [d.exe()]   # 未开始替换，直接拉起旧版
         print("[替换-拒绝含数据目录的包] OK")
+    finally:
+        d.close()
+
+
+def test_apply_backup_failure_aborts():
+    """用户数据备份失败必须中止更新（UPD-REV-06）"""
+    d = Drill()
+    try:
+        with mock.patch.object(UA, "backup_user_data", side_effect=RuntimeError("permission denied")):
+            rc = d.apply()
+        assert rc == 1
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        assert not os.path.exists(os.path.join(d.target, "_old"))
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "permission denied" in st["msg"]
+        assert d.launched == [d.exe()]
+        print("[替换-备份失败中止] OK")
+    finally:
+        d.close()
+
+
+def test_apply_state_write_failure_aborts():
+    """状态文件写不进去时不得进入替换（UPD-REV-05）"""
+    d = Drill()
+    try:
+        with mock.patch.object(UA, "_write_state", side_effect=UA.UpdateStateError("disk full")):
+            rc = d.apply()
+        assert rc == 1
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        assert d.launched == [d.exe()]
+        print("[替换-状态不可写中止] OK")
+    finally:
+        d.close()
+
+
+def test_apply_verify_state_write_failure_rolls_back():
+    """替换后"待验证"状态持久化失败：按失败回滚（UPD-REV-05）"""
+    d = Drill()
+    try:
+        real = UA._write_state
+        calls = {"n": 0}
+
+        def flaky(data_dir, state):
+            calls["n"] += 1
+            if calls["n"] == 2 and state.get("phase") == UA.STATE_VERIFY:
+                raise UA.UpdateStateError("disk full")
+            return real(data_dir, state)
+
+        with mock.patch.object(UA, "_write_state", side_effect=flaky):
+            rc = d.apply()
+        assert rc == 1
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        assert not os.path.exists(os.path.join(d.target, "_internal", "new.dll"))
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "状态不可写" in st["msg"]
+        assert d.launched == [d.exe()]
+        print("[替换-待验证状态不可写回滚] OK")
+    finally:
+        d.close()
+
+
+def test_apply_launch_failure_rolls_back():
+    """拉起新版异常：立即回滚并拉起旧版（UPD-REV-03）"""
+    d = Drill()
+    try:
+        calls = []
+
+        def launch(exe):
+            calls.append(exe)
+            if len(calls) == 1:
+                raise RuntimeError("spawn failed")
+
+        rc = d.apply(launch=launch)
+        assert rc == 1
+        assert calls == [d.exe(), d.exe()]   # 先试新版，失败后拉起旧版
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "拉起失败" in st["msg"]
+        print("[替换-拉起异常回滚] OK")
+    finally:
+        d.close()
+
+
+class DeadProc:
+    pid = 999999
+
+    def poll(self):
+        return 0
+
+
+def test_apply_early_exit_rolls_back():
+    """新版拉起后未确认即退出：立即回滚（UPD-REV-03）"""
+    d = Drill()
+    try:
+        calls = []
+
+        def launch(exe):
+            calls.append(exe)
+            return DeadProc() if len(calls) == 1 else None
+
+        rc = d.apply(launch=launch)
+        assert rc == 1
+        assert calls == [d.exe(), d.exe()]
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "启动失败" in st["msg"]
+        print("[替换-新版早退回滚] OK")
+    finally:
+        d.close()
+
+
+def test_apply_wait_process_failure_aborts():
+    """无法确认旧进程退出：不得进入备份与替换（UPD-REV-13）"""
+    d = Drill()
+    try:
+        with mock.patch.object(UA, "wait_process_exit",
+                               side_effect=RuntimeError("无法结束进程 42")):
+            rc = UA.apply_update(os.getpid(), d.target, d.source, d.data_dir,
+                                 launch=d.launched.append, wait_timeout=0.1)
+        assert rc == 1
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        assert not os.path.exists(os.path.join(d.target, "_old"))
+        assert d.launched == []   # 旧进程仍存活：不重复拉起
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "无法结束旧进程" in st["msg"]
+        print("[替换-等待退出失败中止] OK")
     finally:
         d.close()
 
@@ -160,20 +299,26 @@ def test_self_heal_applying_interrupt():
     d = Drill()
     try:
         assert d.apply() == 0
+        d.launched.clear()
         # 模拟助手中断：把目标 exe 弄坏，并把状态改回 applying（保留备份路径）
-        with open(os.path.join(d.target, "KazariPlay.exe"), "wb") as f:
+        with open(d.exe(), "wb") as f:
             f.write(b"BROKEN")
         st = d.state()
         st["phase"] = UA.STATE_APPLYING
-        with open(os.path.join(d.data_dir, UA.STATE_FILE), "w", encoding="utf-8") as f:
-            json.dump(st, f, ensure_ascii=False)
-        notice, restart = UA.startup_self_heal(d.data_dir)
-        assert notice and "中断" in notice, notice
-        assert restart == ""
-        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
-        assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
-        assert not os.path.exists(os.path.join(d.target, "_old"))
-        print("[自愈-助手中断回滚] OK")
+        d.write_state(st)
+        spawned = []
+        notice, exit_req = UA.startup_self_heal(
+            d.data_dir, spawn_helper=lambda t, dd: spawned.append((t, dd)) or True)
+        assert notice is None and exit_req is True
+        assert spawned == [(os.path.abspath(d.target), os.path.abspath(d.data_dir))]
+        # 状态保留：由回滚助手完成后推进（不能误报成功）
+        assert os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
+        # 模拟回滚助手执行：等待已退出 → 恢复 → 拉起旧版
+        with mock.patch.object(UA, "_launch_default"):
+            assert UA.rollback_update(0, d.target, d.data_dir) == 0
+        assert read_bytes(d.exe()) == b"OLD-EXE"
+        assert d.state()["phase"] == UA.STATE_ROLLED_BACK
+        print("[自愈-助手中断交由回滚助手] OK")
     finally:
         d.close()
 
@@ -181,12 +326,11 @@ def test_self_heal_applying_interrupt():
 def test_self_heal_applying_not_started():
     d = Drill()
     try:
-        with open(os.path.join(d.data_dir, UA.STATE_FILE), "w", encoding="utf-8") as f:
-            json.dump({"phase": UA.STATE_APPLYING, "target": d.target,
-                       "backup_program": "", "attempts": 0}, f)
-        notice, restart = UA.startup_self_heal(d.data_dir)
+        d.write_state({"phase": UA.STATE_APPLYING, "target": d.target,
+                       "backup_program": "", "attempts": 0})
+        notice, exit_req = UA.startup_self_heal(d.data_dir)
         assert notice and "未开始" in notice
-        assert restart == ""
+        assert exit_req is False
         assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
         print("[自愈-未开始的更新取消] OK")
     finally:
@@ -197,17 +341,42 @@ def test_self_heal_verify_pending_two_strikes():
     d = Drill()
     try:
         assert d.apply() == 0
+        d.launched.clear()
         # 第一次启动：计数 +1，不处理
-        notice, restart = UA.startup_self_heal(d.data_dir)
-        assert notice is None and restart == ""
+        notice, exit_req = UA.startup_self_heal(d.data_dir)
+        assert notice is None and exit_req is False
         assert d.state()["attempts"] == 1
-        # 第二次启动（视为新版启动失败）：回滚并重启旧版
-        notice, restart = UA.startup_self_heal(d.data_dir)
-        assert notice and "回滚" in notice, notice
-        assert restart == os.path.join(d.target, "KazariPlay.exe")
-        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
-        assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
+        # 第二次启动（视为新版启动失败）：拉起回滚助手
+        spawned = []
+        notice, exit_req = UA.startup_self_heal(
+            d.data_dir, spawn_helper=lambda t, dd: spawned.append(1) or True)
+        assert notice is None and exit_req is True and spawned
+        # 模拟回滚助手执行
+        with mock.patch.object(UA, "_launch_default"):
+            assert UA.rollback_update(0, d.target, d.data_dir) == 0
+        assert read_bytes(d.exe()) == b"OLD-EXE"
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "回滚" in st["msg"]
         print("[自愈-新版两振未确认回滚] OK")
+    finally:
+        d.close()
+
+
+def test_self_heal_spawn_failure_keeps_state():
+    """回滚助手拉不起来：保留状态、备份与错误，不误报成功（UPD-REV-01）"""
+    d = Drill()
+    try:
+        assert d.apply() == 0
+        d.launched.clear()
+        UA.startup_self_heal(d.data_dir)   # attempts = 1
+        old_backup = d.state()["backup_program"]
+        notice, exit_req = UA.startup_self_heal(d.data_dir, spawn_helper=lambda t, dd: False)
+        assert notice and "重试" in notice and exit_req is False
+        st = d.state()
+        assert st["phase"] == UA.STATE_VERIFY and st.get("rollback_error")
+        assert os.path.isdir(old_backup)          # 备份保留
+        assert os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
+        print("[自愈-回滚助手拉起失败保留状态] OK")
     finally:
         d.close()
 
@@ -217,17 +386,82 @@ def test_self_heal_rolled_back_notice():
     try:
         old_dir = os.path.join(d.target, "_old", "stamp")
         os.makedirs(old_dir)
-        with open(os.path.join(d.data_dir, UA.STATE_FILE), "w", encoding="utf-8") as f:
-            json.dump({"phase": UA.STATE_ROLLED_BACK, "target": d.target,
-                       "backup_program": old_dir, "msg": "更新失败，已回滚：boom"}, f)
-        notice, restart = UA.startup_self_heal(d.data_dir)
+        d.write_state({"phase": UA.STATE_ROLLED_BACK, "target": d.target,
+                       "backup_program": old_dir, "msg": "更新失败，已回滚：boom"})
+        notice, exit_req = UA.startup_self_heal(d.data_dir)
         assert notice and "boom" in notice
-        assert restart == ""
+        assert exit_req is False
         assert not os.path.exists(os.path.join(d.target, "_old"))
         assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
         print("[自愈-回滚提示消费] OK")
     finally:
         d.close()
+
+
+def test_rollback_helper_waits_real_file_lock():
+    """真实文件锁：目标 EXE 被占用时，原位恢复会失败；助手等待/强杀后恢复成功（UPD-REV-01）"""
+    if os.name != "nt":
+        print("[回滚-真实文件锁] SKIP（非 Windows）")
+        return
+    d = Drill()
+    locker = None
+    try:
+        # 构造"替换后待确认"状态：备份为完整旧版，目标被替换为新版并被占用
+        old_dir = os.path.join(d.target, "_old", "stamp")
+        os.makedirs(old_dir)
+        write_tree(old_dir, {k: v for k, v in OLD_TREE.items() if not k.startswith("data/")})
+        shutil.copy2(os.path.join(d.source, "KazariPlay.exe"), d.exe())   # 新 exe 生效
+        d.write_state({"phase": UA.STATE_VERIFY, "target": d.target,
+                       "backup_program": old_dir, "attempts": 1})
+        lock_script = (
+            "import ctypes, sys, time\n"
+            "k = ctypes.windll.kernel32\n"
+            "k.CreateFileW.restype = ctypes.c_void_p\n"
+            "h = k.CreateFileW(sys.argv[1], 0x80000000, 1, None, 3, 0, None)\n"
+            "if not h or h == 0xFFFFFFFFFFFFFFFF:\n"
+            "    sys.exit(3)\n"
+            "time.sleep(60)\n"
+        )
+        locker = subprocess.Popen([sys.executable, "-c", lock_script, d.exe()])
+        time.sleep(0.8)
+        assert UA._process_alive(locker.pid)
+        with mock.patch.object(UA, "_launch_default"):
+            rc = UA.rollback_update(locker.pid, d.target, d.data_dir, wait_timeout=0.5)
+        assert rc == 0, rc
+        assert read_bytes(d.exe()) == b"OLD-EXE"          # 占用解除后恢复成功
+        assert d.state()["phase"] == UA.STATE_ROLLED_BACK
+        print("[回滚-真实文件锁等待与恢复] OK")
+    finally:
+        if locker is not None:
+            try:
+                locker.kill()
+            except Exception:
+                pass
+        d.close()
+
+
+def test_install_lock_exclusive_and_stale():
+    """安装目录锁：活动锁互斥，陈旧锁可清理（UPD-REV-04 助手侧）"""
+    with tempfile.TemporaryDirectory() as tmp:
+        lock = UA._acquire_install_lock(tmp)
+        assert lock and os.path.isfile(lock)
+        assert UA._acquire_install_lock(tmp) is None    # 活动锁互斥
+        UA._release_install_lock(lock)
+        assert not os.path.exists(lock)
+        with open(os.path.join(tmp, UA.LOCK_FILE), "w", encoding="ascii") as f:
+            f.write("999999")                            # 死 PID = 陈旧锁
+        lock2 = UA._acquire_install_lock(tmp)
+        assert lock2
+        UA._release_install_lock(lock2)
+        # 回滚入口遇到活动锁时放弃（返回 2，不做任何事）
+        lock3 = UA._acquire_install_lock(tmp)
+        try:
+            rc = UA.run_apply_rollback(["--pid", "0", "--target", tmp,
+                                        "--data-dir", os.path.join(tmp, "d")])
+            assert rc == 2
+        finally:
+            UA._release_install_lock(lock3)
+    print("[安装锁-互斥与陈旧清理] OK")
 
 
 def test_backup_rolling_three():
@@ -257,14 +491,156 @@ def test_wait_process_exit():
     print("[进程-等待与超时强杀] OK")
 
 
+def test_wait_process_exit_kill_failure_raises():
+    """taskkill 失败且进程仍存活：等待函数必须抛错（UPD-REV-13）"""
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        class FakeRun:
+            returncode = 1
+        with mock.patch.object(UA.subprocess, "run", return_value=FakeRun()):
+            try:
+                UA.wait_process_exit(p.pid, timeout=0.3)
+                raise AssertionError("强杀失败且进程存活时必须抛出")
+            except RuntimeError as e:
+                assert "无法结束进程" in str(e)
+    finally:
+        try:
+            p.kill()
+        except Exception:
+            pass
+    print("[进程-强杀失败中止] OK")
+
+
+def test_bridge_update_claim_atomic():
+    """两个入口共用原子占用：并发只允许一个成功（UPD-REV-04）"""
+    from ui.web_bridge import WebBridge
+    b = WebBridge.__new__(WebBridge)
+    b._update_apply_lock = threading.Lock()
+    b._update_apply_claimed = False
+    b._update_applied = False
+    results = []
+    barrier = threading.Barrier(8)
+
+    def worker():
+        barrier.wait()
+        results.append(b._claim_update_apply())
+
+    threads = [threading.Thread(target=worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert results.count(True) == 1, results
+    # 发起失败后可重新占用
+    b._release_update_apply()
+    assert b._claim_update_apply() is True
+    # 已成功发起（applied）后不再允许
+    b._update_applied = True
+    b._release_update_apply()
+    assert b._claim_update_apply() is False
+    print("[桥-更新任务原子占用] OK")
+
+
+def test_bridge_two_entries_single_helper():
+    """并发触发"立即更新"与"退出时更新"：begin_apply 至多执行一次（UPD-REV-04）"""
+    from ui.web_bridge import WebBridge
+    b = WebBridge.__new__(WebBridge)
+    b._update_apply_lock = threading.Lock()
+    b._update_apply_claimed = False
+    b._update_applied = False
+    b._update_on_exit = True
+    calls = []
+
+    def fake_begin(extract_dir, target, data_dir, pid):
+        time.sleep(0.05)   # 拉大检查-置位窗口，验证占用原子性
+        calls.append(1)
+        return True, "ok"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        extract = os.path.join(tmp, "extract")
+        os.makedirs(extract)
+
+        class FakeUpdater:
+            def state(self):
+                return {"state": "ready", "extract_dir": extract}
+
+        barrier = threading.Barrier(2)
+
+        def w1():
+            barrier.wait()
+            b.applyUpdate("now")
+
+        def w2():
+            barrier.wait()
+            b.apply_pending_update_on_exit()
+
+        with mock.patch("ui.web_bridge.get_updater", return_value=FakeUpdater()), \
+             mock.patch("ui.web_bridge.get_app_data_dir", return_value=tmp), \
+             mock.patch.object(UA, "current_install_dir", return_value=tmp), \
+             mock.patch.object(UA, "begin_apply", side_effect=fake_begin):
+            t1 = threading.Thread(target=w1)
+            t2 = threading.Thread(target=w2)
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+    assert len(calls) == 1, calls
+    print("[桥-双入口单助手] OK")
+
+
+def test_frontend_ready_handshake():
+    """前端就绪握手是首启确认的唯一入口（UPD-REV-02）"""
+    from ui.web_bridge import WebBridge
+    d = Drill()
+    try:
+        d.write_state({"phase": UA.STATE_VERIFY, "target": d.target,
+                       "backup_program": "", "attempts": 1})
+        b = WebBridge.__new__(WebBridge)
+        with mock.patch("ui.web_bridge.get_app_data_dir", return_value=d.data_dir):
+            assert b.updateFrontendReady() is True
+        assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
+        print("[桥-前端就绪握手确认] OK")
+    finally:
+        d.close()
+
+
+def test_cleanup_keeps_extract_when_pending():
+    """待回滚期间清理缓存必须保留解压目录（回滚助手运行来源）"""
+    with tempfile.TemporaryDirectory() as tmp:
+        extract = os.path.join(tmp, "update_cache", "extract")
+        os.makedirs(extract)
+        with open(os.path.join(tmp, "update_cache", "KazariPlay-win64.zip.part"), "wb") as f:
+            f.write(b"x")
+        UA.cleanup_update_cache(tmp, keep_extract=True)
+        assert os.path.isdir(extract)
+        assert not os.path.exists(os.path.join(tmp, "update_cache", "KazariPlay-win64.zip.part"))
+        UA.cleanup_update_cache(tmp)
+        assert not os.path.exists(extract)
+        print("[清理-待回滚保留解压目录] OK")
+
+
 if __name__ == "__main__":
     test_apply_success()
     test_apply_rollback_on_failure()
     test_apply_refuses_data_in_package()
+    test_apply_backup_failure_aborts()
+    test_apply_state_write_failure_aborts()
+    test_apply_verify_state_write_failure_rolls_back()
+    test_apply_launch_failure_rolls_back()
+    test_apply_early_exit_rolls_back()
+    test_apply_wait_process_failure_aborts()
     test_self_heal_applying_interrupt()
     test_self_heal_applying_not_started()
     test_self_heal_verify_pending_two_strikes()
+    test_self_heal_spawn_failure_keeps_state()
     test_self_heal_rolled_back_notice()
+    test_rollback_helper_waits_real_file_lock()
+    test_install_lock_exclusive_and_stale()
     test_backup_rolling_three()
     test_wait_process_exit()
+    test_wait_process_exit_kill_failure_raises()
+    test_bridge_update_claim_atomic()
+    test_bridge_two_entries_single_helper()
+    test_frontend_ready_handshake()
+    test_cleanup_keeps_extract_when_pending()
     print("UPDATE APPLY TEST PASS")

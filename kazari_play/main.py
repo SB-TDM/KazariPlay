@@ -214,12 +214,6 @@ def _apply_window_extras(bridge):
     import threading
 
     def _do():
-        try:
-            from utils.path_utils import get_app_data_dir
-            from utils.update_apply import mark_startup_success
-            mark_startup_success(get_app_data_dir())   # 窗口加载成功 = 新版首启确认（两段确认）
-        except Exception:
-            pass
         hwnd = bridge._win32_hwnd()
         if hwnd:
             _ensure_minimize_style(hwnd)
@@ -258,15 +252,18 @@ def main():
     # WebView2 依赖显式检测（缺失时给明确指引，避免 pywebview 原始报错）
     from utils.path_utils import get_app_data_dir
     from utils.update_apply import (cleanup_update_cache, ensure_webview2,
-                                    relaunch_and_exit, startup_self_heal)
+                                    has_pending_update_state, startup_self_heal)
     if not ensure_webview2():
         return
 
     # 更新残留自愈：替换中断回滚 / 新版确认计数 / 回滚提示（见 docs/dev/AUTO_UPDATE_DESIGN.md §6）
-    update_notice, restart_exe = startup_self_heal(get_app_data_dir())
-    if restart_exe:
-        relaunch_and_exit(restart_exe)   # 回滚后以旧版重启（内部直接退出本进程）
-    cleanup_update_cache(get_app_data_dir())
+    update_notice, update_exit = startup_self_heal(get_app_data_dir())
+    if update_exit:
+        # 回滚助手已拉起：本进程立即退出，由助手等待退出后恢复旧版并重新启动
+        os._exit(0)
+    # 待回滚/待确认期间保留解压缓存（回滚助手需要）；其余情况照常清理
+    cleanup_update_cache(get_app_data_dir(),
+                         keep_extract=has_pending_update_state(get_app_data_dir()))
 
     manager = GameManager()
     bridge = WebBridge(manager)
@@ -331,4 +328,8 @@ if __name__ == "__main__":
         # 替换助手模式（由更新流程拉起；无窗口、不进入常规启动）
         from utils.update_apply import run_apply_update
         sys.exit(run_apply_update(sys.argv))
+    if "--apply-rollback" in sys.argv:
+        # 回滚助手模式（由启动自愈拉起；等待当前进程退出后恢复旧版并重启）
+        from utils.update_apply import run_apply_rollback
+        sys.exit(run_apply_rollback(sys.argv))
     main()

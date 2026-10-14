@@ -88,6 +88,8 @@ interface PyWebViewApi {
   skipUpdate(): Promise<string>;
   applyUpdate(mode?: string): Promise<string>;
   openReleasePage(): Promise<boolean>;
+  /** 前端首屏数据加载成功后的就绪握手（更新后新版首启确认；非更新场景为空操作） */
+  updateFrontendReady(): Promise<boolean>;
 
   getRunning(): Promise<string>;
   updateScreenshotHotkey(hotkey?: string): Promise<boolean>;

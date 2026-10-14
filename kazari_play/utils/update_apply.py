@@ -1,13 +1,17 @@
 """应用内更新的替换助手与启动自愈（见 docs/dev/AUTO_UPDATE_DESIGN.md §2/§6）
 
 - **助手模式**：`KazariPlay.exe --apply-update --pid <旧PID> --target <安装目录> --data-dir <数据目录>`
-  等待旧进程退出（超时强杀进程树）→ 备份用户数据（滚动 3 份）→ 备份程序文件 →
-  白名单替换（代码级路径断言）→ 失败回滚并拉起旧版 / 成功写入"待验证"并拉起新版。
+  等待旧进程退出（超时强杀并确认退出，无法确认即中止）→ 备份用户数据（失败即中止）→
+  备份程序文件 → 白名单替换（失败回滚）→ 拉起新版。拉起异常或新版在启动确认前退出时
+  立即回滚并拉起旧版；替换期间以安装目录锁保证同一安装目录至多一个替换任务。
+- **回滚助手模式**：`KazariPlay.exe --apply-rollback ...`，由启动自愈从更新解压缓存中拉起，
+  等待当前进程退出后从程序备份恢复旧版并拉起（避免覆盖运行中 EXE/_internal 的文件锁失败）。
 - **启动自愈**：应用启动早期调用 `startup_self_heal()`：
-  - `applying`（助手中断）→ 从程序备份回滚；
-  - `verify_pending`（新版未确认首启成功）→ 第二次启动仍未确认则回滚；
+  - `applying`（助手中断）→ 拉起回滚助手；
+  - `verify_pending`（新版未确认首启成功）→ 第二次启动仍未确认则拉起回滚助手；
   - `rolled_back` → 消费提示并清理。
-  新版窗口加载成功后调用 `mark_startup_success()` 完成两段确认并清理旧文件。
+  回滚助手拉起失败时保留状态、备份与可诊断错误，不误报成功。
+  新版前端完成首屏数据加载后经桥调用 `mark_startup_success()` 完成两段确认并清理旧文件。
 - **用户数据保护**：`data/`、`screenshots/`、`logs/` 永不进入替换集（断言命中即中止）；
   数据只在替换前做只读备份，绝不改写、迁移或删除。
 """
@@ -27,6 +31,7 @@ STATE_FILE = "update_state.json"
 STATE_APPLYING = "applying"
 STATE_VERIFY = "verify_pending"
 STATE_ROLLED_BACK = "rolled_back"
+LOCK_FILE = "_update.lock"
 
 # 程序文件白名单（替换集 = 这些条目；助手由"新版本"的代码执行，清单随新版本走）
 PROGRAM_WHITELIST = {
@@ -37,6 +42,11 @@ PROGRAM_WHITELIST = {
 # 禁用区（用户数据）；任何目标路径命中即中止
 FORBIDDEN_PARTS = {"data", "screenshots", "logs"}
 BACKUP_KEEP = 3
+EARLY_EXIT_GRACE = 20.0      # 新版启动后观察窗口：确认前退出 → 回滚（秒）
+
+
+class UpdateStateError(RuntimeError):
+    """更新状态持久化失败（调用方必须按失败语义处理）"""
 
 
 # ---------- 状态文件 ----------
@@ -55,12 +65,28 @@ def _read_state(data_dir: str) -> Optional[dict]:
 
 
 def _write_state(data_dir: str, state: dict) -> None:
+    """原子写入状态文件（临时文件 + os.replace）；失败抛 UpdateStateError"""
     try:
         os.makedirs(data_dir, exist_ok=True)
-        with open(_state_path(data_dir), "w", encoding="utf-8") as f:
+        path = _state_path(data_dir)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
     except Exception as e:
-        logger.warning("更新状态写入失败：%s", e)
+        raise UpdateStateError(f"更新状态写入失败：{e}") from e
+
+
+def _write_state_best_effort(data_dir: str, state: dict) -> bool:
+    """尽力写入状态（失败只记录，不抛出；状态文件保持原样）"""
+    try:
+        _write_state(data_dir, state)
+        return True
+    except Exception as e:
+        logger.error("状态写入失败（保留现状与备份）：%s", e)
+        return False
 
 
 def _delete_state(data_dir: str) -> None:
@@ -68,6 +94,12 @@ def _delete_state(data_dir: str) -> None:
         os.remove(_state_path(data_dir))
     except OSError:
         pass
+
+
+def has_pending_update_state(data_dir: str) -> bool:
+    """是否存在待自愈/待确认的更新状态（applying / verify_pending）"""
+    st = _read_state(data_dir)
+    return bool(st and st.get("phase") in (STATE_APPLYING, STATE_VERIFY))
 
 
 # ---------- 路径与断言 ----------
@@ -118,22 +150,67 @@ def build_replace_plan(target: str, source: str) -> List[Tuple[str, str]]:
     return plan
 
 
+# ---------- 安装目录互斥锁 ----------
+
+def _lock_stale(lock: str) -> bool:
+    try:
+        with open(lock, encoding="ascii") as f:
+            pid = int((f.read() or "0").strip() or 0)
+    except Exception:
+        return True
+    return pid <= 0 or not _process_alive(pid)
+
+
+def _acquire_install_lock(target: str) -> Optional[str]:
+    """安装目录级互斥锁（O_EXCL 创建；陈旧锁按 PID 清理后重试一次）
+
+    返回锁文件路径；已有活动任务时返回 None（调用方必须放弃本次替换）。
+    """
+    lock = os.path.join(target, LOCK_FILE)
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            try:
+                os.write(fd, str(os.getpid()).encode("ascii"))
+            finally:
+                os.close(fd)
+            return lock
+        except FileExistsError:
+            if not _lock_stale(lock):
+                return None
+            try:
+                os.remove(lock)
+            except OSError:
+                return None
+        except OSError as e:
+            logger.error("创建更新锁失败：%s", e)
+            return None
+    return None
+
+
+def _release_install_lock(lock: Optional[str]) -> None:
+    if lock:
+        try:
+            os.remove(lock)
+        except OSError:
+            pass
+
+
 # ---------- 备份 ----------
 
 def backup_user_data(data_dir: str, stamp: Optional[str] = None) -> Optional[str]:
-    """只读备份 games.db + config.json 到 data/backup/<时间戳>/；滚动保留最近 BACKUP_KEEP 份"""
+    """只读备份 games.db + config.json 到 data/backup/<时间戳>/；滚动保留最近 BACKUP_KEEP 份
+
+    返回备份目录；没有需要备份的文件返回 None；备份失败抛异常（调用方必须中止更新）。
+    """
     names = [n for n in ("games.db", "config.json") if os.path.isfile(os.path.join(data_dir, n))]
     if not names:
         return None
     name = stamp or time.strftime("%Y%m%d-%H%M%S")
     dest = os.path.join(data_dir, "backup", name)
-    try:
-        os.makedirs(dest, exist_ok=True)
-        for n in names:
-            shutil.copy2(os.path.join(data_dir, n), os.path.join(dest, n))
-    except Exception as e:
-        logger.warning("用户数据备份失败：%s", e)
-        return None
+    os.makedirs(dest, exist_ok=True)
+    for n in names:
+        shutil.copy2(os.path.join(data_dir, n), os.path.join(dest, n))
     prune_backups(data_dir)
     return dest
 
@@ -213,38 +290,45 @@ def _process_alive(pid: int) -> bool:
 
 
 def wait_process_exit(pid: int, timeout: float = 30.0) -> None:
-    """等待进程退出；超时后 taskkill /T /F 结束进程树（含 WebView2 子进程）"""
+    """等待进程退出；超时后 taskkill /T /F 结束进程树并确认退出
+
+    无法确认退出时抛 RuntimeError（调用方不得继续备份或替换）。
+    """
     deadline = time.monotonic() + max(0.0, timeout)
     while time.monotonic() < deadline:
         if not _process_alive(pid):
             return
         time.sleep(0.2)
-    if _process_alive(pid):
-        logger.info("等待进程 %s 超时，强杀进程树", pid)
-        try:
-            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
-                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                           capture_output=True)
-        except Exception as e:
-            logger.warning("taskkill 失败：%s", e)
-        time.sleep(1.0)
+    if not _process_alive(pid):
+        return
+    logger.info("等待进程 %s 超时，强杀进程树", pid)
+    try:
+        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"],
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                       capture_output=True)
+    except Exception as e:
+        raise RuntimeError(f"taskkill 执行失败：{e}") from e
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if not _process_alive(pid):
+            return
+        time.sleep(0.2)
+    raise RuntimeError(f"无法结束进程 {pid}（强杀后仍存活），已中止更新")
 
 
 # ---------- 启动 / 拉起 ----------
 
-def _launch_default(exe: str) -> None:
-    subprocess.Popen([exe], cwd=os.path.dirname(exe),
-                     creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)
-                     | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+def _launch_default(exe: str):
+    return subprocess.Popen([exe], cwd=os.path.dirname(exe),
+                            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)
+                            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
 
 
-def relaunch_and_exit(exe: str) -> None:
-    """回滚场景：以旧版重启并让当前进程立刻退出（不执行 Python 清理）"""
+def _launch_quiet(launch: Callable[[str], object], exe: str) -> None:
     try:
-        _launch_default(exe)
+        launch(exe)
     except Exception as e:
-        logger.error("回滚后重启失败：%s", e)
-    os._exit(0)
+        logger.error("拉起失败（%s）：%s", exe, e)
 
 
 def _read_build_version(root: str) -> str:
@@ -255,10 +339,27 @@ def _read_build_version(root: str) -> str:
         return ""
 
 
+def _await_startup(data_dir: str, proc) -> bool:
+    """等待新版启动确认（前端握手会清理状态文件）；False = 进程在确认前退出
+
+    无法观察进程（测试替身 / 无 poll）时视为通过，交给两振自愈兜底。
+    """
+    if proc is None or not hasattr(proc, "poll"):
+        return True
+    deadline = time.monotonic() + EARLY_EXIT_GRACE
+    while time.monotonic() < deadline:
+        if not os.path.exists(_state_path(data_dir)):
+            return True
+        if proc.poll() is not None:
+            return False
+        time.sleep(0.25)
+    return True
+
+
 # ---------- 助手主流程 ----------
 
 def apply_update(pid: int, target: str, source: str, data_dir: str,
-                 launch: Optional[Callable[[str], None]] = None,
+                 launch: Optional[Callable[[str], object]] = None,
                  wait_timeout: float = 30.0) -> int:
     """执行替换；返回 0=成功（已拉起新版）、1=失败（已回滚/未开始，已尝试拉起旧版）"""
     launch = launch or _launch_default
@@ -266,17 +367,52 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
     source = os.path.abspath(source)
     data_dir = os.path.abspath(data_dir)
     old_exe = os.path.join(target, "KazariPlay.exe")
+    marker: Optional[dict] = None
 
+    def abort(msg: str) -> int:
+        """未进入替换：记录原因并尽力拉起旧版（旧进程仍存活时不重复拉起）"""
+        logger.error("%s", msg)
+        state = dict(marker or {
+            "target": target,
+            "new_version": _read_build_version(source),
+            "old_version": _read_build_version(target),
+            "backup_program": "", "backup_data": "", "attempts": 0,
+        })
+        state.update({"phase": STATE_ROLLED_BACK, "msg": msg})
+        _write_state_best_effort(data_dir, state)
+        if pid == 0 or not _process_alive(pid):
+            _launch_quiet(launch, old_exe)
+        return 1
+
+    def rollback(msg: str) -> int:
+        """替换后失败：恢复程序文件并拉起旧版；恢复失败时保留状态与备份"""
+        restored = False
+        try:
+            _restore(old_dir, target)
+            restored = True
+        except Exception as re:
+            logger.error("回滚恢复失败（保留状态与备份）：%s", re)
+            _write_state_best_effort(data_dir, {**(marker or {}), "rollback_error": str(re)})
+        if restored:
+            _write_state_best_effort(data_dir, {**(marker or {}),
+                                                "phase": STATE_ROLLED_BACK, "msg": msg})
+        _launch_quiet(launch, old_exe)
+        return 1
+
+    # 1) 等待旧进程退出（无法确认退出即中止，不进入备份与替换）
     try:
         if pid:
             wait_process_exit(pid, timeout=wait_timeout)
+    except Exception as e:
+        return abort(f"更新中止：无法结束旧进程（{e}）")
 
+    # 2) 前置校验与备份（任何失败都不做替换；状态不可写即中止）
+    try:
         plan = build_replace_plan(target, source)          # 先校验，后任何改动
-        data_backup = backup_user_data(data_dir) or ""
+        data_backup = backup_user_data(data_dir) or ""     # 备份失败即抛异常
         stamp = time.strftime("%Y%m%d-%H%M%S")
         old_dir = os.path.join(target, "_old", stamp)
         _backup_program(target, old_dir)
-
         marker = {
             "phase": STATE_APPLYING, "target": target,
             "new_version": _read_build_version(source), "old_version": _read_build_version(target),
@@ -284,54 +420,166 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
             "attempts": 0, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
         }
         _write_state(data_dir, marker)
+    except Exception as e:
+        return abort(f"更新未执行（前置检查或备份失败）：{e}")
 
+    # 3) 白名单替换；失败立即回滚
+    try:
+        _copy_new_files(plan)
+        _remove_stale(target, plan)
+    except Exception as e:
+        logger.warning("替换失败，回滚：%s", e)
+        return rollback(f"更新失败，已回滚：{e}")
+
+    # 4) 持久化"待验证"；不可写即回滚（避免状态不可恢复的替换）
+    try:
+        _write_state(data_dir, {**marker, "phase": STATE_VERIFY, "attempts": 0})
+    except Exception as e:
+        logger.error("待验证状态写入失败，回滚：%s", e)
+        return rollback(f"更新失败，已回滚：状态不可写（{e}）")
+
+    # 5) 拉起新版；拉起异常立即回滚
+    try:
+        proc = launch(os.path.join(target, "KazariPlay.exe"))
+    except Exception as e:
+        logger.error("拉起新版失败，回滚：%s", e)
+        return rollback(f"新版本拉起失败，已回滚：{e}")
+
+    # 6) 观察启动：新版在完成启动确认前退出 → 立即回滚
+    if not _await_startup(data_dir, proc):
+        logger.warning("新版本启动后未确认即退出，回滚")
+        return rollback("新版本启动失败，已回滚到更新前的版本")
+    return 0
+
+
+def _find_helper_exe(data_dir: str) -> str:
+    """回滚助手程序来源：更新解压缓存（不占用目标目录，可安全覆盖目标文件）"""
+    base = os.path.join(data_dir, "update_cache", "extract")
+    direct = os.path.join(base, "KazariPlay.exe")
+    if os.path.isfile(direct):
+        return direct
+    try:
+        entries = [e for e in os.listdir(base) if not e.startswith(".")]
+        if len(entries) == 1:
+            cand = os.path.join(base, entries[0], "KazariPlay.exe")
+            if os.path.isfile(cand):
+                return cand
+    except OSError:
+        pass
+    return ""
+
+
+def _spawn_rollback_helper(target: str, data_dir: str) -> bool:
+    """拉起独立回滚助手（等待当前进程退出后恢复旧版）"""
+    exe = _find_helper_exe(data_dir)
+    if not exe:
+        logger.error("回滚助手不可用：解压缓存缺失或已清理")
+        return False
+    try:
+        subprocess.Popen(
+            [exe, "--apply-rollback", "--pid", str(os.getpid()),
+             "--target", os.path.abspath(target), "--data-dir", os.path.abspath(data_dir)],
+            cwd=os.path.dirname(exe),
+            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)
+            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            close_fds=True)
+        return True
+    except Exception as e:
+        logger.error("拉起回滚助手失败：%s", e)
+        return False
+
+
+def rollback_update(pid: int, target: str, data_dir: str,
+                    wait_timeout: float = 30.0) -> int:
+    """回滚助手主体：等待当前进程退出 → 从程序备份恢复 → 拉起旧版
+
+    返回 0=已恢复并拉起旧版；1=恢复失败（状态与备份保留）；2=无需回滚
+    """
+    target = os.path.abspath(target)
+    data_dir = os.path.abspath(data_dir)
+    st = _read_state(data_dir)
+    if not st or st.get("phase") not in (STATE_APPLYING, STATE_VERIFY):
+        logger.info("回滚助手：无待回滚状态，跳过")
+        return 2
+    old_dir = st.get("backup_program") or ""
+    old_exe = os.path.join(target, "KazariPlay.exe")
+    if not (old_dir and os.path.isdir(old_dir)):
+        logger.error("回滚助手：缺少程序备份，无法自动恢复")
+        _write_state_best_effort(data_dir, {**st, "rollback_error": "缺少程序备份，无法自动恢复"})
+        return 1
+    try:
+        if pid:
+            wait_process_exit(pid, timeout=wait_timeout)
+        _restore(old_dir, target)
+        if not os.path.isfile(old_exe):
+            raise RuntimeError("恢复后未找到 KazariPlay.exe")
+        msg = ("新版本启动失败，已回滚到更新前的版本"
+               if st.get("phase") == STATE_VERIFY
+               else "上次更新被中断，已恢复到更新前的版本")
+        updated = {**st, "phase": STATE_ROLLED_BACK, "msg": msg}
+        updated.pop("rollback_error", None)
         try:
-            _copy_new_files(plan)
-            _remove_stale(target, plan)
+            _write_state(data_dir, updated)
         except Exception as e:
-            logger.warning("替换失败，回滚：%s", e)
-            _restore(old_dir, target)
-            marker.update({"phase": STATE_ROLLED_BACK, "msg": f"更新失败，已回滚：{e}"})
-            _write_state(data_dir, marker)
-            try:
-                launch(old_exe)
-            except Exception as le:
-                logger.error("回滚后拉起旧版失败：%s", le)
-            return 1
-
-        marker.update({"phase": STATE_VERIFY, "attempts": 0})
-        _write_state(data_dir, marker)
-        try:
-            launch(os.path.join(target, "KazariPlay.exe"))
-        except Exception as le:
-            logger.error("更新完成但拉起新版失败：%s", le)
+            # 状态不可写：至少清除待回滚状态，避免旧版反复触发回滚
+            logger.error("回滚状态写入失败，尝试清除状态：%s", e)
+            _delete_state(data_dir)
+            if os.path.exists(_state_path(data_dir)):
+                raise
+        _launch_quiet(_launch_default, old_exe)
+        logger.warning("回滚助手：已恢复旧版并拉起")
         return 0
     except Exception as e:
-        logger.error("更新助手失败：%s", e)
-        try:
-            launch(old_exe)
-        except Exception:
-            pass
+        logger.error("回滚助手失败（状态与备份保留）：%s", e)
+        _write_state_best_effort(data_dir, {**st, "rollback_error": str(e)})
+        if pid == 0 or not _process_alive(pid):
+            _launch_quiet(_launch_default, old_exe)
         return 1
 
 
-def run_apply_update(argv: List[str]) -> int:
-    """`--apply-update` 入口：解析参数并执行；source = 助手自身所在解压目录"""
+def _parse_args(argv: List[str]) -> Tuple[int, str, str]:
     def _arg(name: str, default: str = "") -> str:
         try:
             return argv[argv.index(name) + 1]
         except (ValueError, IndexError):
             return default
-    pid = int(_arg("--pid", "0") or 0)
-    target = _arg("--target", "")
-    data_dir = _arg("--data-dir", "")
+    return int(_arg("--pid", "0") or 0), _arg("--target", ""), _arg("--data-dir", "")
+
+
+def run_apply_update(argv: List[str]) -> int:
+    """`--apply-update` 入口：解析参数并执行；source = 助手自身所在解压目录"""
+    pid, target, data_dir = _parse_args(argv)
     if not target or not data_dir:
         logger.error("更新助手参数缺失（--target/--data-dir）")
         return 2
     source = os.path.dirname(os.path.abspath(
         sys.executable if getattr(sys, "frozen", False) else sys.argv[0]))
-    logger.info("更新助手启动：pid=%s target=%s", pid, target)
-    return apply_update(pid, target, source, data_dir)
+    lock = _acquire_install_lock(target)
+    if lock is None:
+        logger.error("更新助手：安装目录已有其它更新任务，放弃")
+        return 2
+    try:
+        logger.info("更新助手启动：pid=%s target=%s", pid, target)
+        return apply_update(pid, target, source, data_dir)
+    finally:
+        _release_install_lock(lock)
+
+
+def run_apply_rollback(argv: List[str]) -> int:
+    """`--apply-rollback` 入口：由启动自愈拉起，等待当前进程退出后恢复旧版并重启"""
+    pid, target, data_dir = _parse_args(argv)
+    if not target or not data_dir:
+        logger.error("回滚助手参数缺失（--target/--data-dir）")
+        return 2
+    lock = _acquire_install_lock(target)
+    if lock is None:
+        logger.error("回滚助手：安装目录已有其它更新任务，放弃")
+        return 2
+    try:
+        logger.info("回滚助手启动：pid=%s target=%s", pid, target)
+        return rollback_update(pid, target, data_dir)
+    finally:
+        _release_install_lock(lock)
 
 
 # ---------- 应用侧：发起更新 ----------
@@ -341,11 +589,15 @@ def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int) -> Tuple
     exe = os.path.join(extract_dir, "KazariPlay.exe")
     if not os.path.isfile(exe):
         return False, "更新包缺少 KazariPlay.exe"
-    _write_state(data_dir, {
-        "phase": STATE_APPLYING, "target": os.path.abspath(target),
-        "backup_program": "", "backup_data": "", "attempts": 0,
-        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-    })
+    try:
+        _write_state(data_dir, {
+            "phase": STATE_APPLYING, "target": os.path.abspath(target),
+            "backup_program": "", "backup_data": "", "attempts": 0,
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        })
+    except Exception as e:
+        logger.error("更新状态写入失败，取消更新：%s", e)
+        return False, f"更新状态不可写，已取消更新（{e}）"
     try:
         subprocess.Popen(
             [exe, "--apply-update", "--pid", str(int(pid)),
@@ -362,61 +614,68 @@ def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int) -> Tuple
 
 # ---------- 启动自愈 ----------
 
-def startup_self_heal(data_dir: str) -> Tuple[Optional[str], str]:
-    """启动早期调用；返回（提示文案, 需要重启的 exe 路径）；无残留时返回 (None, "")"""
+def startup_self_heal(data_dir: str,
+                      spawn_helper: Optional[Callable[[str, str], bool]] = None
+                      ) -> Tuple[Optional[str], bool]:
+    """启动早期调用；返回（提示文案, 是否需要立即退出以让回滚助手完成恢复）
+
+    applying / verify_pending 需要回滚时，改为拉起独立回滚助手（等待本进程退出后
+    从程序备份恢复，避免覆盖运行中 EXE 的文件锁失败）；助手拉起失败时保留状态、
+    备份与可诊断错误，由下次启动重试。
+    """
+    spawn = spawn_helper or _spawn_rollback_helper
     st = _read_state(data_dir)
     if not st:
-        return None, ""
+        return None, False
     phase = st.get("phase", "")
     target = st.get("target") or ""
     old_dir = st.get("backup_program") or ""
-    exe = os.path.join(target, "KazariPlay.exe") if target else ""
 
     if phase == STATE_APPLYING:
-        # 助手中断（替换中途被杀/断电）：从程序备份回滚
+        # 助手中断（替换中途被杀/断电）：交由回滚助手恢复
         if old_dir and os.path.isdir(old_dir) and target:
-            try:
-                _restore(old_dir, target)
-                shutil.rmtree(os.path.join(target, "_old"), ignore_errors=True)
-                _delete_state(data_dir)
-                logger.warning("检测到中断的更新，已回滚程序文件")
-                return "上次更新被中断，已恢复到更新前的版本", ""
-            except Exception as e:
-                logger.error("中断更新回滚失败：%s", e)
-                return "上次更新被中断且自动恢复失败，请重新下载安装", ""
+            if spawn(target, data_dir):
+                logger.warning("检测到中断的更新，已拉起回滚助手")
+                return None, True
+            st["rollback_error"] = "回滚助手拉起失败"
+            _write_state_best_effort(data_dir, st)
+            return "上次更新被中断，自动恢复未能启动；请重新启动应用重试", False
         _delete_state(data_dir)
-        return "上次更新未开始，已取消", ""
+        return "上次更新未开始，已取消", False
 
     if phase == STATE_VERIFY:
         attempts = int(st.get("attempts") or 0) + 1
         if attempts >= 2:
             # 连续两次启动都未确认成功（新版无法正常运行）：回滚并重启旧版
             if old_dir and os.path.isdir(old_dir) and target:
-                try:
-                    _restore(old_dir, target)
-                    shutil.rmtree(os.path.join(target, "_old"), ignore_errors=True)
-                except Exception as e:
-                    logger.error("新版启动失败回滚出错：%s", e)
-            _delete_state(data_dir)
-            logger.warning("新版本连续两次未确认启动，已回滚")
-            return "新版本启动失败，已回滚到更新前的版本", exe
+                if spawn(target, data_dir):
+                    logger.warning("新版连续两次未确认启动，已拉起回滚助手")
+                    return None, True
+                st["attempts"] = attempts
+                st["rollback_error"] = "回滚助手拉起失败"
+                _write_state_best_effort(data_dir, st)
+                return "新版本启动失败，自动恢复未能启动；请重新启动应用重试", False
+            st["attempts"] = attempts
+            st["rollback_error"] = "缺少可回滚的旧版本备份"
+            _write_state_best_effort(data_dir, st)
+            return "新版本启动失败，且缺少可回滚的旧版本备份", False
         st["attempts"] = attempts
-        _write_state(data_dir, st)
-        return None, ""
+        _write_state_best_effort(data_dir, st)
+        return None, False
 
     if phase == STATE_ROLLED_BACK:
         msg = st.get("msg") or "更新失败，已回滚到更新前的版本"
         if target:
             shutil.rmtree(os.path.join(target, "_old"), ignore_errors=True)
         _delete_state(data_dir)
-        return msg, ""
+        return msg, False
 
     _delete_state(data_dir)
-    return None, ""
+    return None, False
 
 
 def mark_startup_success(data_dir: str) -> None:
-    """新版窗口加载成功后调用：完成"待验证"确认并清理旧文件与下载缓存"""
+    """新版前端完成首屏数据加载后调用：完成"待验证"确认并清理旧文件与下载缓存"""
     st = _read_state(data_dir)
     if not st or st.get("phase") != STATE_VERIFY:
         return
@@ -428,12 +687,13 @@ def mark_startup_success(data_dir: str) -> None:
     logger.info("更新完成确认，旧版本文件已清理")
 
 
-def cleanup_update_cache(data_dir: str) -> None:
-    """清理下载与解压缓存（启动时与确认成功后调用）"""
+def cleanup_update_cache(data_dir: str, keep_extract: bool = False) -> None:
+    """清理下载与解压缓存（确认成功后调用；待回滚期间 keep_extract=True 保留解压目录）"""
     cache = os.path.join(data_dir, "update_cache")
     if not os.path.isdir(cache):
         return
-    shutil.rmtree(os.path.join(cache, "extract"), ignore_errors=True)
+    if not keep_extract:
+        shutil.rmtree(os.path.join(cache, "extract"), ignore_errors=True)
     try:
         for name in os.listdir(cache):
             if name.endswith(".zip") or name.endswith(".part"):

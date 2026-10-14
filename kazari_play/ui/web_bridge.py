@@ -325,6 +325,9 @@ class WebBridge:
         self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
         self._task_lock = threading.Lock()
         self._task_thread = None
+        # 更新任务占用：立即更新 / 退出时更新两个入口的原子互斥（防并发双助手，见 AUTO_UPDATE_CODE_REVIEW UPD-REV-04）
+        self._update_apply_lock = threading.Lock()
+        self._update_apply_claimed = False
         # 封面下载线程池：与匹配解耦，短超时不重试（见 COVER_DOWNLOAD_OPTIMIZATION）
         _cover_workers = max(1, int(self._cfg.get("cover_download.max_concurrent", 4) or 4))
         self._cover_pool = concurrent.futures.ThreadPoolExecutor(
@@ -918,6 +921,33 @@ class WebBridge:
         """启动自愈提示（main 在窗口创建前写入，前端首次状态请求时消费）"""
         self._update_notice = text or ""
 
+    def _claim_update_apply(self) -> bool:
+        """原子占用更新任务（两个入口共用；检查与置位间无窗口）"""
+        with self._update_apply_lock:
+            if getattr(self, "_update_applied", False) or self._update_apply_claimed:
+                return False
+            self._update_apply_claimed = True
+            return True
+
+    def _release_update_apply(self) -> None:
+        """发起失败时释放占用（成功发起不释放，由进程退出收场）"""
+        with self._update_apply_lock:
+            self._update_apply_claimed = False
+
+    def updateFrontendReady(self) -> bool:
+        """前端首屏数据加载成功后的就绪握手（新版首启确认的唯一入口）
+
+        main 侧不再按定时器认定"启动成功"；慢加载 / JS 异常 / 桥未就绪都不会
+        触发确认，回滚资源因此保留至真正就绪。
+        """
+        try:
+            from utils import update_apply
+            update_apply.mark_startup_success(get_app_data_dir())
+            return True
+        except Exception as e:
+            logger.warning("前端就绪确认失败: %s", e)
+            return False
+
     def getUpdateState(self) -> str:
         try:
             return self._update_payload(get_updater().state())
@@ -970,8 +1000,11 @@ class WebBridge:
             if mode == "exit":
                 self._update_on_exit = True
                 return self._update_payload({"ok": True, "msg": "将在退出时自动更新"})
+            if not self._claim_update_apply():
+                return self._update_payload({"ok": True, "msg": "更新已在进行中…"})
             ok, msg = update_apply.begin_apply(extract_dir, target, get_app_data_dir(), os.getpid())
             if not ok:
+                self._release_update_apply()
                 return self._update_payload({"ok": False, "msg": msg})
             self._update_applied = True
             self._update_on_exit = False   # now 模式已发起，退出钩子不得再触发
@@ -980,11 +1013,12 @@ class WebBridge:
                 win.destroy()
             return self._update_payload({"ok": True, "msg": "正在更新…"})
         except Exception as e:
+            self._release_update_apply()
             logger.error("applyUpdate 失败: %s", e)
             return self._update_payload({"ok": False, "msg": str(e)})
 
     def apply_pending_update_on_exit(self) -> bool:
-        """「退出时更新」：窗口关闭钩子调用；成功拉起替换助手返回 True（单次防护）"""
+        """「退出时更新」：窗口关闭钩子调用；成功拉起替换助手返回 True（原子单次防护）"""
         if getattr(self, "_update_applied", False):
             return False
         if not getattr(self, "_update_on_exit", False):
@@ -996,13 +1030,18 @@ class WebBridge:
             target = update_apply.current_install_dir()
             if st.get("state") != "ready" or not extract_dir or not target:
                 return False
+            if not self._claim_update_apply():
+                return False   # 已有更新任务占用：不得启动第二个助手
             ok, _msg = update_apply.begin_apply(extract_dir, target,
                                                 get_app_data_dir(), os.getpid())
             if ok:
                 self._update_applied = True
                 self._update_on_exit = False
+            else:
+                self._release_update_apply()
             return ok
         except Exception as e:
+            self._release_update_apply()
             logger.warning("退出时更新失败: %s", e)
             return False
 
