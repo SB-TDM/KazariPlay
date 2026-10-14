@@ -2,7 +2,7 @@
 
 ## 使用
 
-本轮产物是 Windows x64 的 PyInstaller onedir 文件夹版，版本 `1.0.0-beta.1`，仅无翻译原版；自测包不对外发布。需要 Windows 10/11 x64、Microsoft Edge WebView2 Runtime 和系统 .NET Framework，运行不要求安装 Python 或 Node。
+本轮产物是 Windows x64 的 PyInstaller onedir 文件夹版，版本 `1.0.0-beta.2`，仅无翻译原版；自测包不对外发布。需要 Windows 10/11 x64、Microsoft Edge WebView2 Runtime 和系统 .NET Framework，运行不要求安装 Python 或 Node。
 
 解压整个 KazariPlay 文件夹到用户可写位置（建议非系统盘；不要放在 `Program Files` 等需要管理员权限的位置），双击 `KazariPlay.exe` 或 `run_develop.cmd`。保留同目录 `_internal/`，不能只移动 EXE。运行时默认使用包旁 `data/` 保存 games.db、config.json、covers、logs 和 screenshots；首次运行是空库，不读取现有 `%APPDATA%/KazariPlay` 或迁移旧库。
 
@@ -47,6 +47,14 @@ python scripts/package_develop.py --output trial-build-1.0.0-beta.2 --release
 
 显式 `--smoke-test` 仅供离线验收，要求一个不存在的 `KAZARIPLAY_DATA_DIR` 和 `KAZARIPLAY_SMOKE_REPORT` 路径，测试会创建/删除自身临时游戏记录；普通双击不会启动自检。测试新建记录的元数据匹配被替身截获，不发网络请求。`KAZARIPLAY_SMOKE_GAME` 可指定受控窗口 fixture，仅对该明确的测试进程做启动/关闭。
 
-PyInstaller 报告包含可选平台模块、pycparser lextab/yacctab 和 importlib_resources.trees 警告；上述 Windows 冻结流程已通过，但不能据此称所有可选路径都验证。未进行代码签名、安装器构建、另一台干净 Windows 验证、真实游戏/网络元数据、多显示器或独占全屏验收。
+冻结包的更新/回滚流程另用宿主侧脚本演练（真实进程、真实文件占用、不触网）：
+
+```powershell
+python scripts/verify_frozen_update.py --package trial-build-1.0.0-beta.2-e2e\dist\KazariPlay
+```
+
+脚本以包内 `KazariPlay.exe` 作为替换/回滚助手，对临时安装目录完成：正常替换 → 拉起新版（真实 GUI）→ 前端就绪握手 → `_old` 清理（校验数据库哨兵数据保留、更新前备份生成）；真实占用目标 EXE 时 `--apply-rollback` 等待/强杀后恢复旧版；安装目录有活动更新任务时拒绝重复发起。演练结束自动结束测试进程并清理临时目录。
+
+PyInstaller 报告包含可选平台模块、pycparser lextab/yacctab 和 importlib_resources.trees 警告；上述 Windows 冻结流程已通过，但不能据此称所有可选路径都验证。未进行代码签名、安装器构建、另一台干净 Windows 验证、真实游戏/网络元数据、多显示器或独占全屏验收。真实发布资产（GitHub Release 下载）与真实更新演练仍待正式发布后执行。
 
 自测复验通过后，再核对从 develop 到 main 和旧 master 的合并范围、发布与推送授权；本轮不合并这些分支，也不创建 Release/tag。

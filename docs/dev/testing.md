@@ -76,6 +76,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 |---|---|
 | `verify_frontend.py`（tests 内） | 见上 |
 | `frozen_smoke.py` | 冻结包（PyInstaller）冒烟：bundled overlay 管道 + 删除事务 |
+| `verify_frozen_update.py`（scripts 内） | 冻结包受控更新/回滚演练：真实替换助手→拉起新版→前端握手→数据保全、真实占用回滚、安装锁（需先构建冻结包） |
 | `package_develop.py` / `develop.spec` | 隔离试用包构建 |
 | `runtime_portable.py` | 便携运行时 |
 
