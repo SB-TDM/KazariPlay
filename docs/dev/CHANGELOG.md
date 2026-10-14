@@ -8,7 +8,7 @@
 - **互斥与持久化**（REV-04/05/06/13）：立即更新与退出时更新共用**原子占用**（检查-置位间无窗口），助手侧增加**安装目录锁**（O_EXCL + 陈旧锁按 PID 清理），同一安装目录至多一个替换任务；状态文件改**原子写入**且失败即中止/回滚（不会留下无法恢复的替换）；用户数据备份失败与"无需备份"区分，失败即中止更新；等待旧进程超时强杀后**确认退出**，无法确认不得进入备份与替换。
 - **包与校验契约**（REV-07/12）：下载校验优先使用发布元数据（GitHub API）中的 `sha256` 摘要；无摘要时仅接受**官方源直连**的 `SHA256SUMS.txt`，镜像自报校验值一律拒绝（镜像只承担文件传输）。进入 ready 前预检解压结构（唯一程序根 + `_internal` 运行资源；包内 data/screenshots/logs 拒绝），兼容旧资产单层包裹目录并规范化提取路径。
 - **前端状态恢复**（REV-08～11）：就绪弹层关闭后手动检查可重新打开安装入口；下载发起与状态补查双失败时解锁弹层并给出重试反馈；进度轮询改**串行 + 代际校验**，迟到/旧代际/弹层关闭后的响应一律丢弃；启动自愈 notice（回滚/中断恢复）在首个状态响应中带出并在前端展示一次。
-- 验证：`tests/test_updater.py`（23 项）、`tests/test_update_apply.py`（23 项，含真实文件锁等待恢复、并发占用、双入口单助手、备份/状态失败中止）、新增 `tests/test_update_ui.cjs`（5 场景）；typecheck/build/verify_frontend（17 脚本块）/classic_boundary/bridge_contract/UI ordering/P1 frontend 通过。审查报告见 [自动更新代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md)。
+- 验证：`tests/test_updater.py`（23 项）、`tests/test_update_apply.py`（23 项，含真实文件锁等待恢复、并发占用、双入口单助手、备份/状态失败中止）、新增 `tests/test_update_ui.cjs`（5 场景）、新增 `tests/smoke_update_flow.py`（真实子进程：正常更新+握手清理 / 真实文件占用回滚 / 安装锁互斥）；typecheck/build/verify_frontend（17 脚本块）/classic_boundary/bridge_contract/UI ordering/P1 frontend 通过。审查报告见 [自动更新代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md)。
 - 未验证：真实发布资产下载更新与冻结包全流程（E2 真实更新演练）仍待首次正式发布后执行。
 
 ## 1.0.0-beta.2 自测包（2026-10-13）

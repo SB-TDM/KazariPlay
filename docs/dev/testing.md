@@ -25,6 +25,7 @@ python -B tests/test_update_apply.py   # 替换助手/回滚助手/启动自愈�
 python tests/smoke_screenshots.py
 python tests/smoke_overlay.py          # 需先编译 overlay
 python tests/smoke_collections.py
+python tests/smoke_update_flow.py      # 更新流程进程级（正常替换/真实占用回滚/安装锁；需 overlay）
 
 # 前端单测（node，需先 npm run build）
 node tests/test_p0_frontend.cjs
@@ -65,6 +66,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 | `smoke_screenshots.py` | 截图服务（临时目录） |
 | `smoke_overlay.py` | 截图 toast：临时配置 + 测试窗口驱动 overlay（需先编译 overlay） |
 | `smoke_collections.py` | collections 后端（临时库） |
+| `smoke_update_flow.py` | 更新流程进程级：真实助手子进程正常替换+握手清理、真实文件占用下回滚、安装锁互斥（需先编译 overlay） |
 | `test_overlay_lifecycle.py` | 真实管道连接/退出/断连重连/架构切换 |
 | `pipe_lifecycle.cpp` | 管道生命周期 C++ 侧 |
 | `_process_fixture.py` | 受控启动器/游戏窗口 fixture（由上述测试启动，不碰真实游戏） |
@@ -87,7 +89,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 | 桥 / UISync | `test_ui_sync.py` + `test_p0_frontend.cjs` |
 | 封面缓存 / 缩略图 | `test_cover_cache.py` + `test_cover_thumb.py` |
 | 多源搜索 | `test_multi_source.py` |
-| 更新 / 替换助手 / 弹层 | `test_updater.py` + `test_update_apply.py` + `test_update_ui.cjs`（+ 前端 `npm run build`） |
+| 更新 / 替换助手 / 弹层 | `test_updater.py` + `test_update_apply.py` + `test_update_ui.cjs`（+ 前端 `npm run build`）；进程级过 `smoke_update_flow.py`（需 overlay） |
 | overlay / 截图 | `smoke_screenshots.py` + `smoke_overlay.py` + `test_overlay_lifecycle.py` |
 | 打包 | `package_develop.py` 流程 + `frozen_smoke.py` |
 
