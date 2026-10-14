@@ -55,6 +55,6 @@ python scripts/verify_frozen_update.py --package trial-build-1.0.0-beta.2-e2e\di
 
 脚本以包内 `KazariPlay.exe` 作为替换/回滚助手，对临时安装目录完成：正常替换 → 拉起新版（真实 GUI）→ 前端就绪握手 → `_old` 清理（校验数据库哨兵数据保留、更新前备份生成）；真实占用目标 EXE 时 `--apply-rollback` 等待/强杀后恢复旧版；安装目录有活动更新任务时拒绝重复发起。演练结束自动结束测试进程并清理临时目录。
 
-PyInstaller 报告包含可选平台模块、pycparser lextab/yacctab 和 importlib_resources.trees 警告；上述 Windows 冻结流程已通过，但不能据此称所有可选路径都验证。未进行代码签名、安装器构建、另一台干净 Windows 验证、真实游戏/网络元数据、多显示器或独占全屏验收。真实发布资产（GitHub Release 下载）与真实更新演练仍待正式发布后执行。
+PyInstaller 报告包含可选平台模块、pycparser lextab/yacctab 和 importlib_resources.trees 警告；上述 Windows 冻结流程已通过，但不能据此称所有可选路径都验证。未进行代码签名、安装器构建、另一台干净 Windows 验证、真实游戏/网络元数据、多显示器或独占全屏验收。正式发布资产的 E2 更新演练（`1.0.0` → `1.0.1`）仍待首次正式发布后执行；测试 Release 的真实 GitHub 下载与更新链路已演练通过（见 [自动更新代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md) §8）。
 
 自测复验通过后，再核对从 develop 到 main 和旧 master 的合并范围、发布与推送授权；本轮不合并这些分支，也不创建 Release/tag。

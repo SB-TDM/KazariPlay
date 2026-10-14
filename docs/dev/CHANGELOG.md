@@ -9,8 +9,8 @@
 - **包与校验契约**（REV-07/12）：下载校验优先使用发布元数据（GitHub API）中的 `sha256` 摘要；无摘要时仅接受**官方源直连**的 `SHA256SUMS.txt`，镜像自报校验值一律拒绝（镜像只承担文件传输）。进入 ready 前预检解压结构（唯一程序根 + `_internal` 运行资源；包内 data/screenshots/logs 拒绝），兼容旧资产单层包裹目录并规范化提取路径。
 - **前端状态恢复**（REV-08～11）：就绪弹层关闭后手动检查可重新打开安装入口；下载发起与状态补查双失败时解锁弹层并给出重试反馈；进度轮询改**串行 + 代际校验**，迟到/旧代际/弹层关闭后的响应一律丢弃；启动自愈 notice（回滚/中断恢复）在首个状态响应中带出并在前端展示一次。
 - **冻结演练追加修复**（`4e1238e`）：替换计划的路径断言原按"任意层级段名"匹配用户数据区，真实 PyInstaller 包内 `_internal/cv2/data/` 等程序资源会被误判，导致真实包更新被中止；改为**仅安装根级段**判定（`data`/`screenshots`/`logs`），并补断言取值与嵌套 data 目录的回归。
-- 验证：`tests/test_updater.py`（23 项）、`tests/test_update_apply.py`（24 项，含真实文件锁等待恢复、并发占用、双入口单助手、备份/状态失败中止、嵌套 data 目录）、新增 `tests/test_update_ui.cjs`（5 场景）、新增 `tests/smoke_update_flow.py`（真实子进程：正常更新+握手清理 / 真实文件占用回滚 / 安装锁互斥）；冻结包 `1.0.0-beta.2-e2e` 自检 6 项与 `scripts/verify_frozen_update.py` 受控演练（真实替换助手→拉起新版→前端就绪握手→数据保全 / 真实占用回滚 / 安装锁）通过；typecheck/build/verify_frontend（17 脚本块）/classic_boundary/bridge_contract/UI ordering/P1 frontend 通过。审查报告见 [自动更新代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md)。
-- 未验证：真实发布资产（GitHub Release 下载与官方源校验）与 E2 真实更新演练仍待首次正式发布后执行。
+- 验证：`tests/test_updater.py`（23 项）、`tests/test_update_apply.py`（24 项，含真实文件锁等待恢复、并发占用、双入口单助手、备份/状态失败中止、嵌套 data 目录）、新增 `tests/test_update_ui.cjs`（5 场景）、新增 `tests/smoke_update_flow.py`（真实子进程：正常更新+握手清理 / 真实文件占用回滚 / 安装锁互斥）；冻结包 `1.0.0-beta.2-e2e` 自检 6 项与 `scripts/verify_frozen_update.py` 受控演练（真实替换助手→拉起新版→前端就绪握手→数据保全 / 真实占用回滚 / 安装锁）通过；**真实 GitHub 链路更新演练**（v9.9.9 测试 Release 资产替换为修复版构建）全链路通过：检查→下载→API 摘要校验→修复版助手替换→前端握手→清理，数据保全、无 `_old`/状态残留；同轮实测旧资产在修复前助手下按预期于替换前中止（文件未动）、资产更换后旧摘要不匹配被 fail-closed 拒绝；typecheck/build/verify_frontend（17 脚本块）/classic_boundary/bridge_contract/UI ordering/P1 frontend 通过。审查报告见 [自动更新代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md)。
+- 未验证：正式发布资产的 E2 演练（`1.0.0` → `1.0.1`）与镜像回退线路的真实下载，仍待首次正式发布后执行（GitHub 测试 Release 的真实链路已验证，含摘要校验与 fail-closed）。
 
 ## 1.0.0-beta.2 自测包（2026-10-13）
 
