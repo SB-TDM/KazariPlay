@@ -50,12 +50,25 @@ def platform_tag():
 
 
 def make_release_assets(output, package, tag):
-    """产出发布资产：干净包 zip（固定名，不带版本）+ SHA256SUMS.txt"""
+    """产出发布资产：干净包 zip（固定名，不带版本）+ SHA256SUMS.txt
+
+    包内布局约定：zip 根 = 程序目录内容（KazariPlay.exe / _internal/ 直接位于根），
+    更新替换器按 `<解压目录>/KazariPlay.exe` 校验，勿再套一层包目录。"""
     asset = output / f"KazariPlay-{tag}.zip"
     with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in sorted(package.rglob("*")):
-            if path.is_file():
-                zf.write(path, path.relative_to(package.parent).as_posix())
+            if not path.is_file():
+                continue
+            rel = path.relative_to(package)
+            if rel.parts and rel.parts[0] == "data":
+                continue
+            zf.write(path, rel.as_posix())
+    with zipfile.ZipFile(asset) as zf:
+        names = set(zf.namelist())
+    if "KazariPlay.exe" not in names or not any(n.startswith("_internal/") for n in names):
+        raise SystemExit("Release zip layout invalid: KazariPlay.exe / _internal must be at zip root")
+    if any(n == "data" or n.startswith("data/") for n in names):
+        raise SystemExit("Release zip must not contain data/")
     digest = hashlib.sha256()
     with open(asset, "rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
