@@ -163,14 +163,33 @@ function closeUpdateModal(): void {
 // ---------- 动作 ----------
 
 function updaterStartDownload(): void {
-  updateSetStage('downloading');
-  updateRenderProgress({ state: 'downloading', percent: 0 });
-  updateSetLocked(true);
+  if (!updateCurrent || updateCurrent.state !== 'downloading') {
+    updateSetStage('downloading');
+    updateRenderProgress({ state: 'downloading', percent: 0 });
+    updateSetLocked(true);
+  }
   bridge.downloadUpdate(function (raw: unknown, failed?: boolean) {
-    if (failed) {
-      updateSetLocked(false);
-      updateCurrent = { state: 'failed', error: '无法开始下载，请重试' };
-      updateSetStage('failed');
+    let ok = false;
+    try { ok = !!JSON.parse(String(raw || '{}')).ok; } catch (e) { }
+    if (failed || !ok) {
+      // 未真正开始（已就绪 / 已在下载 / 状态不符）：立刻按后端真实状态纠正界面
+      bridge.getUpdateState(function (raw2: unknown, failed2?: boolean) {
+        if (failed2) return;
+        const st = updaterParse(raw2);
+        if (!st) return;
+        updateCurrent = st;
+        updaterAboutStatus(updaterStatusText(st));
+        if (st.state === 'downloading') {
+          updateSetStage('downloading');
+          updateRenderProgress(st);
+          updateSetLocked(true);
+          updateStartPolling();
+          return;
+        }
+        updateStopPolling();
+        updateSetLocked(false);
+        updateSetStage(st.state === 'ready' ? 'ready' : (st.state === 'failed' ? 'failed' : 'available'));
+      });
       return;
     }
     updateStartPolling();
