@@ -112,7 +112,11 @@ def current_install_dir() -> str:
 
 
 def _relative_forbidden(target: str, path: str) -> bool:
-    """path 相对 target 是否命中用户数据区（或越出 target）"""
+    """path 相对 target 是否越出 target，或落在其根级用户数据区（data/screenshots/logs）
+
+    只认根级段：程序内部资源可能含同名子目录（如 `_internal/cv2/data`），
+    不视为用户数据。
+    """
     try:
         rel = os.path.relpath(os.path.abspath(path), os.path.abspath(target))
     except ValueError:
@@ -120,7 +124,7 @@ def _relative_forbidden(target: str, path: str) -> bool:
     if rel == os.pardir or rel.startswith(os.pardir + os.sep):
         return True
     parts = [p.lower() for p in rel.replace("\\", "/").split("/") if p not in ("", ".")]
-    return any(p in FORBIDDEN_PARTS for p in parts)
+    return bool(parts) and parts[0] in FORBIDDEN_PARTS
 
 
 def build_replace_plan(target: str, source: str) -> List[Tuple[str, str]]:

@@ -40,6 +40,7 @@ NEW_TREE = {
     "KazariPlay.exe": b"NEW-EXE",
     "_internal/new.dll": b"new-dll",
     "_internal/common.dll": b"common-v2",
+    "_internal/cv2/data/__init__.py": b"cv2-data",   # 程序内部同名 data 子目录（不得误判为用户数据）
     "LICENSE": b"lic-v2",
     "BUILD_INFO.json": b'{"version": "1.0.1"}',
 }
@@ -106,6 +107,9 @@ def test_apply_success():
         assert read_bytes(os.path.join(d.target, "_internal", "new.dll")) == b"new-dll"
         assert read_bytes(os.path.join(d.target, "_internal", "common.dll")) == b"common-v2"
         assert not os.path.exists(os.path.join(d.target, "_internal", "old.dll"))
+        # 程序内部同名 data 子目录（如 _internal/cv2/data）必须正常复制，不误判为用户数据
+        assert read_bytes(os.path.join(d.target, "_internal", "cv2", "data",
+                                       "__init__.py")) == b"cv2-data"
         # 用户数据：原样
         assert read_bytes(os.path.join(d.data_dir, "games.db")) == b"db-bytes"
         assert read_bytes(os.path.join(d.data_dir, "covers", "a.jpg")) == b"jpg-bytes"
@@ -464,6 +468,21 @@ def test_install_lock_exclusive_and_stale():
     print("[安装锁-互斥与陈旧清理] OK")
 
 
+def test_relative_forbidden_scope():
+    """禁用区只认安装根级段：_internal 内的同名 data 子目录不算用户数据"""
+    with tempfile.TemporaryDirectory() as tmp:
+        assert UA._relative_forbidden(tmp, os.path.join(tmp, "data", "games.db"))
+        assert UA._relative_forbidden(tmp, os.path.join(tmp, "screenshots", "a.png"))
+        assert UA._relative_forbidden(tmp, os.path.join(tmp, "logs", "x.log"))
+        assert UA._relative_forbidden(os.path.join(tmp, "t"), os.path.join(tmp, "other"))
+        assert not UA._relative_forbidden(
+            os.path.join(tmp, "t"),
+            os.path.join(tmp, "t", "_internal", "cv2", "data", "__init__.py"))
+        assert not UA._relative_forbidden(
+            os.path.join(tmp, "t"), os.path.join(tmp, "t", "LICENSE"))
+    print("[断言-仅根级禁用区] OK")
+
+
 def test_backup_rolling_three():
     with tempfile.TemporaryDirectory() as tmp:
         write_tree(tmp, {"games.db": b"db", "config.json": b"cfg"})
@@ -636,6 +655,7 @@ if __name__ == "__main__":
     test_self_heal_rolled_back_notice()
     test_rollback_helper_waits_real_file_lock()
     test_install_lock_exclusive_and_stale()
+    test_relative_forbidden_scope()
     test_backup_rolling_three()
     test_wait_process_exit()
     test_wait_process_exit_kill_failure_raises()
