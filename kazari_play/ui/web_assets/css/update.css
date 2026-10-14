@@ -23,3 +23,8 @@
   /* 关于页：检查更新行 */
   .about .a-update{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:12px;}
   .about .a-update-status{font-size:12px;color:var(--text-sub);}
+
+  /* [hidden] 兜底：.dlg-foot / .up-prog 等作者样式会覆盖 hidden 属性的 UA 规则，
+     必须显式 !important，否则三排按钮与进度区会同时显示 */
+  .dialog.update [hidden]{display:none !important;}
+
