@@ -956,6 +956,8 @@ class WebBridge:
         """应用更新：mode=now 立即拉起助手并退出；mode=exit 在窗口关闭时执行"""
         try:
             from utils import update_apply
+            if getattr(self, "_update_applied", False):
+                return self._update_payload({"ok": True, "msg": "更新已在进行中…"})
             st = get_updater().state()
             if st.get("state") != "ready":
                 return self._update_payload({"ok": False, "msg": "更新包未就绪"})
@@ -971,6 +973,8 @@ class WebBridge:
             ok, msg = update_apply.begin_apply(extract_dir, target, get_app_data_dir(), os.getpid())
             if not ok:
                 return self._update_payload({"ok": False, "msg": msg})
+            self._update_applied = True
+            self._update_on_exit = False   # now 模式已发起，退出钩子不得再触发
             win = getattr(self, "_window", None)
             if win is not None:
                 win.destroy()
@@ -980,7 +984,9 @@ class WebBridge:
             return self._update_payload({"ok": False, "msg": str(e)})
 
     def apply_pending_update_on_exit(self) -> bool:
-        """「退出时更新」：窗口关闭钩子调用；成功拉起替换助手返回 True"""
+        """「退出时更新」：窗口关闭钩子调用；成功拉起替换助手返回 True（单次防护）"""
+        if getattr(self, "_update_applied", False):
+            return False
         if not getattr(self, "_update_on_exit", False):
             return False
         try:
@@ -992,6 +998,9 @@ class WebBridge:
                 return False
             ok, _msg = update_apply.begin_apply(extract_dir, target,
                                                 get_app_data_dir(), os.getpid())
+            if ok:
+                self._update_applied = True
+                self._update_on_exit = False
             return ok
         except Exception as e:
             logger.warning("退出时更新失败: %s", e)

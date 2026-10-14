@@ -200,9 +200,11 @@ function updaterApply(mode: 'now' | 'exit'): void {
   const btn = mode === 'now' ? updaterById<HTMLButtonElement>('updateApplyNow') : updaterById<HTMLButtonElement>('updateApplyExit');
   if (btn) btn.disabled = true;
   bridge.applyUpdate(mode, function (raw: unknown, failed?: boolean) {
-    if (btn) btn.disabled = false;
     let result: { ok?: boolean; msg?: string } = {};
     try { result = JSON.parse(String(raw || '{}')); } catch (e) { }
+    const okNow = !failed && !!result.ok && mode === 'now';
+    // 「立即重启」成功时应用即将退出：保持按钮禁用，防止重复发起（后端亦有单次防护）
+    if (btn && !okNow) btn.disabled = false;
     if (failed || !result.ok) toast(result.msg || '更新应用失败，请重试');
   });
 }
