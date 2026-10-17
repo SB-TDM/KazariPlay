@@ -31,11 +31,11 @@
 ### D1 下载通道与低速切换（对应 DEV-UPD-03，归并 DEV-UPD-02）
 
 - 单候选 socket 超时：30s → **10s**（连接/读共用；死直连最多拖 10s）——"连接后零进展"的有界兜底即 DEV-UPD-02 的目标（无界等待变有界，不另做看门狗）
-- 低速切换：t=15s 时已收 <5MiB（<0.35MB/s）→ 切下一候选；之后每 30s 复查，该段均速 <0.5MB/s → 继续切
+- 低速切换：仅在 **t=15s 检查一次**（已收 <5MiB，即 <0.35MB/s → 切下一候选）；**不做周期性复查**（长尾恶化由 10s 读超时兜底）
 - 切换语义：关闭当前流、丢弃半成品（.part）、**从零重传**；**不向用户提示**（进度回 0 即可）
 - 候选顺序：**记忆通道 → 直连 → 镜像列表**（去重）；本会话内失败/被切的通道降权，不再优先
 - 记忆通道同样受 10s 超时约束；失败自动回退默认顺序
-- 整体重试保持现状：候选链走完为一轮，最多 2 轮（`DOWNLOAD_RETRIES=2`）
+- 整体重试：**降为 1 轮**——候选链各尝试一次即结束；失败由弹层「重试」手动再来（去掉整体第 2 轮）
 - 记忆落点：config `update.last_good_lane`（值 `direct` 或镜像前缀）；只有完成过一次完整传输的通道才写入
 - 所有阈值集中为模块常量，按实测可调
 
@@ -89,10 +89,15 @@
 - **`ready.json` 清理顺序**：确认成功后 → 先删 `ready.json` → 再 `cleanup_update_cache`（zip / extract / `.part` 全清）；失效时 → 删 `ready.json` + 对应 zip
 - 用户数据备份（`data/backup`，滚动 3 份）与 `latest.json`（API 缓存）不属于安装文件，不在此列
 
+### D10 早期观察窗口 20s → 8s（2026-10-14 简化）
+
+- 助手拉起新版后的早期退出观察从 20s 缩短为 **8s**：只捕捉"拉起即崩"；运行中慢崩或慢加载由开机两振（启动自愈）兜底
+- 失败语义不变：观察期结束即视为拉起成功，后续确认仍由前端握手/两振负责
+
 ## 4. 实施步骤（文件级）
 
-1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点
-2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`
+1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序（10s 超时、15s 单次低速检查、1 轮重试）、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点
+2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`；D10 早期观察窗口 20s → 8s
 3. **`kazari_play/main.py` / `ui/web_bridge.py` / `ui/web_assets/ts/*` / `partials/update.html`**：D4 新版计时；D6 握手文案与 toast；D5 快速退出机制（默认关闭）；**D7 移除退出时更新**（`applyUpdate` 去掉 exit 分支，删除 `apply_pending_update_on_exit`/`_update_on_exit`、关闭钩子调用、`updateApplyExit` 按钮与前端绑定）
 4. **测试**：
    - `tests/test_updater.py`：死通道超时切换、低速切换、last-good 排序与降权、ready 命中/失效/清理保留、跳过版本优先于就绪
