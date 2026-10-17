@@ -92,7 +92,32 @@ def _match_key(text: str) -> str:
     s = (text or "").lower()
     s = re.sub(r"\[[^\]]*\]|\([^)]*\)", "", s)
     s = re.sub(r"[^0-9a-z\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]+", "", s)
+    # Bangumi 备用名常带 "Episode.1 Miyako Kujo" 等章节后缀，比较时剔除
+    s = re.sub(r"episode\d*.*$", "", s)
     return s
+
+
+def _split_camel(text: str) -> str:
+    """拆分无空格驼峰标题（MashiroiroSymphonyFHD → Mashiroiro Symphony FHD）"""
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text or "").strip()
+
+
+# 文件夹标题中的版本标记；候选标题全部缺失时拒绝，避免把重制版/完整版匹配到原版
+
+
+def _edition_tokens(title: str) -> List[str]:
+    """提取文件夹标题里的版本标记（支持无空格驼峰）"""
+    low = (title or "").lower()
+    out: List[str] = []
+    if "fhd" in low:
+        out.append("fhd")
+    elif re.search(r"(?<!f)hd(?![a-z])", low):
+        out.append("hd")
+    if "remake" in low:
+        out.append("remake")
+    if "sana" in low:
+        out.append("sana")
+    return out
 
 
 def _similarity(a: str, b: str) -> float:
@@ -127,21 +152,39 @@ def _title_sim(a: dict, b: dict) -> float:
                 for tb in _candidate_titles(b)), default=0.0)
 
 
+def _release_year(cand: dict) -> str:
+    m = re.match(r"(\d{4})", (cand.get("released") or "").strip())
+    return m.group(1) if m else ""
+
+
+def _year_compatible(a: dict, b: dict) -> bool:
+    """发行年份一致（任一侧缺失时放行），防止同名不同版本/系列作被并组"""
+    ya, yb = _release_year(a), _release_year(b)
+    return not ya or not yb or ya == yb
+
+
 def _build_queries(title: str) -> List[str]:
-    """按策略构造搜索关键词：归一化 → 纯 CJK → 原标题（去重）"""
+    """按策略构造搜索关键词：归一化 → 纯 CJK → 原标题（含驼峰拆分，去重）"""
     out: List[str] = []
     seen = set()
-    for q in (normalize_title(title), _extract_japanese(title), title):
-        q = (q or "").strip()
-        key = _match_key(q)
-        if q and key and key not in seen:
-            seen.add(key)
-            out.append(q)
+    bases = [normalize_title(title), _extract_japanese(title), title, _split_camel(title)]
+    for base in bases:
+        for q in (base, _split_camel(base)):
+            q = (q or "").strip()
+            key = q.lower()
+            if q and key not in seen:
+                seen.add(key)
+                out.append(q)
     return out
 
 
-def _search_source(source_id: str, queries: List[str], cancel_event=None) -> Optional[dict]:
-    """在单个源上按关键词策略搜索，返回最合适的候选"""
+def _search_source(source_id: str, queries: List[str], cancel_event=None,
+                   trust_rank: bool = False) -> Optional[dict]:
+    """在单个源上按关键词策略搜索，返回最合适的候选
+
+    trust_rank=True 时直接取搜索排名第一条（用于跨语言桥接：关键词来自另一源的
+    标题，源自身的相关度排序比标题相似度更可靠）。
+    """
     meta = multi_source.SOURCES.get(source_id) or {}
     client = meta.get("client")
     if client is None:
@@ -156,6 +199,8 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None) -> Opt
             continue
         if not results:
             continue
+        if trust_rank:
+            return results[0]
         best = max(results, key=lambda r: _query_sim(r, queries))
         if _query_sim(best, queries) >= _PICK_BY_TITLE_RATIO:
             return best
@@ -189,6 +234,33 @@ def _search_all(queries: List[str], cancel_event=None) -> Dict[str, dict]:
         logger.warning("多源匹配超时(%.0fs)，使用已完成结果", _SEARCH_DEADLINE)
     finally:
         ex.shutdown(wait=False)
+
+    # 跨语言桥接：某源无结果时，用已命中源（优先 VNDB/Bangumi）的标题再查一次，
+    # 解决“罗马音/日文标题在 Bangumi 搜不到”的漏配
+    missing = [s for s in sources if s not in candidates]
+    if candidates and missing:
+        bridge: List[str] = []
+        for sid in ("vndb", "bangumi"):
+            cand = candidates.get(sid)
+            if cand:
+                for t in _candidate_titles(cand):
+                    if t not in bridge:
+                        bridge.append(t)
+        if not bridge:
+            for cand in candidates.values():
+                for t in _candidate_titles(cand):
+                    if t not in bridge:
+                        bridge.append(t)
+        for sid in missing:
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            try:
+                cand = _search_source(sid, bridge[:2], cancel_event, trust_rank=True)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("元数据源 %s 桥接搜索失败: %s", sid, e)
+                continue
+            if cand:
+                candidates[sid] = cand
     return candidates
 
 
@@ -208,9 +280,12 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str]) -> Tuple[Option
     sids = list(candidates)
     for i, a in enumerate(sids):
         for b in sids[i + 1:]:
-            edges.append((_title_sim(candidates[a], candidates[b]), a, b))
+            if _year_compatible(candidates[a], candidates[b]):
+                edges.append((_title_sim(candidates[a], candidates[b]), a, b))
     if not edges:
-        return None, "未找到匹配"
+        detail = " / ".join(f"{sid}:{candidates[sid].get('title', '')}"
+                            for sid in sids)
+        return None, f"各源发行年份不一致（{detail}），请手动确认"
     best_sim, best_a, best_b = max(edges, key=lambda e: e[0])
     if best_sim < _CONSENSUS_RATIO:
         detail = " / ".join(f"{sid}:{candidates[sid].get('title', '')}"
@@ -225,6 +300,7 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str]) -> Tuple[Option
             if sid in group:
                 continue
             if any(_title_sim(candidates[sid], candidates[g]) >= _CONSENSUS_RATIO
+                   and _year_compatible(candidates[sid], candidates[g])
                    for g in group):
                 group.add(sid)
                 changed = True
@@ -299,6 +375,18 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
     if not group:
         logger.info("元数据未匹配: %s (%s)", game.title, reason)
         return "fail", reason
+
+    # 版本标记守卫：文件夹带 FHD/Remake/SANA 等标记，而候选标题全部缺失时拒绝，
+    # 避免把重制版/完整版匹配到原版（交给用户手动确认）
+    tokens = _edition_tokens(game.title)
+    if tokens:
+        cand_titles = " ".join(
+            t for c in group.values() for t in _candidate_titles(c)).lower()
+        missing_tokens = [t for t in tokens if t not in cand_titles]
+        if missing_tokens:
+            reason = f"候选缺少版本标记（{', '.join(missing_tokens)}），请手动确认"
+            logger.info("元数据未匹配: %s (%s)", game.title, reason)
+            return "fail", reason
 
     merged = _merge_candidates(group)
     sources = "+".join(multi_source.SOURCES.get(s, {}).get("name", s)
