@@ -41,8 +41,9 @@ class GameRepository:
              is_favorite, play_count, play_time, last_played, date_added, rating,
              logo_path, description, launch_exe_path,
              vndb_id, released, developer, length_minutes, category_id,
-             hook_code, hook_code_custom, translate_enabled, clean_filter_override)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             hook_code, hook_code_custom, translate_enabled, clean_filter_override,
+             bangumi_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         return self.db.execute(sql, (
             data["id"], data["title"], data["exe_path"], data["folder"],
@@ -53,7 +54,7 @@ class GameRepository:
             data["vndb_id"], data["released"], data["developer"], data["length_minutes"],
             data["category_id"],
             data["hook_code"], data["hook_code_custom"], data["translate_enabled"],
-            data["clean_filter_override"]
+            data["clean_filter_override"], data["bangumi_id"]
         ))
 
     def get_by_id(self, game_id: str) -> Optional[Game]:
@@ -153,7 +154,7 @@ class GameRepository:
                cover_path = ?, logo_path = ?, description = ?,
                launch_exe_path = ?, exe_path = ?, folder = ?,
                vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
-               category_id = ?, rating = ?, identity = ?
+               category_id = ?, rating = ?, identity = ?, bangumi_id = ?
                WHERE id = ?""",
             (game.title, game.engine or "", "",
              game.cover_path or "", game.logo_path or "",
@@ -162,6 +163,7 @@ class GameRepository:
              game.vndb_id or "", game.released or "",
              game.developer or "", game.length_minutes or 0,
              game.category_id or 0, game.rating or 0, game.identity or "",
+             game.bangumi_id or "",
              game.id)
         )
 
@@ -217,6 +219,7 @@ class GameRepository:
             description=row["description"] if "description" in row.keys() else "",
             launch_exe_path=row["launch_exe_path"] if "launch_exe_path" in row.keys() else "",
             vndb_id=row["vndb_id"] if "vndb_id" in row.keys() else "",
+            bangumi_id=row["bangumi_id"] if "bangumi_id" in row.keys() else "",
             released=row["released"] if "released" in row.keys() else "",
             developer=row["developer"] if "developer" in row.keys() else "",
             length_minutes=row["length_minutes"] if "length_minutes" in row.keys() else 0,

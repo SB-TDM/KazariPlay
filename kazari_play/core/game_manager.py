@@ -377,8 +377,8 @@ class GameManager:
             return "fail", "游戏不存在"
         status, msg = metadata_matcher.match_single(
             game, force=force, cover_cb=cover_cb, cancel_event=cancel_event)
-        # 无论是否更新都写回数据库（vndb_id 已标记时也保存，避免重复匹配）
-        if status in ("match", "skip") and game.vndb_id:
+        # 无论是否更新都写回数据库（已标记匹配 ID 时也保存，避免重复匹配）
+        if status in ("match", "skip") and (game.vndb_id or game.bangumi_id):
             self.repository.update_game(game)
         return status, msg
 
@@ -407,9 +407,9 @@ class GameManager:
         matched, skipped, failed = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cover_cb=cover_cb
         )
-        # 统一写回数据库（已匹配或已标记 vndb_id 的）
+        # 统一写回数据库（已匹配或已标记匹配 ID 的）
         for game in games:
-            if game.vndb_id:
+            if game.vndb_id or game.bangumi_id:
                 try:
                     self.repository.update_game(game)
                 except Exception as e:
@@ -442,9 +442,9 @@ class GameManager:
         matched, skipped, failed = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cancel_event=cancel_event, cover_cb=cover_cb
         )
-        # 统一写回数据库（已匹配或已标记 vndb_id 的）
+        # 统一写回数据库（已匹配或已标记匹配 ID 的）
         for game in games:
-            if game.vndb_id:
+            if game.vndb_id or game.bangumi_id:
                 try:
                     self.repository.update_game(game)
                 except Exception as e:

@@ -30,6 +30,7 @@ class Game:
     launch_exe_path: str = ""    # 自定义启动 exe 路径（为空时回退到 exe_path）
     # VNDB 元数据字段（v2 新增，VNDB 匹配后填充）
     vndb_id: str = ""            # VNDB 作品 ID，如 "v1234"
+    bangumi_id: str = ""         # Bangumi 条目 ID（多源匹配记录，避免重复匹配）
     released: str = ""           # 发售日 ISO 格式（YYYY-MM-DD）
     developer: str = ""          # 开发商名称
     length_minutes: int = 0      # 预计游玩时长（分钟，VNDB length 字段转换）
@@ -61,6 +62,7 @@ class Game:
             "description": self.description or "",
             "launch_exe_path": self.launch_exe_path or "",
             "vndb_id": self.vndb_id or "",
+            "bangumi_id": self.bangumi_id or "",
             "released": self.released or "",
             "developer": self.developer or "",
             "length_minutes": self.length_minutes or 0,
@@ -97,6 +99,7 @@ class Game:
             description=data.get("description", "") or "",
             launch_exe_path=data.get("launch_exe_path", "") or "",
             vndb_id=data.get("vndb_id", "") or "",
+            bangumi_id=data.get("bangumi_id", "") or "",
             released=data.get("released", "") or "",
             developer=data.get("developer", "") or "",
             length_minutes=data.get("length_minutes", 0) or 0,

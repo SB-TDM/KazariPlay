@@ -49,6 +49,7 @@ class DataFlowTests(unittest.TestCase):
         exe.write_bytes(b"fixture")
         game = self.manager.scanner._check_file(str(folder), exe.name, [exe.name])
         game.vndb_id = "v123"
+        game.bangumi_id = "12345"
         game.released = "2020-01-01"
         game.length_minutes = 100
         game.launch_exe_path = str(folder / "custom.exe")
@@ -72,7 +73,7 @@ class DataFlowTests(unittest.TestCase):
         edited = self.manager.get_game(game.id)
         self.assertEqual(edited.title, payload["title"])
         self.assertEqual(edited.developer, payload["developer"])
-        for key in ("vndb_id", "released", "length_minutes", "launch_exe_path", "logo_path",
+        for key in ("vndb_id", "bangumi_id", "released", "length_minutes", "launch_exe_path", "logo_path",
                     "hook_code", "hook_code_custom", "translate_enabled", "clean_filter_override",
                     "play_time", "play_count", "is_favorite", "date_added"):
             self.assertEqual(getattr(edited, key), getattr(game, key), key)

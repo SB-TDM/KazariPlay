@@ -1412,6 +1412,14 @@ class WebBridge:
             except Exception as e:
                 logger.error("下载封面失败: %s", e)
                 cover_failed = True
+        # 记录候选来源 ID，后续批量匹配据此跳过已匹配项
+        sid = str(cand.get("source_id") or "").strip()
+        if changed and sid:
+            src = cand.get("source") or ""
+            if src == "vndb" and g.vndb_id != sid:
+                g.vndb_id = sid
+            elif src == "bangumi" and g.bangumi_id != sid:
+                g.bangumi_id = sid
         if changed:
             self.manager.update_game(g)
             self.reloadCover(game_id)   # 单游戏元数据应用，只定向重载该卡封面

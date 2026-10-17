@@ -71,7 +71,8 @@ class DatabaseManager:
                 length_minutes INTEGER DEFAULT 0,
                 hook_code TEXT DEFAULT '',
                 hook_code_custom TEXT DEFAULT '',
-                translate_enabled INTEGER DEFAULT 0
+                translate_enabled INTEGER DEFAULT 0,
+                bangumi_id TEXT DEFAULT ''
             )
         """)
 
@@ -139,6 +140,7 @@ class DatabaseManager:
         self._ensure_column(conn, "games", "translate_enabled", "INTEGER DEFAULT 0")
         # 每游戏清洗过滤器覆盖（V1.1；JSON 数组，空 = 引擎默认）
         self._ensure_column(conn, "games", "clean_filter_override", "TEXT DEFAULT ''")
+        self._ensure_column(conn, "games", "bangumi_id", "TEXT DEFAULT ''")
 
         # 收藏夹系统（V1.0 collections）：树形收藏夹 + 游戏多对多归类
         self._create_collections_tables(conn)

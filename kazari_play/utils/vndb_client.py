@@ -199,6 +199,9 @@ def _parse_vn_item(item: dict) -> dict:
 
     # 标题优先用 alttitle（日文原名），无则用 title（罗马音）
     title = item.get("alttitle") or item.get("title") or ""
+    alt_title = item.get("title") or ""
+    if alt_title == title:
+        alt_title = ""
 
     # 封面 URL
     image = item.get("image") or {}
@@ -223,6 +226,7 @@ def _parse_vn_item(item: dict) -> dict:
     return {
         "vndb_id": vndb_id,
         "title": title,
+        "alt_title": alt_title,
         "cover_url": cover_url,
         "rating": rating_5,
         "description": description,
