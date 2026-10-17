@@ -70,7 +70,9 @@ function _windowRange(listLen: number): { start: number; end: number } {
   const viewH = scroller ? scroller.clientHeight : 0;
   const startRow = Math.max(0, Math.floor(scrollTop / rowH) - _WIN_BUFFER_ROWS);
   const endRow = Math.min(totalRows, Math.ceil((scrollTop + viewH) / rowH) + _WIN_BUFFER_ROWS);
-  return { start: startRow * cols, end: Math.min(listLen, endRow * cols) };
+  const start = Math.min(listLen, startRow * cols);
+  const end = Math.max(start, Math.min(listLen, endRow * cols));
+  return { start, end };
 }
 
 // 更新 spacer 高度（网格总高 = 全量行数 × 行高，窗口上下各一段占位）
@@ -256,6 +258,13 @@ function renderCards(list: Game[]): void {
     const c = grid.querySelector(`.card[data-id="${id}"]`) as HTMLElement | null; if (c) oldMap[id] = c;
   });
 
+  // 焦点卡片若被窗口化移除，重渲染后恢复到邻近卡片（键盘滚动不丢焦点）
+  const activeEl = document.activeElement as HTMLElement | null;
+  const activeCard = activeEl && grid.contains(activeEl)
+    ? activeEl.closest('.card') as HTMLElement | null : null;
+  const activeId = activeCard?.dataset.id || '';
+  const activeIndex = activeId ? _renderedIds.indexOf(activeId) : -1;
+
   // 1) 移除已不在窗口中的卡片
   //    同时解除 IntersectionObserver 对它们的观察——被移除的卡片若未滚入视口，
   //    不 unobserve 会被 observer 永久持有（连带 DOM 节点与封面加载闭包），
@@ -287,6 +296,19 @@ function renderCards(list: Game[]): void {
     anchor = card;
   }
   _renderedIds = newIds;
+
+  if (activeId && !newIds.includes(activeId)) {
+    const idx = Math.min(Math.max(activeIndex, 0), Math.max(newIds.length - 1, 0));
+    const targetId = newIds[idx];
+    const target = targetId
+      ? grid.querySelector<HTMLElement>(`.card[data-id="${targetId}"]`) : null;
+    if (target) {
+      target.focus();
+    } else {
+      const scroller = document.querySelector('.scroll') as HTMLElement | null;
+      if (scroller) { scroller.tabIndex = -1; scroller.focus(); }
+    }
+  }
 
   if (!coverObserver) {
     coverObserver = new IntersectionObserver((entries) => {

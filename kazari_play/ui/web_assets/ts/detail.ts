@@ -22,6 +22,8 @@ function openDetail(g: Game): void {
   document.getElementById('dlgDesc')!.textContent = g.description || '暂无简介';
   updateFavBtn();
   document.getElementById('dlgMoreMenu')!.classList.remove('show');
+  const detailBody = document.querySelector('.detail-body') as HTMLElement | null;
+  if (detailBody) detailBody.scrollTop = 0;
   showSheet('detailOverlay');
   const gid = String(g.id);
   const request = ++detailRequest;

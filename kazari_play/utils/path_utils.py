@@ -9,8 +9,13 @@ Windows 优先用 winreg 读取注册表真实路径（用户可能改过桌面�
     自动降级到项目目录下的 data/ 子目录。
 """
 import os
+import re
 import shutil
 from typing import Optional
+
+
+# 游戏 id 来自数据库（MD5），截图目录只接受安全字符
+_GAME_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 # 缓存可写目录检测结果，避免每次都做写测试
@@ -65,7 +70,13 @@ def get_screenshots_dir() -> str:
 
 def get_game_screenshots_dir(game_id: str) -> str:
     """获取某游戏截图子目录（不存在时自动创建）"""
-    d = os.path.join(get_screenshots_dir(), game_id)
+    gid = str(game_id or "")
+    if not _GAME_ID_RE.fullmatch(gid):
+        raise ValueError("invalid game id")
+    root = os.path.abspath(get_screenshots_dir())
+    d = os.path.abspath(os.path.join(root, gid))
+    if os.path.commonpath([root, d]) != root:
+        raise ValueError("invalid screenshot path")
     os.makedirs(d, exist_ok=True)
     return d
 

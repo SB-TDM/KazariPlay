@@ -228,7 +228,7 @@ const META_FIELDS: MetaFieldDef[] = [
 // 勾选列表 + 全选切换（复用 core.makeCheckAll）
 const metaApplySel = makeCheckAll('#metaApplyList', '.meta-field-check', 'metaApplySelBtn');
 function closeMetaApply(): void {
-  document.getElementById('metaApplyOverlay')!.classList.remove('show');
+  closeSheet('metaApplyOverlay', true);
 }
 
 function openMetaApply(c: MetadataCandidate): void {
@@ -256,7 +256,9 @@ function openMetaApply(c: MetadataCandidate): void {
     `${c.title || ''} · ${c.source_name || ''}`;
   metaApplySel.boxes().forEach(cb => cb.addEventListener('change', metaApplySel.update));
   metaApplySel.update();
-  document.getElementById('metaApplyOverlay')!.classList.add('show');
+  const firstCheck = document.querySelector<HTMLElement>('#metaApplyList .meta-field-check');
+  if (firstCheck) firstCheck.setAttribute('data-autofocus', '');
+  showSheet('metaApplyOverlay');
 }
 
 document.getElementById('metaApplyClose')!.onclick = closeMetaApply;
@@ -318,7 +320,14 @@ document.getElementById('btnMetaSearch')!.onclick = () => {
   bridge.searchMetadata(kw, JSON.stringify(currentSearchTargets()), function (s: unknown) {
     if (request !== metaSearchRequest) return;   // 丢弃被后续搜索/切换超越的迟到结果
     let cands: MetadataCandidate[] = [];
-    try { cands = JSON.parse(String(s || '[]')) as MetadataCandidate[]; } catch (e) { }
+    try {
+      const data = JSON.parse(String(s || '[]'));
+      if (data && !Array.isArray(data) && (data as { __error?: string }).__error) {
+        toast(String((data as { __error?: string }).__error));
+        return;
+      }
+      cands = Array.isArray(data) ? data as MetadataCandidate[] : [];
+    } catch (e) { }
     renderCandidates(cands);
   });
 };

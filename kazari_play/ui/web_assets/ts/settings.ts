@@ -45,12 +45,12 @@
     stopHotkeyCapture(true);
     ($('setSave') as HTMLButtonElement).disabled = false;
     loadConfig();
-    $('settingsOverlay').classList.add('show');
     // 恢复上次停留的 tab（阶段 E：tab 记忆）
     let lastTab = 'general';
     try { lastTab = localStorage.getItem('settings_tab') || 'general'; } catch (e) { }
     if (!document.getElementById('set-' + lastTab)) lastTab = 'general';
     document.querySelectorAll<HTMLElement>('#setNav .nav-item').forEach((x) => {
+      x.removeAttribute('data-autofocus');
       const on = x.dataset.tab === lastTab;
       x.classList.toggle('active', on);
       x.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -58,6 +58,9 @@
     });
     document.querySelectorAll<HTMLElement>('#settingsOverlay .page').forEach((p) =>
       p.style.display = p.id === 'set-' + lastTab ? 'block' : 'none');
+    const activeTab = document.querySelector<HTMLElement>('#setNav .nav-item.active');
+    if (activeTab) activeTab.setAttribute('data-autofocus', '');
+    showSheet('settingsOverlay');
   }
 
   function close(): void {
@@ -302,9 +305,17 @@
     $('setSave').onclick = save;
     ($('setReset')).onclick = function () {
       if (!bridge) return;
-      bridge.resetConfig();
-      loadConfig();
-      toast('已恢复默认设置');
+      showConfirmDialog({
+        title: '恢复默认设置',
+        message: '将重置主题、热键、封面尺寸、日志级别与元数据源等设置，是否继续？',
+        danger: true,
+        okText: '恢复默认',
+        cb: function () {
+          bridge.resetConfig();
+          loadConfig();
+          toast('已恢复默认设置');
+        },
+      });
     };
     ['setHkHide', 'setHkFull', 'setHkMute', 'setHkShot'].forEach((id) => bindHotkey($(id) as HTMLInputElement));
   });

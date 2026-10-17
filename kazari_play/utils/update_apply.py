@@ -239,6 +239,10 @@ def _link_or_copy(src: str, dst: str) -> None:
         shutil.copy2(src, dst)
 
 
+def _backup_complete_path(backup_root: str) -> str:
+    return os.path.join(backup_root, ".backup_complete")
+
+
 def _backup_program(target: str, backup_root: str) -> None:
     """把 target 中现有的白名单程序条目备份到 backup_root（硬链接优先，失败回退复制）
 
@@ -257,6 +261,8 @@ def _backup_program(target: str, backup_root: str) -> None:
                 os.makedirs(dst_root, exist_ok=True)
                 for f in files:
                     _link_or_copy(os.path.join(root, f), os.path.join(dst_root, f))
+    with open(_backup_complete_path(backup_root), "w", encoding="utf-8") as f:
+        f.write("ok")
 
 
 # ---------- 替换 / 回滚 ----------
@@ -490,10 +496,11 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
                 "phase": STATE_APPLYING, "target": target,
                 "new_version": _read_build_version(source), "old_version": _read_build_version(target),
                 "backup_program": old_dir, "backup_data": data_backup,
+                "backup_program_complete": False,
                 "attempts": 0, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
             }
             # 先落盘状态（硬链接备份不移动目标文件）：中断后可由启动自愈恢复，
-            # 也避免"备份完成但状态未写"留下无人清理的 _old。
+            # 也避免备份完成但状态未写留下无人清理的 _old。
             _write_state(data_dir, marker)
             t1 = time.monotonic()
             _backup_program(target, old_dir)
@@ -736,8 +743,10 @@ def startup_self_heal(data_dir: str,
     cleanup_stale_new_files(target)
 
     if phase == STATE_APPLYING:
-        # 助手中断（替换中途被杀/断电）：交由回滚助手恢复
-        if old_dir and os.path.isdir(old_dir) and target:
+        # 助手中断（替换中途被杀/断电）：只有完整备份才允许回滚
+        if (st.get("backup_program_complete")
+                or (old_dir and os.path.isfile(_backup_complete_path(old_dir)))) \
+                and old_dir and os.path.isdir(old_dir) and target:
             if spawn(target, data_dir):
                 logger.warning("检测到中断的更新，已拉起回滚助手")
                 return None, True
@@ -745,7 +754,7 @@ def startup_self_heal(data_dir: str,
             _write_state_best_effort(data_dir, st)
             return "上次更新被中断，自动恢复未能启动；请重新启动应用重试", False
         _delete_state(data_dir)
-        return "上次更新未开始，已取消", False
+        return "上次更新未开始（备份未完成），已取消", False
 
     if phase == STATE_VERIFY:
         attempts = int(st.get("attempts") or 0) + 1

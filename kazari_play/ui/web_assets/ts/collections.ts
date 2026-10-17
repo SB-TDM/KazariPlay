@@ -4,7 +4,7 @@
 //       showInputDialog/showConfirmDialog/showContextMenu）
 // 定义：renderCollectionTree / renderCollectionGroup / renderCollectionCategory /
 //       toggleExpand / bindCollectionItems / findCollectionNode / selectCollection /
-//       findParentGroupId / clearCollectionFilter / showCollectionCtx / newCollection /
+//       findParentGroupId / clearCollectionFilter / showCollectionCtx /
 //       renameCollection / delCollection / openCollectionManager / renderGameCollections
 //       + 收藏夹事件绑定
 // 被依赖：games.ts（refreshAll 调用 renderCollectionTree）、cards.ts（openCardMenu）、
@@ -87,21 +87,34 @@ function findCollectionNode(id: number): CollectionTreeNode | null {
   return null;
 }
 
+interface FlatCollectionNode {
+  node: CollectionTreeNode;
+  label: string;
+}
+
+function flattenCollectionTree(): FlatCollectionNode[] {
+  const items: FlatCollectionNode[] = [];
+  App.ui.state.collectionTree.forEach(g => {
+    items.push({ node: g, label: g.name });
+    (g.children || []).forEach(c => items.push({ node: c, label: g.name + ' / ' + c.name }));
+  });
+  return items;
+}
+
 // 收藏夹选择：分组显示其全部（含子分类），分类仅显示自身
 function selectCollection(id: number, node: CollectionTreeNode | null): void {
   const isGroup = node && node.parent_id == null;
   App.ui.state.collectionId = id;
   App.ui.state.collectionGroupId = isGroup ? id : (node ? findParentGroupId(id) : null);
-  App.ui.state.nav = 'collection';
-  // 高亮互斥：清除「全部作品 / 收藏」等导航项高亮，
-  // 收藏夹入口的 active 表示抽屉展开状态，由 setCollectionDrawer 维护，不在此清除
-  document.querySelectorAll('#sidebar .side-item[data-nav]').forEach(x => x.classList.remove('active'));
+  App.ui.state.nav = '全部作品';
+  // 收藏夹选项是「全部作品」的子视图，侧边栏保持「全部作品」选中
+  setActiveSideNav('全部作品');
   // 选子分类时确保其父分组展开
   if (node && !isGroup) {
     const pg = findParentGroupId(id);
     if (pg) App.ui.state.openGroupId = pg;
   }
-  renderAll();
+  renderAll(true);
   renderCollectionTree();
 }
 
@@ -115,12 +128,11 @@ function findParentGroupId(id: number): number | null {
 // 清除收藏夹筛选，回到「全部作品」
 function clearCollectionFilter(): void {
   App.ui.state.collectionId = null; App.ui.state.collectionGroupId = null; App.ui.state.openGroupId = null;
-  App.ui.state.nav = '全部作品'; App.ui.state.kw = '';
+  App.ui.state.nav = '全部作品';
+  resetSearchInput();
   renderCollectionTree();
-  document.querySelectorAll<HTMLElement>('#sidebar .side-item').forEach(x => {
-    x.classList.toggle('active', x.dataset.nav === '全部作品');
-  });
-  renderAll();
+  setActiveSideNav('全部作品');
+  renderAll(true);
 }
 
 // 收藏夹右键菜单（复用通用右键菜单，带图标）
@@ -130,16 +142,6 @@ function showCollectionCtx(x: number, y: number, node: CollectionTreeNode): void
     { icon: ICON.edit, text: '重命名', action: () => renameCollection(node) },
     { icon: ICON.trash, text: '删除', action: () => delCollection(node), danger: true },
   ], x, y, 180);
-}
-
-function newCollection(parentId: number): void {
-  showInputDialog({
-    title: parentId ? '新建分类' : '新建分组',
-    label: parentId ? '分类名称' : '分组名称',
-    cb: function (name) {
-      if (name && name.trim()) { bridge.createCollection(name.trim(), parentId || 0, '', ''); toast('已创建'); }
-    }
-  });
 }
 
 function renameCollection(node: CollectionTreeNode): void {
@@ -195,11 +197,9 @@ function renderGameCollections(): void {
   const t = document.getElementById('gameCollectionList')!;
   t.innerHTML = '';
   // 全部分组 + 子分类（带完整路径），均可勾选
-  const all: { id: number; label: string; color?: string; icon?: string }[] = [];
-  App.ui.state.collectionTree.forEach(g => {
-    all.push({ id: g.id, label: g.name, color: g.color, icon: g.icon });
-    (g.children || []).forEach(c => all.push({ id: c.id, label: (g.name + ' / ' + c.name), color: c.color, icon: c.icon }));
-  });
+  const all = flattenCollectionTree().map(it => ({
+    id: it.node.id, label: it.label, color: it.node.color, icon: it.node.icon,
+  }));
   all.forEach(col => {
     const selected = curIds.has(col.id);
     const c = document.createElement('span');

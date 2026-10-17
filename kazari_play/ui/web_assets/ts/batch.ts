@@ -22,20 +22,18 @@ function updateBatchBar(): void {
 
 // 批量选择收藏夹（仅子分类可选，分组不直接接受批量归属）
 function collectionPickerItems(): PickerItem[] {
-  const items: PickerItem[] = [];
-  App.ui.state.collectionTree.forEach(g => {
-    (g.children || []).forEach(c => {
-      items.push({ label: (g.name + ' / ' + c.name), value: c.id });
-    });
-  });
-  return items;
+  return flattenCollectionTree()
+    .filter(it => it.node.parent_id != null)
+    .map(it => ({ label: it.label, value: it.node.id }));
 }
 
-// 批量添加 / 移除 / 移动收藏夹
+// 批量加入 / 移出 / 移动收藏夹
 function batchPickCollection(mode: 'add' | 'remove' | 'move'): void {
   const ids = [...App.ui.state.selected];
   const items = collectionPickerItems();
-  openPicker(mode === 'add' ? '批量添加收藏夹' : (mode === 'move' ? '移动到收藏夹' : '批量移除收藏夹'),
+  const menu = document.getElementById('batchCollectionMenu');
+  setMenuOpen(menu, document.getElementById('btnBCollection'), false);
+  openPicker(mode === 'add' ? '加入收藏夹' : (mode === 'move' ? '移动到收藏夹' : '移出收藏夹'),
     items, function (cid) {
       if (mode === 'add') { bridge.addGamesToCollection(JSON.stringify(ids), cid); toast('已添加到收藏夹'); }
       else if (mode === 'remove') { bridge.removeGamesFromCollection(JSON.stringify(ids), cid); toast('已移出收藏夹'); }

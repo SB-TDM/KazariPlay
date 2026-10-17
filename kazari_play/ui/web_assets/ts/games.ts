@@ -158,13 +158,14 @@ function syncCurrentGame(): void {
 }
 
 // ---------- 筛选与整体渲染 ----------
-function renderAll(): void {
-  // 主页视图：切类并渲染主页板块，跳过列表计算与渲染
+function renderAll(resetScroll: boolean = false): void {
+  // 主页视图只切换并渲染主页区块，不处理列表/网格渲染
   const onHome = updateHomeView();
   if (!onHome) {
-    // 渲染前后保持滚动位置，避免内容高度变化（筛选/排序/数据刷新）导致视口跳动
+    // 筛选/排序/导航切换回到顶部；后台数据刷新保留当前位置
     const scroller = document.querySelector('.scroll');
-    const keepTop = scroller ? scroller.scrollTop : 0;
+    if (scroller && resetScroll) scroller.scrollTop = 0;
+    const keepTop = !resetScroll && scroller ? scroller.scrollTop : 0;
     const list = filterGames(App.data.games);
     updateNavInfo(list);
     updateCollectionsEntry();   // 收藏夹开关只在「全部作品」视图显示
@@ -193,7 +194,7 @@ function filterGames(games: Game[], ignoreKw?: boolean): Game[] {
       return !isNaN(t) && t >= weekAgo;
     });
   }
-  else if (App.ui.state.nav === '我的收藏') list = list.filter(g => g.fav);
+  else if (App.ui.state.nav === '我的最爱') list = list.filter(g => g.fav);
   if (App.ui.state.collectionId !== null) {
     // 分组选中：显示该分组 + 全部子分类内的游戏；分类选中：仅显示自身
     let ids = [App.ui.state.collectionId];
@@ -207,7 +208,7 @@ function filterGames(games: Game[], ignoreKw?: boolean): Game[] {
     const k = App.ui.state.kw.toLowerCase();
     list = list.filter(g => g.title.toLowerCase().includes(k)
       || (g.dev || '').toLowerCase().includes(k)
-      || (g.tags || []).some(t => t.includes(k)));
+      || (g.tags || []).some(t => t.toLowerCase().includes(k)));
   }
   if (App.ui.state.sort === '名称') list.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
   else if (App.ui.state.sort === '评分') list.sort((a, b) => b.rating - a.rating);
@@ -222,9 +223,7 @@ function updateNavInfo(list: Game[]): void {
   if (!nameEl || !cntEl) return;
   let name = App.ui.state.nav || '全部作品';
   if (App.ui.state.collectionId !== null) {
-    const all: CollectionTreeNode[] = [];
-    App.ui.state.collectionTree.forEach(g => { all.push(g); (g.children || []).forEach(c => all.push(c)); });
-    const c = all.find(x => x.id === App.ui.state.collectionId);
+    const c = findCollectionNode(App.ui.state.collectionId);
     if (c) name = c.name;
   }
   nameEl.textContent = name;
@@ -291,17 +290,17 @@ function renderEmpty(list: Game[]): void {
   const show = list.length === 0;
   e.classList.toggle('show', show);
   if (!show) return;
-  const favEmpty = App.ui.state.nav === '我的收藏';
+  const favEmpty = App.ui.state.nav === '我的最爱';
   const filterEmpty = App.ui.state.collectionId !== null || !!App.ui.state.kw;
   if (favEmpty) {
-    document.getElementById('emptyTitle')!.textContent = '还没有收藏的游戏';
-    document.getElementById('emptySub')!.textContent = '在卡片详情里点击「收藏」，游戏就会出现在这里';
+    document.getElementById('emptyTitle')!.textContent = '还没有最爱的游戏';
+    document.getElementById('emptySub')!.textContent = '在卡片详情里点击「最爱」，游戏就会出现在这里';
     document.getElementById('btnShowAll')!.style.display = 'inline-block';
     document.getElementById('btnScan')!.style.display = 'none';
   } else if (filterEmpty) {
     document.getElementById('emptyTitle')!.textContent = '没有符合条件的结果';
     // 搜索空结果给可操作建议（阶段 G）
-  if (App.ui.state.kw) {
+    if (App.ui.state.kw) {
       document.getElementById('emptySub')!.textContent = '没有找到「' + App.ui.state.kw + '」——检查关键词拼写、试试开发商名，或清除搜索条件';
     } else {
       document.getElementById('emptySub')!.textContent = '当前收藏夹还没有游戏，试试清除筛选条件';

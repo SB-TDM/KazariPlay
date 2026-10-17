@@ -65,6 +65,7 @@ def _setup_handlers(logger: logging.Logger):
         pass
 
     for log_path in log_paths_to_try:
+        file_handler = None
         try:
             # 创建 handler 后立即写一行测试日志，验证可写
             file_handler = logging.FileHandler(log_path, encoding="utf-8")
@@ -75,7 +76,7 @@ def _setup_handlers(logger: logging.Logger):
             return  # 成功则不再尝试
         except Exception:
             # 移除失败的 handler
-            if file_handler in logger.handlers:
+            if file_handler is not None and file_handler in logger.handlers:
                 logger.removeHandler(file_handler)
             continue
 

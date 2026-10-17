@@ -66,7 +66,7 @@ interface AppDataShape {
 
 /** 全局 UI 状态命名空间（App.ui.state） */
 interface AppUiStateShape {
-  /** 导航：主页 / 全部作品 / 继续游玩 / 我的收藏 / collection */
+  /** 导航：主页 / 全部作品 / 继续游玩 / 我的最爱 */
   nav: string;
   /** 搜索关键词 */
   kw: string;
@@ -110,7 +110,7 @@ var App: AppShape = {
   ui: {
     // 全局 UI 状态（导航 / 搜索 / 排序 / 批量选择 / 收藏夹筛选）
     state: {
-      nav: '主页',              // 导航：主页 / 全部作品 / 继续游玩 / 我的收藏 / collection
+      nav: '主页',              // 导航：主页 / 全部作品 / 继续游玩 / 我的最爱
       kw: '',                   // 搜索关键词
       sort: '时间',             // 排序：时间 / 名称 / 评分
       batch: false,             // 批量选择模式

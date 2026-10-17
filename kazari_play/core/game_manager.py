@@ -388,7 +388,7 @@ class GameManager:
         # 无论是否更新都写回数据库（已标记匹配 ID 时也保存，避免重复匹配）
         if status in ("match", "skip") and (game.vndb_id or game.bangumi_id):
             self._preserve_cover_path(game)
-            self.repository.update_game(game)
+            self.repository.update_game_metadata(game)
         return status, msg
 
     def match_all_vndb_metadata(
@@ -421,7 +421,7 @@ class GameManager:
             if game.vndb_id or game.bangumi_id:
                 try:
                     self._preserve_cover_path(game)
-                    self.repository.update_game(game)
+                    self.repository.update_game_metadata(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
         return matched, skipped, failed
@@ -457,7 +457,7 @@ class GameManager:
             if game.vndb_id or game.bangumi_id:
                 try:
                     self._preserve_cover_path(game)
-                    self.repository.update_game(game)
+                    self.repository.update_game_metadata(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
         return matched, skipped, failed

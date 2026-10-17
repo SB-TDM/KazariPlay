@@ -18,6 +18,9 @@
     transform:translateX(-8px);opacity:0;visibility:hidden;
     transition:opacity .28s,transform .28s,visibility .28s;}
   .collection-drawer.show{transform:none;opacity:1;visibility:visible;}
+  /* 弹窗打开时关闭抽屉毛玻璃，避免叠加动画重绘掉帧 */
+  body:has(.overlay.show) .collection-drawer,
+  body:has(.overlay.hiding) .collection-drawer{backdrop-filter:none;}
   :root[data-theme="dark"] .collection-scrim{background:rgba(11,8,16,.55);}
   :root[data-theme="dark"] .collection-drawer{background:rgba(42,33,54,.9);}
   .cd-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-soft);flex:none;}

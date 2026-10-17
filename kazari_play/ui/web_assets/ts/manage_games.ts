@@ -11,12 +11,27 @@ let manageGamesId: number | null = null;        // 当前管理的收藏夹 id
 let manageGamesIsGroup = false;  // 是否分组（分组时聚合子分类保存）
 let manageGamesSel = new Set<string>();  // 已勾选游戏 id
 let manageGamesData: Game[] = [];        // 全部游戏（title/id 缓存）
+let manageGamesRequest = 0;
+let manageGamesLoading = false;
+
+function setManageGamesLoading(loading: boolean): void {
+  manageGamesLoading = loading;
+  ['manageGamesSave', 'manageGamesSelAll', 'manageGamesClear'].forEach(id => {
+    const el = document.getElementById(id) as HTMLButtonElement | null;
+    if (el) el.disabled = loading;
+  });
+}
 
 function openManageGames(node: CollectionTreeNode): void {
+  const request = ++manageGamesRequest;
   manageGamesId = node.id;
   manageGamesIsGroup = node.parent_id == null;
-  document.getElementById('manageGamesTitle')!.textContent = '管理游戏：' + node.name;
+  manageGamesSel = new Set<string>();
+  manageGamesData = App.data.games.slice();
+  document.getElementById('manageGamesTitle')!.textContent = '管理游戏 · ' + node.name;
   (document.getElementById('manageGamesKw') as HTMLInputElement).value = '';
+  setManageGamesLoading(true);
+  renderManageGames();
   showSheet('manageGamesOverlay');
   // 分组：聚合其全部子分类的游戏；分类：仅自身
   const idsToFetch = manageGamesIsGroup
@@ -24,24 +39,38 @@ function openManageGames(node: CollectionTreeNode): void {
     : [node.id];
   const allSel = new Set<string>();
   let pending = idsToFetch.length;
-  if (!pending) { manageGamesSel = new Set(); manageGamesData = App.data.games.slice(); renderManageGames(); return; }
+  const finish = (): void => {
+    if (request !== manageGamesRequest) return;
+    manageGamesSel = allSel;
+    setManageGamesLoading(false);
+    renderManageGames();
+  };
+  if (!pending) { finish(); return; }
   idsToFetch.forEach(cid => {
-    bridge.getGamesInCollection(cid, function (idsStr: unknown) {
+    bridge.getGamesInCollection(cid, function (idsStr: unknown, failed?: boolean) {
+      if (request !== manageGamesRequest) return;
+      if (failed) {
+        toast('读取收藏夹失败，请重试');
+        manageGamesRequest++;
+        setManageGamesLoading(false);
+        closeSheet('manageGamesOverlay', true);
+        return;
+      }
       let ids: string[] = [];
       try { ids = JSON.parse(String(idsStr || '[]')) as string[]; } catch (e) { }
       ids.forEach(i => allSel.add(i));
-      if (--pending === 0) {
-        manageGamesSel = allSel;
-        manageGamesData = App.data.games.slice();
-        renderManageGames();
-      }
+      if (--pending === 0) finish();
     });
   });
 }
 
-function renderManageGames(): void {
+function filteredManageGames(): Game[] {
   const kw = (document.getElementById('manageGamesKw') as HTMLInputElement).value.trim().toLowerCase();
-  const list = manageGamesData.filter(g => !kw || g.title.toLowerCase().includes(kw));
+  return manageGamesData.filter(g => !kw || g.title.toLowerCase().includes(kw));
+}
+
+function renderManageGames(): void {
+  const list = filteredManageGames();
   const t = document.getElementById('manageGamesList')!;
   t.innerHTML = '';
   if (!list.length) { t.innerHTML = '<div class="cand-empty">没有符合条件的游戏</div>'; }
@@ -80,7 +109,7 @@ function updateManageCount(): void {
 }
 
 function saveManageGames(): void {
-  if (manageGamesId == null) return;
+  if (manageGamesId == null || manageGamesLoading) return;
   const ids = [...manageGamesSel];
   if (manageGamesIsGroup) {
     // 分组：整体替换分组本身 + 每个子分类（保证分组筛选含全部勾选）
@@ -95,14 +124,18 @@ function saveManageGames(): void {
   closeSheet('manageGamesOverlay');
 }
 
-document.getElementById('manageGamesClose')!.onclick = () => closeSheet('manageGamesOverlay');
+document.getElementById('manageGamesClose')!.onclick = () => {
+  manageGamesRequest++;
+  setManageGamesLoading(false);
+  closeSheet('manageGamesOverlay');
+};
 let mgKwTimer: ReturnType<typeof setTimeout> | null = null;
 document.getElementById('manageGamesKw')!.addEventListener('input', () => {
   clearTimeout(mgKwTimer as ReturnType<typeof setTimeout>);
   mgKwTimer = setTimeout(renderManageGames, 200);   // 防抖：连续输入只过滤一次
 });
 document.getElementById('manageGamesSelAll')!.onclick = () => {
-  manageGamesData.forEach(g => manageGamesSel.add(g.id));
+  filteredManageGames().forEach(g => manageGamesSel.add(g.id));
   renderManageGames();
 };
 document.getElementById('manageGamesClear')!.onclick = () => {

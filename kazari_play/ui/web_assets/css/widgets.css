@@ -30,13 +30,13 @@
   body.batch .batchbar{display:flex;opacity:1;transform:translate(-50%,0);}
   .batchbar .count{font-size:13px;color:var(--pink-deep);font-weight:700;padding-right:10px;
                    border-right:1px solid #f4d8e0;margin-right:4px;min-width:84px;}
-  .batchbar button{height:30px;padding:0 14px;background:transparent;color:var(--text-sub);
+  .batchbar > button, .batchbar .batch-collection > button{height:30px;padding:0 14px;background:transparent;color:var(--text-sub);
                    border:1.5px solid #f3dde5;border-radius:50px;font-size:13px;font-family:var(--font);
                    cursor:pointer;transition:transform .22s var(--bounce),background .2s,color .2s,border-color .2s;white-space:nowrap;}
-  .batchbar button:hover{transform:translateY(-2px);background:var(--bg-hover);color:var(--pink-deep);
+  .batchbar > button:hover, .batchbar .batch-collection > button:hover{transform:translateY(-2px);background:var(--bg-hover);color:var(--pink-deep);
                          border-color:var(--pink);}
-  .batchbar button:disabled{color:var(--text-disabled);cursor:default;}
-  .batchbar button:disabled:hover{transform:none;background:transparent;border-color:#f3dde5;}
+  .batchbar > button:disabled, .batchbar .batch-collection > button:disabled{color:var(--text-disabled);cursor:default;}
+  .batchbar > button:disabled:hover, .batchbar .batch-collection > button:disabled:hover{transform:none;background:transparent;border-color:#f3dde5;}
   .batchbar .danger:hover{border-color:#ff8b98;color:#ff6f81;background:#fff0f2;}
 
   /* Toast */
@@ -69,3 +69,14 @@
   .batch-progress .bp-cancel{margin-top:8px;padding:4px 14px;border-radius:50px;cursor:pointer;
     border:1.5px solid var(--border-soft);background:var(--bg-hover);color:var(--text-sub);font-size:12px;}
   .batch-progress .bp-cancel:hover{border-color:var(--pink);color:var(--pink);}
+
+  /* 批量收藏夹二级菜单 */
+  .batch-collection{position:relative;display:flex;}
+  .batch-collection-menu{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+    display:none;min-width:160px;padding:6px;background:var(--bg-panel);
+    border:1.5px solid var(--border-soft);border-radius:var(--radius-md);
+    box-shadow:0 12px 28px var(--glow-med);z-index:40;}
+  .batch-collection-menu.show{display:block;}
+  .batch-collection-menu button{display:block;width:100%;text-align:left;border:none;background:transparent;
+    height:32px;padding:0 12px;border-radius:8px;color:var(--text);font-size:13px;font-family:var(--font);cursor:pointer;}
+  .batch-collection-menu button:hover{background:var(--bg-hover);color:var(--pink-deep);}

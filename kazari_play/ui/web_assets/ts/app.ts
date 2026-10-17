@@ -56,13 +56,14 @@ function init(): void {
 // ---------- 筛选下拉 ----------
 function bindFilterMenu(): void {
   const m = document.getElementById('filterMenu')!;
+  const btn = document.getElementById('filterBtn')!;
   m.querySelectorAll<HTMLElement>('.item').forEach(it => {
     it.onclick = () => {
       App.ui.state.sort = it.dataset.sort!;
-      m.classList.remove('show');
+      setMenuOpen(m, btn, false);
       document.querySelectorAll<HTMLElement>('#filterMenu .item').forEach(x => x.classList.remove('on'));
       it.classList.add('on');
-      renderAll();
+      renderAll(true);
       updateSortLabel();
     };
   });
@@ -77,16 +78,31 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null;
   searchTimer = setTimeout(() => {
     if (App.ui.state.kw === kw) return;
     App.ui.state.kw = kw;
-    renderAll();
+    renderAll(true);
   }, 200);
 });
+function resetSearchInput(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+  const input = document.getElementById('searchInput') as HTMLInputElement | null;
+  if (input) input.value = '';
+  App.ui.state.kw = '';
+}
 // 筛选按钮 + 下拉
 document.getElementById('filterBtn')!.onclick = function (e: MouseEvent) {
   e.stopPropagation();
-  document.getElementById('filterMenu')!.classList.toggle('show');
+  const menu = document.getElementById('filterMenu')!;
+  setMenuOpen(menu, e.currentTarget as HTMLElement, !menu.classList.contains('show'));
 };
 bindFilterMenu();
 updateSortLabel();
+
+function setActiveSideNav(name: string): void {
+  document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]')
+    .forEach(x => x.classList.toggle('active', x.dataset.nav === name));
+}
 
 // 侧边栏导航（全部作品 / 我的收藏；收藏夹入口在下方浮层）
 document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(it => {
@@ -94,11 +110,10 @@ document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(
     App.ui.state.nav = it.dataset.nav!;
     App.ui.state.collectionId = null;
     // 只清除导航项高亮：收藏夹入口的 active 表示抽屉展开，由 setCollectionDrawer 维护
-    document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(x => x.classList.remove('active'));
+    setActiveSideNav(it.dataset.nav!);
     document.querySelectorAll<HTMLElement>('#collectionTree .collection-item').forEach(x => x.classList.remove('active'));
     document.querySelectorAll<HTMLElement>('#collectionTree .collection-group-header').forEach(x => x.classList.remove('active'));
-    it.classList.add('active');
-    renderAll();
+    renderAll(true);
   };
 });
 
@@ -141,7 +156,7 @@ collectionScrim.onclick = () => setCollectionDrawer(false);
 
 // 收藏夹开关只在「全部作品」视图存在；其它视图隐藏（抽屉若已打开保持原状，可经 Esc/遮罩收起）
 function updateCollectionsEntry(): void {
-  const isAllView = App.ui.state.nav === '全部作品' && App.ui.state.collectionId === null;
+  const isAllView = App.ui.state.nav === '全部作品';
   btnCollections.hidden = !isAllView;
 }
 
@@ -157,16 +172,27 @@ document.getElementById('btnScan')!.onclick = () => bridge.scanFolder();
 document.getElementById('btnShowAll')!.onclick = () => clearCollectionFilter();
 document.getElementById('fab')!.onclick = function (e: MouseEvent) {
   e.stopPropagation();
-  document.getElementById('fabMenu')!.classList.toggle('show');
+  const menu = document.getElementById('fabMenu')!;
+  setMenuOpen(menu, e.currentTarget as HTMLElement, !menu.classList.contains('show'));
 };
+
+const btnBCollection = document.getElementById('btnBCollection');
+const batchCollectionMenu = document.getElementById('batchCollectionMenu');
+if (btnBCollection && batchCollectionMenu) {
+  btnBCollection.onclick = function (e: MouseEvent) {
+    e.stopPropagation();
+    setMenuOpen(batchCollectionMenu, btnBCollection, !batchCollectionMenu.classList.contains('show'));
+  };
+}
 document.getElementById('fabRefresh')!.onclick = () => { refreshAll(true, () => { replayCoverFade(); toast('已刷新'); }); };
-document.getElementById('fabAdd')!.onclick = () => { document.getElementById('fabMenu')!.classList.remove('show'); openAdd(); };
-document.getElementById('fabScan')!.onclick = () => { document.getElementById('fabMenu')!.classList.remove('show'); bridge.scanFolder(); };
+document.getElementById('fabAdd')!.onclick = () => { setMenuOpen(document.getElementById('fabMenu'), document.getElementById('fab'), false); openAdd(); };
+document.getElementById('fabScan')!.onclick = () => { setMenuOpen(document.getElementById('fabMenu'), document.getElementById('fab'), false); bridge.scanFolder(); };
 
 // 全局点击：收起所有浮层
 document.addEventListener('click', () => {
-  document.getElementById('filterMenu')!.classList.remove('show');
-  document.getElementById('fabMenu')!.classList.remove('show');
+  setMenuOpen(document.getElementById('filterMenu'), document.getElementById('filterBtn'), false);
+  setMenuOpen(document.getElementById('fabMenu'), document.getElementById('fab'), false);
+  setMenuOpen(batchCollectionMenu, btnBCollection, false);
   document.getElementById('dlgMoreMenu')!.classList.remove('show');
   hideShotMenu();
 });
@@ -177,6 +203,20 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   hideShotMenu();
   if (closeTopSheet()) return;
+  const filterMenu = document.getElementById('filterMenu')!;
+  const fabMenu = document.getElementById('fabMenu')!;
+  if (filterMenu.classList.contains('show')) {
+    setMenuOpen(filterMenu, document.getElementById('filterBtn'), false);
+    return;
+  }
+  if (fabMenu.classList.contains('show')) {
+    setMenuOpen(fabMenu, document.getElementById('fab'), false);
+    return;
+  }
+  if (batchCollectionMenu && batchCollectionMenu.classList.contains('show')) {
+    setMenuOpen(batchCollectionMenu, btnBCollection, false);
+    return;
+  }
   if (collectionDrawer.classList.contains('show')) { setCollectionDrawer(false); return; }
   if (App.ui.state.batch) {
     App.ui.state.batch = false;

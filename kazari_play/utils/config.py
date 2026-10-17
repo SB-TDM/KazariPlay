@@ -10,8 +10,11 @@
     cfg.set("theme", "light")
     cfg.save()
 """
+import copy
 import json
 import os
+import tempfile
+import threading
 from typing import Any, Dict, Optional
 
 from utils.path_utils import get_default_config_path
@@ -62,12 +65,12 @@ class Config:
     @staticmethod
     def _deep_merge(base: dict, extra: dict) -> dict:
         """递归合并：补充默认字段并保留旧配置中的扩展数据"""
-        out = dict(base)
+        out = copy.deepcopy(base)
         for k, v in extra.items():
             if isinstance(v, dict) and isinstance(out.get(k), dict):
                 out[k] = Config._deep_merge(out[k], v)
             else:
-                out[k] = v
+                out[k] = copy.deepcopy(v)
         return out
 
     def __init__(self, config_path: Optional[str] = None):
@@ -76,32 +79,50 @@ class Config:
             return
         self._path = config_path or get_default_config_path()
         self._data: Dict[str, Any] = {}
+        self._lock = threading.RLock()
         self._loaded = True
         self.load()
 
     def load(self) -> None:
         """从磁盘加载配置；文件不存在时写入默认配置"""
-        if os.path.exists(self._path):
-            try:
-                with open(self._path, "r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                # 深合并默认值：旧配置缺失的嵌套新字段自动补默认
-                self._data = self._deep_merge(DEFAULT_CONFIG, loaded)
-            except (json.JSONDecodeError, OSError):
-                self._data = DEFAULT_CONFIG.copy()
-        else:
-            self._data = DEFAULT_CONFIG.copy()
-            self.save()  # 首次创建
+        with self._lock:
+            if os.path.exists(self._path):
+                try:
+                    with open(self._path, "r", encoding="utf-8") as f:
+                        loaded = json.load(f)
+                    if not isinstance(loaded, dict):
+                        raise TypeError("config root must be an object")
+                    # 深合并默认值：旧配置缺失的嵌套新字段自动补默认
+                    self._data = self._deep_merge(DEFAULT_CONFIG, loaded)
+                except (json.JSONDecodeError, OSError, UnicodeDecodeError, TypeError):
+                    self._data = copy.deepcopy(DEFAULT_CONFIG)
+            else:
+                self._data = copy.deepcopy(DEFAULT_CONFIG)
+                self.save()  # 首次创建
 
     def save(self) -> bool:
-        """保存配置到磁盘"""
-        try:
-            os.makedirs(os.path.dirname(self._path), exist_ok=True)
-            with open(self._path, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, ensure_ascii=False, indent=4)
-            return True
-        except OSError:
-            return False
+        """原子保存配置到磁盘"""
+        with self._lock:
+            tmp_path = ""
+            try:
+                parent = os.path.dirname(self._path)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+                fd, tmp_path = tempfile.mkstemp(
+                    prefix=".config-", suffix=".tmp", dir=parent or ".")
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, ensure_ascii=False, indent=4)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp_path, self._path)
+                return True
+            except (OSError, TypeError, ValueError):
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+                return False
 
     def get(self, key: str, default: Any = None) -> Any:
         """读取配置项，支持嵌套键（如 'hotkeys.emergency_hide'）"""
@@ -116,29 +137,32 @@ class Config:
 
     def set(self, key: str, value: Any) -> None:
         """写入配置项，支持嵌套键"""
-        parts = key.split(".")
-        cur = self._data
-        for p in parts[:-1]:
-            if p not in cur or not isinstance(cur[p], dict):
-                cur[p] = {}
-            cur = cur[p]
-        cur[parts[-1]] = value
+        with self._lock:
+            parts = key.split(".")
+            cur = self._data
+            for p in parts[:-1]:
+                if p not in cur or not isinstance(cur[p], dict):
+                    cur[p] = {}
+                cur = cur[p]
+            cur[parts[-1]] = value
 
     def get_all(self) -> Dict[str, Any]:
         """返回完整配置字典（只读视图）"""
-        return dict(self._data)
+        with self._lock:
+            return copy.deepcopy(self._data)
 
     def reset(self) -> None:
         """重置为默认配置"""
-        legacy = {key: self._data[key] for key in
-                  ("translate", "textractor", "clean", "subtitle") if key in self._data}
-        legacy_enabled = self.get("overlay.subtitle_enabled")
-        self._data = DEFAULT_CONFIG.copy()
-        self._data.update(legacy)
-        if legacy_enabled is not None:
-            self._data["overlay"] = dict(self._data["overlay"])
-            self._data["overlay"]["subtitle_enabled"] = legacy_enabled
-        self.save()
+        with self._lock:
+            legacy = {key: copy.deepcopy(self._data[key]) for key in
+                      ("translate", "textractor", "clean", "subtitle") if key in self._data}
+            legacy_enabled = self.get("overlay.subtitle_enabled")
+            self._data = copy.deepcopy(DEFAULT_CONFIG)
+            self._data.update(legacy)
+            if legacy_enabled is not None:
+                self._data["overlay"] = dict(self._data["overlay"])
+                self._data["overlay"]["subtitle_enabled"] = legacy_enabled
+            self.save()
 
     @property
     def path(self) -> str:

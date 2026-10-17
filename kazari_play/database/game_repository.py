@@ -168,6 +168,24 @@ class GameRepository:
              game.id)
         )
 
+    def update_game_metadata(self, game: Game) -> bool:
+        """仅更新元数据字段，保留用户标签/分类/路径/身份/封面等编辑。
+
+        评分只在当前仍为 0 时写入，避免覆盖匹配期间用户手动评分。
+        """
+        return self.db.execute(
+            """UPDATE games SET
+               title = ?, engine = ?, description = ?,
+               vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
+               rating = CASE WHEN rating = 0 THEN ? ELSE rating END,
+               bangumi_id = ?
+               WHERE id = ?""",
+            (game.title, game.engine or "", game.description or "",
+             game.vndb_id or "", game.released or "", game.developer or "",
+             game.length_minutes or 0, game.rating or 0, game.bangumi_id or "",
+             game.id)
+        )
+
     def update_cover_path(self, game_id: str, cover_path: str) -> bool:
         """只更新封面路径（异步下载回调专用，避免整行覆盖用户编辑）"""
         return self.db.execute(

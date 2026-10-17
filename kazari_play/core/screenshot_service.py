@@ -387,13 +387,25 @@ def _extract_time(filename: str) -> str:
         return ""
 
 
+def _safe_screenshot_name(name: str, require_ext: bool = True) -> str:
+    name = (name or "").strip()
+    if not name or os.path.basename(name) != name:
+        return ""
+    if require_ext and not name.lower().endswith((".png", ".jpg", ".jpeg")):
+        return ""
+    return name
+
+
 def rename_screenshot(game_id: str, filename: str, new_name: str) -> bool:
     """重命名截图文件（保留扩展名）"""
     folder = get_game_screenshots_dir(game_id)
+    filename = _safe_screenshot_name(filename)
+    if not filename:
+        return False
     src = os.path.normpath(os.path.join(folder, filename))
     if not src.startswith(os.path.normpath(folder) + os.sep) or not os.path.isfile(src):
         return False
-    new_name = (new_name or "").strip()
+    new_name = _safe_screenshot_name(new_name, require_ext=False)
     if not new_name:
         return False
     ext = os.path.splitext(src)[1] or ".png"
@@ -428,6 +440,9 @@ def delete_screenshot(game_id: str, filename: str) -> bool:
     连带删除对应缩略图（thumbs/{原图名}_thumb.jpg）。
     """
     folder = get_game_screenshots_dir(game_id)
+    filename = _safe_screenshot_name(filename)
+    if not filename:
+        return False
     path = os.path.normpath(os.path.join(folder, filename))
     if not path.startswith(os.path.normpath(folder) + os.sep):
         logger.warning("拒绝删除越界文件: %s", filename)

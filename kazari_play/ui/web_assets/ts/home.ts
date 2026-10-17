@@ -124,7 +124,7 @@ function renderHomeStats(): void {
   totalBtn.querySelector('b')!.textContent = String(total);
   totalBtn.setAttribute('aria-label', `共 ${total} 部作品，查看全部作品`);
   favBtn.querySelector('b')!.textContent = String(fav);
-  favBtn.setAttribute('aria-label', `共 ${fav} 部收藏，查看我的最爱`);
+  favBtn.setAttribute('aria-label', `共 ${fav} 部最爱，查看我的最爱`);
   (document.getElementById('homeStatTime')!.querySelector('b') as HTMLElement).textContent = formatTotalMinutes(minutes);
   (document.getElementById('homeStatRecent')!.querySelector('b') as HTMLElement).textContent = recentText;
 }
@@ -134,11 +134,7 @@ let _homeChipSig = '';
 function renderHomeCollections(): void {
   const box = document.getElementById('homeCollections')!;
   const sec = document.getElementById('homeCollectionsSec') as HTMLElement;
-  const items: { node: CollectionTreeNode; label: string }[] = [];
-  App.ui.state.collectionTree.forEach(g => {
-    items.push({ node: g, label: g.name });
-    (g.children || []).forEach(c => items.push({ node: c, label: g.name + ' / ' + c.name }));
-  });
+  const items = flattenCollectionTree();
   const shown = items.slice(0, HOME_CHIP_LIMIT);
   const sig = shown.map(it => it.node.id + ':' + it.label).join('|');
   if (sig === _homeChipSig) return;   // 无变化：保留现有 chips（及其焦点）

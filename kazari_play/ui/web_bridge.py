@@ -75,7 +75,10 @@ def _cover_cache_put(path: str, uri: str) -> None:
     """写入封面缓存并做 LRU 淘汰（超上限时移除最久未用条目）"""
     global _cover_cache_bytes
     with _cover_cache_lock:
-        _cover_cache[path] = uri          # 已存在时 OrderedDict 自动移到末尾
+        old = _cover_cache.pop(path, None)
+        if old is not None:
+            _cover_cache_bytes -= len(old)
+        _cover_cache[path] = uri
         _cover_cache_bytes += len(uri)
         while (_cover_cache_bytes > _MAX_COVER_CACHE_BYTES
                or len(_cover_cache) > _MAX_COVER_CACHE_ENTRIES) and _cover_cache:
@@ -345,6 +348,8 @@ class WebBridge:
             max_workers=_cover_workers, thread_name_prefix="cover")
         self._cover_states = {}          # game_id -> 封面下载进度 0.0~1.0（下载中的）
         self._cover_state_lock = threading.Lock()
+        self._cover_generation = {}      # game_id -> 手动换封面代次
+        self._cover_cancel = {}          # game_id -> 后台下载取消事件
         try:
             self.manager.monitor.register_callback("on_exit", self._on_game_exit)
             self.manager.monitor.register_callback("on_start", self._on_game_start)
@@ -422,7 +427,8 @@ class WebBridge:
                     merged.update(v)
                     v = merged
             self._cfg.set(k, v)
-        self._cfg.save()
+        if not self._cfg.save():
+            return json.dumps({"ok": False, "msg": "配置保存失败，请检查磁盘权限"}, ensure_ascii=False)
         return json.dumps({"ok": True}, ensure_ascii=False)
 
     def resetConfig(self):
@@ -1354,6 +1360,7 @@ class WebBridge:
             if not dest:
                 return json.dumps({"ok": False, "msg": "封面格式不支持或读取失败"},
                                   ensure_ascii=False)
+            self._invalidate_cover_download(game_id)
             g.cover_path = dest
             self.manager.repository.update_cover_path(game_id, dest)
             try:
@@ -1381,7 +1388,7 @@ class WebBridge:
             return json.dumps(cands, ensure_ascii=False)
         except Exception as e:
             logger.error("多源搜索失败: %s", e)
-            return "[]"
+            return json.dumps({"__error": "搜索失败，请稍后重试"}, ensure_ascii=False)
 
     def getMetadataSources(self) -> str:
         """返回全部元数据源（id/名称/favicon/状态/是否启用），供设置页与工具栏展示"""
@@ -1541,25 +1548,51 @@ class WebBridge:
             snapshot = dict(self._cover_states)
         self._ui.invalidate("cover_progress", snapshot)
 
+    def _invalidate_cover_download(self, game_id: str) -> None:
+        """手动换封面时使后台下载失效，避免晚到的下载覆盖用户选择。"""
+        with self._cover_state_lock:
+            self._cover_generation[game_id] = self._cover_generation.get(game_id, 0) + 1
+            cancel = self._cover_cancel.pop(game_id, None)
+        if cancel is not None:
+            cancel.set()
+
     def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
         """后台下载封面（可配超时、不重试），上报进度；成功写库并定向刷新该卡"""
         self._set_cover_progress(game_id, 0.0)
+        cancel = None
         try:
             game = self.manager.get_game(game_id)
             if game and game.cover_path and os.path.isfile(game.cover_path):
                 return
+            with self._cover_state_lock:
+                generation = self._cover_generation.get(game_id, 0)
+                cancel = threading.Event()
+                self._cover_cancel[game_id] = cancel
 
             def _pc(pct, _gid=game_id):
                 self._set_cover_progress(_gid, pct)
 
-            path = self._cover_store.download(game_id, cover_url, progress_cb=_pc)
-            if path:
-                self.manager.repository.update_cover_path(game_id, path)
-                self._cover_store.ensure_thumb(game_id)
-                self.reloadCover(game_id)
+            path = self._cover_store.download(
+                game_id, cover_url, cancel_event=cancel, progress_cb=_pc)
+            with self._cover_state_lock:
+                current = self._cover_generation.get(game_id, 0) == generation
+                if self._cover_cancel.get(game_id) is cancel:
+                    self._cover_cancel.pop(game_id, None)
+            if not path or not current:
+                return
+            latest = self.manager.get_game(game_id)
+            if latest and latest.cover_path and os.path.isfile(latest.cover_path):
+                return
+            self.manager.repository.update_cover_path(game_id, path)
+            self._cover_store.ensure_thumb(game_id)
+            self.reloadCover(game_id)
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)
         finally:
+            with self._cover_state_lock:
+                if cancel is not None and self._cover_cancel.get(game_id) is cancel \
+                        and not cancel.is_set():
+                    self._cover_cancel.pop(game_id, None)
             self._set_cover_progress(game_id, None)
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):

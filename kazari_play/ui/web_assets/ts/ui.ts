@@ -39,6 +39,12 @@ type ContextMenuEntry =
 
 // ---------- Sheet（底部抽屉 / 居中弹层）----------
 const sheetLocks = new Set<string>();
+const sheetReturnFocus = new Map<string, HTMLElement | null>();
+
+function setMenuOpen(menu: HTMLElement | null, trigger: HTMLElement | null, open: boolean): void {
+  if (menu) menu.classList.toggle('show', open);
+  if (trigger) trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 
 // 弹层锁定：锁定期间遮罩点击 / Esc / 关闭按钮都不生效（更新下载中禁止关闭）
 function setSheetLocked(id: string, locked: boolean): void {
@@ -46,11 +52,38 @@ function setSheetLocked(id: string, locked: boolean): void {
   else sheetLocks.delete(id);
 }
 
+function syncAppInert(): void {
+  const row = document.querySelector('.row') as HTMLElement | null;
+  if (row) row.inert = !!document.querySelector('.overlay.show');
+}
+
 function showSheet(id: string): void {
   const o = document.getElementById(id);
   if (!o) return;
+  const active = document.activeElement as HTMLElement | null;
+  if (!(active && o.contains(active))) {
+    sheetReturnFocus.set(id, active);
+  }
   o.classList.remove('hiding');
   o.classList.add('show');
+  if (!o.hasAttribute('role')) o.setAttribute('role', 'dialog');
+  o.setAttribute('aria-modal', 'true');
+  if (!o.hasAttribute('aria-labelledby')) {
+    const title = o.querySelector<HTMLElement>('.dlg-title, .dlg-head h3, h2, h3');
+    if (title) {
+      if (!title.id) title.id = id + '-title';
+      o.setAttribute('aria-labelledby', title.id);
+    }
+  }
+  syncAppInert();
+  setTimeout(() => {
+    if (!o.classList.contains('show')) return;
+    const preferred = o.querySelector<HTMLElement>('[data-autofocus]');
+    const target = preferred || o.querySelector<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), ' +
+      'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (target) target.focus({ preventScroll: true });
+  }, 30);
 }
 
 function closeSheet(id: string, instant?: boolean): void {
@@ -60,17 +93,50 @@ function closeSheet(id: string, instant?: boolean): void {
   if (instant) {
     o.classList.remove('show', 'hiding');
     if (id === 'detailOverlay') setActiveCard(null);
-    return;
+  } else {
+    o.classList.remove('show');
+    o.classList.add('hiding');
+    setTimeout(() => o.classList.remove('hiding'), 280);
+    if (id === 'detailOverlay') setActiveCard(null);
   }
-  o.classList.remove('show');
-  o.classList.add('hiding');
-  setTimeout(() => o.classList.remove('hiding'), 280);
-  if (id === 'detailOverlay') setActiveCard(null);
+  syncAppInert();
+  const target = sheetReturnFocus.get(id);
+  sheetReturnFocus.delete(id);
+  if (target && target.isConnected) {
+    try { target.focus(); } catch (e) { }
+  }
 }
 
 // 点击遮罩关闭。
 document.querySelectorAll('.overlay').forEach(o => {
   o.addEventListener('click', e => { if (e.target === o) closeSheet(o.id); });
+});
+
+// 焦点陷阱：弹层打开时 Tab/Shift+Tab 只在最上层弹层内循环（标题栏仍可用鼠标操作）
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab') return;
+  const overlays = document.querySelectorAll<HTMLElement>('.overlay.show');
+  const top = overlays[overlays.length - 1];
+  if (!top) return;
+  const focusables = [...top.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), ' +
+    'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter(el => el.getClientRects().length > 0);
+  if (!focusables.length) return;
+  const first = focusables[0], last = focusables[focusables.length - 1];
+  const active = document.activeElement as HTMLElement | null;
+  if (!active || !top.contains(active)) {
+    e.preventDefault();
+    (e.shiftKey ? last : first).focus();
+    return;
+  }
+  if (e.shiftKey && active === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && active === last) {
+    e.preventDefault();
+    first.focus();
+  }
 });
 
 // Esc 关闭最上层：overlay 分块按注入顺序层叠（后出现者在上），倒序取第一个可见者。
@@ -112,7 +178,6 @@ function showInputDialog(opts: InputDialogOptions): void {
   (document.getElementById('inputValue') as HTMLInputElement).value = opts.value || '';
   inputCb = opts.cb || null;
   showSheet('inputOverlay');
-  setTimeout(() => (document.getElementById('inputValue') as HTMLInputElement).focus(), 50);
 }
 
 function inputOk(): void {
