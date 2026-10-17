@@ -527,6 +527,26 @@ def test_offline_ready():
     print("[就绪缓存-离线就绪] OK")
 
 
+def test_probe_ready():
+    """启动本地探测：就绪缓存有效 → ready(offline)；旧版本残留失效"""
+    payload = zip_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        up = new_updater(tmp)
+        assert up.probe_ready()["state"] == "idle"
+        write_ready(tmp, payload)
+        with mock.patch.object(U, "_http_get_json", side_effect=AssertionError("不应联网")):
+            st = up.probe_ready()
+        assert st["state"] == "ready" and st["offline"] is True, st
+        assert st["extract_dir"] and os.path.isfile(
+            os.path.join(st["extract_dir"], "KazariPlay.exe"))
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload, version="0.1.0")
+        up = new_updater(tmp)
+        assert up.probe_ready()["state"] == "idle"
+        assert not os.path.exists(os.path.join(tmp, "ready.json"))
+    print("[就绪缓存-启动本地探测] OK")
+
+
 def test_skip_deletes_ready():
     payload = zip_payload()
     digest = hashlib.sha256(payload).hexdigest()
@@ -695,6 +715,7 @@ if __name__ == "__main__":
     test_ready_cache_digest_change_invalidates()
     test_ready_cache_old_version_invalidates()
     test_offline_ready()
+    test_probe_ready()
     test_skip_deletes_ready()
     test_download_space_precheck()
     test_resolve_package_root()

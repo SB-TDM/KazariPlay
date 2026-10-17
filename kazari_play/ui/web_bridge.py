@@ -977,6 +977,16 @@ class WebBridge:
             logger.error("checkUpdate 失败: %s", e)
             return self._update_payload({"state": "failed", "error": str(e)})
 
+    def probeReadyUpdate(self) -> str:
+        """本地探测就绪缓存（不联网）；启动时用于自动提示「更新包已就绪」"""
+        try:
+            if not getattr(sys, "frozen", False):
+                return self._update_payload({"state": "idle"})
+            return self._update_payload(get_updater().probe_ready())
+        except Exception as e:
+            logger.warning("probeReadyUpdate 失败: %s", e)
+            return self._update_payload({"state": "idle"})
+
     def downloadUpdate(self) -> str:
         try:
             return self._update_payload({"ok": get_updater().download()})

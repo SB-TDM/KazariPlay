@@ -84,6 +84,8 @@ interface PyWebViewApi {
   // ---- 应用内更新 ----
   getUpdateState(): Promise<string>;
   checkUpdate(force?: boolean): Promise<string>;
+  /** 本地探测就绪缓存（不联网）；启动时自动提示「更新包已就绪」 */
+  probeReadyUpdate(): Promise<string>;
   downloadUpdate(): Promise<string>;
   skipUpdate(): Promise<string>;
   applyUpdate(): Promise<string>;

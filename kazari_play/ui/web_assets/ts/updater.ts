@@ -310,9 +310,42 @@ function updaterBindAbout(): void {
   updaterBindModal();
 }
 
-/** 启动后台静默检查（24h 缓存由后端保证；发现新版只提示一次） */
+/** 启动检查：静默检查一次；预发布（auto_disabled）/失败时再本地探测就绪缓存
+ *
+ * 命中"就绪"与"发现新版本"一致提示一次（标题标注"基于上次检查"），
+ * 让重启后无需先手动点检查更新也能看到已下载的更新包。
+ */
 function updaterStartupCheck(): void {
-  updaterCheck(false, true);
+  const promptOnce = function (st: UpdateState): void {
+    if (updatePrompted) return;
+    updatePrompted = true;
+    updateCurrent = st;
+    updaterShowNotice(st);
+    updaterAboutStatus(updaterStatusText(st));
+    setTimeout(() => openUpdateModal(st), 1200);   // 启动提示：不打扰首屏渲染
+  };
+  const probe = function (): void {
+    bridge.probeReadyUpdate(function (raw: unknown, failed?: boolean) {
+      if (failed) return;
+      const st = updaterParse(raw);
+      if (st && st.state === 'ready') promptOnce(st);
+    });
+  };
+  bridge.checkUpdate(false, function (raw: unknown, failed?: boolean) {
+    if (!failed) {
+      const st = updaterParse(raw);
+      if (st) {
+        updateCurrent = st;
+        updaterShowNotice(st);
+        updaterAboutStatus(updaterStatusText(st));
+        if (st.state === 'available' || st.state === 'ready') {
+          promptOnce(st);
+          return;
+        }
+      }
+    }
+    probe();
+  });
 }
 
 updaterBindAbout();

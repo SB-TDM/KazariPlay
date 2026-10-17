@@ -2,6 +2,12 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.0.0-beta.4 自测包：重启自动提示就绪（2026-10-17）
+
+- **启动自动提示**：新增桥 `probeReadyUpdate`（本地探测 `ready.json`，不联网、无网络检查）；启动时静默检查若被禁用（预发布）或失败，则本地探测到就绪缓存时与"发现新版本"一致**自动弹层提示一次**（标题标注"基于上次检查"）；正式版静默检查命中就绪同样提示。解决"下载完成、关闭应用后重启，必须先手动检查更新才能看到就绪"的体验缺口。
+- 验证：`test_updater.py`（新增 `probe_ready`）、`test_update_ui.cjs`（启动自动弹层）、冻结自检（新增 `probeReadyUpdate` 桥断言）与 `verify_frozen_update.py` 回归。
+- 换版同步：`version.py`、前端 package/lock、README、RELEASE_NOTES、VERSIONING 示例、docs/README、AGENTS、本文件。
+
 ## 1.0.0-beta.3 自测包：更新提速与就绪复用（2026-10-14）
 
 - **下载通道**（DEV-UPD-03，归并 DEV-UPD-02）：候选链改为「记忆通道 → 直连 → 镜像」；单通道 socket 超时 30s→**10s**、下载开始 15s 做**单次**低速检查（已收 <5MiB 即切）、候选链**1 轮**（失败交界面重试）；切换静默从零重传；`update.last_good_lane` 记忆成功通道（校验失败不清记忆、本次会话降权）；默认镜像更新为 gh-proxy/ghfast/ghproxy.net；逐通道埋点（首字节/耗时/均速/结果）。
@@ -9,7 +15,7 @@
 - **应用方式**：移除「退出时更新」，就绪弹层只保留「立即重启更新」；删除 exit 分支、`apply_pending_update_on_exit`、`_update_on_exit` 与关闭钩子调用；原子占用保留。
 - **观测与体验**：助手分阶段耗时（wait_exit/backup_data/backup_program/replace/launch）、下载逐通道日志、新版「入口→窗口就绪/前端就绪」耗时；新版首启 toast「已更新到 vX」；早期观察窗口 20s→**8s**；快速退出机制就位（默认关闭，等埋点数据决定）。
 - **清理与预检**：启动自愈清理安装根目录白名单 `*.new`；下载前/替换前磁盘空间预检；`ready.json` 清理顺序修正。
-- 验证：`tests/test_updater.py`（31 项）、`tests/test_update_apply.py`（26 项）、`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py`；冻结包自检 + `scripts/verify_frozen_update.py`（新增就绪缓存保留场景）。真实链路复测（替换 v9.9.9 测试 Release 资产）待执行后补记。
+- 验证：`tests/test_updater.py`（31 项）、`tests/test_update_apply.py`（26 项）、`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py`；冻结包自检 + `scripts/verify_frozen_update.py`（新增就绪缓存保留场景）。**真实链路复测（v9.9.9 资产 = beta.3）**：两轮更新均成功——死直连 10.0s 超时 → gh-proxy 首字节 0.78s/5.2s/14.33MB/s，单轮总下载 15.2s；应用窗口 7.11–7.58s（wait_exit ~1.6s、backup_program ~0.8s、replace ~1.5s、launch ~0.2s、新版入口→窗口 ~2.1s）；D5 快速退出不启用（wait_exit <3s 且 <30%）；就绪复用经手动检查验证通过（0 下载），重启自动提示由 beta.4 补齐。
 - 版本同步：`version.py`、前端 package/lock、README、RELEASE_NOTES、VERSIONING 示例、docs/README、AGENTS、本文件。
 
 ## 自动更新审查问题修复（2026-10-14，UPD-REV-01～13）

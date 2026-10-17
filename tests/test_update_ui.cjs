@@ -48,7 +48,7 @@ function makeEnv(bridgeImpl) {
 }
 
 const noopBridge = () => ({
-  getUpdateState() {}, checkUpdate() {}, downloadUpdate() {}, skipUpdate() {},
+  getUpdateState() {}, checkUpdate() {}, probeReadyUpdate() {}, downloadUpdate() {}, skipUpdate() {},
   applyUpdate() {}, openReleasePage() {},
 });
 
@@ -142,6 +142,26 @@ const noopBridge = () => ({
   env.ctx.updaterCheck(true, false);
   assert.equal(env.state.toasts.length, 1, '普通响应不得重复弹提示');
   console.log('[REV-11 回滚提示展示] OK');
+}
+
+// 6) 启动自动提示：静默检查被禁用（预发布）时，本地探测到就绪缓存应自动弹层
+{
+  const env = makeEnv(Object.assign(noopBridge(), {
+    checkUpdate: (force, cb) => cb(JSON.stringify({
+      state: 'auto_disabled', reason: '预发布版本默认不自动检查更新',
+    })),
+    probeReadyUpdate: cb => cb(JSON.stringify({
+      state: 'ready', latest_version: '9.9.9', offline: true,
+    })),
+  }));
+  env.ctx.updaterStartupCheck();
+  const timers = [...env.state.timers.values()];
+  env.state.timers.clear();
+  timers.forEach(fn => fn());
+  assert.deepEqual(env.state.sheets, [['show', 'updateOverlay']], '启动探测到就绪应自动弹层');
+  assert.equal(env.element('updateFootReady').hidden, false, '就绪底栏应可见');
+  assert.equal(env.element('updateTitle').textContent, '更新包已就绪（基于上次检查）');
+  console.log('[启动-就绪缓存自动提示] OK');
 }
 
 console.log('UPDATE UI PASS: ready reopen / recover / late poll drop / notice');

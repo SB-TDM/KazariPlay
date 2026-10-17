@@ -467,6 +467,17 @@ class Updater:
         logger.info("离线就绪命中（%s），跳过检查与下载", version)
         return True
 
+    def probe_ready(self) -> dict:
+        """本地探测就绪缓存（不联网）：命中则进入 ready（offline=True）
+
+        供启动时自动提示"更新包已就绪"；校验与失效规则同离线就绪。
+        """
+        with self._lock:
+            if self._state["state"] in ("downloading", "ready"):
+                return self.state()
+        self._rehydrate_offline()
+        return self.state()
+
     def cleanup(self, remove_downloaded: bool = False) -> None:
         """清理下载残留（.part 与可选已下载包）；启动自愈调用"""
         try:
