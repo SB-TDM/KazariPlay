@@ -685,6 +685,30 @@ def test_bridge_single_entry_repeat_trigger():
     print("[桥-单入口重复触发] OK")
 
 
+def test_bridge_probe_skips_pending_confirm():
+    """更新后首启确认期间不探测就绪缓存（避开与确认清理的竞态）"""
+    import sys as _sys
+    from ui.web_bridge import WebBridge
+    d = Drill()
+    try:
+        d.write_state({"phase": UA.STATE_VERIFY, "target": d.target,
+                       "backup_program": "", "attempts": 1})
+
+        class FakeUpdater:
+            def probe_ready(self):
+                raise AssertionError("确认期间不应探测就绪缓存")
+
+        b = WebBridge.__new__(WebBridge)
+        with mock.patch("ui.web_bridge.get_updater", return_value=FakeUpdater()), \
+             mock.patch("ui.web_bridge.get_app_data_dir", return_value=d.data_dir), \
+             mock.patch.object(_sys, "frozen", True, create=True):
+            raw = b.probeReadyUpdate()
+        assert json.loads(raw)["state"] == "idle"
+        print("[桥-确认期间跳过就绪探测] OK")
+    finally:
+        d.close()
+
+
 def test_frontend_ready_handshake():
     """前端就绪握手是首启确认的唯一入口，并返回完成提示（UPD-REV-02/D6）"""
     from ui.web_bridge import WebBridge
@@ -775,6 +799,7 @@ if __name__ == "__main__":
     test_wait_process_exit_kill_failure_raises()
     test_bridge_update_claim_atomic()
     test_bridge_single_entry_repeat_trigger()
+    test_bridge_probe_skips_pending_confirm()
     test_frontend_ready_handshake()
     test_startup_heals_stale_new_files()
     test_cleanup_ready_cache_and_extract()

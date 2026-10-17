@@ -982,6 +982,11 @@ class WebBridge:
         try:
             if not getattr(sys, "frozen", False):
                 return self._update_payload({"state": "idle"})
+            from utils import update_apply
+            # 更新后首启确认期间（verify_pending）：握手流程会清理缓存，
+            # 此时探测会与清理竞态（可能报"重水化失败"或显示已删除的就绪包）。
+            if update_apply.has_pending_update_state(get_app_data_dir()):
+                return self._update_payload({"state": "idle"})
             return self._update_payload(get_updater().probe_ready())
         except Exception as e:
             logger.warning("probeReadyUpdate 失败: %s", e)
