@@ -78,6 +78,16 @@ class DataFlowTests(unittest.TestCase):
                     "play_time", "play_count", "is_favorite", "date_added"):
             self.assertEqual(getattr(edited, key), getattr(game, key), key)
 
+    def test_batch_match_preserves_async_cover_path(self):
+        game = self.fixture()
+        game.cover_path = "fixture-cover.jpg"
+        self.manager.update_game(game)
+        from core import metadata_matcher
+        with patch.object(metadata_matcher, "match_batch", return_value=(0, 0, 0)):
+            game.cover_path = ""
+            self.manager.match_vndb_for_games([game])
+        self.assertEqual(self.manager.get_game(game.id).cover_path, "fixture-cover.jpg")
+
     def test_partial_edit_and_failed_edit_do_not_report_success(self):
         game = self.fixture()
         with patch.object(self.manager, "update_game", return_value=False):

@@ -212,17 +212,123 @@ def test_description_language_priority():
     print("[description priority] OK")
 
 
-def test_edition_guard_without_year():
-    v = {"vndb_id": "v9", "title": "Mashiroiro Symphony",
-         "alt_title": "Mashiroiro Symphony", "cover_url": "",
-         "rating": 0, "description": "", "developer": "Palette",
-         "released": "2009-10-30", "length_minutes": 100}
-    _install([v], [])
-    g = _game("Mashiroiro Symphony FHD")
+def test_edition_without_year_rejected():
+    old = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
+           "cover_url": "", "rating": 3, "description": "old",
+           "developer": "OldDev", "released": "2009-01-01",
+           "length_minutes": 100}
+    new = {"vndb_id": "v2", "title": "Foo Remake", "alt_title": "Foo Remake",
+           "cover_url": "", "rating": 4, "description": "new",
+           "developer": "NewDev", "released": "2023-06-23",
+           "length_minutes": 2000}
+    bgm = {"source": "Bangumi", "source_id": "b2", "title": "Foo 中文",
+           "alt_title": "Foo", "cover_url": "",
+           "description": "中文简介", "developer": "",
+           "released": "2009-01-01", "rating": 4, "length_minutes": 0,
+           "tags": []}
+    _install([old, new], [bgm])
+    g = _game("Foo FHD")
     status, msg = mm.match_single(g, cover_cb=lambda *a: None)
     assert status == "fail", (status, msg)
     assert "版本标记" in msg, msg
-    print("[edition guard without year] OK")
+    print("[edition without year rejected] OK")
+
+
+def test_year_conflict_exact_vndb():
+    v = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
+         "cover_url": "", "rating": 3, "description": "",
+         "developer": "", "released": "2009-01-01", "length_minutes": 100}
+    b = {"source": "Bangumi", "source_id": "b1", "title": "Foo",
+         "alt_title": "Foo 新版", "cover_url": "", "description": "中文",
+         "developer": "", "released": "2020-01-01", "rating": 4,
+         "length_minutes": 0, "tags": []}
+    _install([v], [b])
+    g = _game("Foo")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.vndb_id == "v1", g.vndb_id
+    assert g.bangumi_id == "", g.bangumi_id
+    print("[year conflict -> exact VNDB] OK")
+
+
+def test_reflection_blue_token():
+    v = {"vndb_id": "v20424", "title": "Summer Pockets",
+         "alt_title": "", "cover_url": "", "rating": 4,
+         "description": "", "developer": "Key",
+         "released": "2018-06-29", "length_minutes": 3200}
+    b = {"source": "Bangumi", "source_id": "295957",
+         "title": "夏日口袋 REFLECTION BLUE",
+         "alt_title": "Summer Pockets REFLECTION BLUE",
+         "cover_url": "", "description": "中文简介", "developer": "",
+         "released": "2020-06-26", "rating": 4, "length_minutes": 0,
+         "tags": []}
+    _install([v], [b])
+    g = _game("Summer Pockets REFLECTION BLUE")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.bangumi_id == "295957", g.bangumi_id
+    assert g.title == "夏日口袋 REFLECTION BLUE", g.title
+    print("[reflection blue token] OK")
+
+
+def test_edition_token_single_accept():
+    v = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
+         "cover_url": "", "rating": 3, "description": "",
+         "developer": "", "released": "2010-01-01", "length_minutes": 100}
+    b = {"source": "Bangumi", "source_id": "b1", "title": "Foo HD",
+         "alt_title": "Foo HD", "cover_url": "", "description": "中文",
+         "developer": "", "released": "2018-01-01", "rating": 4,
+         "length_minutes": 0, "tags": []}
+    _install([v], [b])
+    g = _game("Foo HD")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.bangumi_id == "b1", g.bangumi_id
+    assert g.title == "Foo HD", g.title
+    print("[edition token single accept] OK")
+
+
+def test_dash_subtitle_agreement():
+    v = {"vndb_id": "v1552", "title": "ましろ色シンフォニー",
+         "alt_title": "Mashiro-iro Symphony", "cover_url": "",
+         "rating": 4, "description": "", "developer": "Palette",
+         "released": "2009-10-30", "length_minutes": 100}
+    b = {"source": "Bangumi", "source_id": "3306", "title": "纯白交响曲",
+         "alt_title": "ましろ色シンフォニー -Love is Pure White-",
+         "cover_url": "", "description": "中文简介", "developer": "",
+         "released": "2009-10-30", "rating": 4, "length_minutes": 0,
+         "tags": []}
+    _install([v], [b])
+    g = _game("纯白交响曲")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.title == "纯白交响曲", g.title
+    assert g.vndb_id == "v1552" and g.bangumi_id == "3306"
+    print("[dash subtitle agreement] OK")
+
+
+def test_token_pair_merge():
+    v = {"vndb_id": "v24717", "title": "金色ラブリッチェ-Golden Time-",
+         "alt_title": "Kin'iro Loveriche -Golden Time-", "cover_url": "",
+         "rating": 4, "description": "", "developer": "SAGA PLANETS",
+         "released": "2019-02-22", "length_minutes": 600}
+    b = {"source": "Bangumi", "source_id": "30226",
+         "title": "金辉恋曲四重奏 -Golden Time-", "alt_title": "",
+         "cover_url": "", "description": "中文简介", "developer": "",
+         "released": "2019-02-22", "rating": 4, "length_minutes": 0,
+         "tags": []}
+    _install([v], [b])
+    g = _game("金辉恋曲四重奏-Golden Time")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.vndb_id == "v24717" and g.bangumi_id == "30226"
+    assert g.title == "金辉恋曲四重奏 -Golden Time-", g.title
+    print("[token pair merge] OK")
+
+
+def test_parenthesized_suffix_query():
+    assert mm._extract_japanese("9nine⑤-新章(最终章)") == "新章"
+    print("[parenthesized suffix query] OK")
 
 
 def test_similarity():
@@ -242,7 +348,13 @@ def main():
     test_year_remake_selection()
     test_force_overwrites_fields()
     test_description_language_priority()
-    test_edition_guard_without_year()
+    test_edition_without_year_rejected()
+    test_year_conflict_exact_vndb()
+    test_reflection_blue_token()
+    test_edition_token_single_accept()
+    test_dash_subtitle_agreement()
+    test_token_pair_merge()
+    test_parenthesized_suffix_query()
     print("METADATA MATCH TEST PASS")
     return 0
 

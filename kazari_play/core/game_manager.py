@@ -358,6 +358,14 @@ class GameManager:
 
     # ---------- VNDB 元数据匹配 ----------
 
+    def _preserve_cover_path(self, game: Game) -> None:
+        """批量写回前保留异步下载刚写入的封面路径（避免空路径覆盖）"""
+        if game.cover_path:
+            return
+        existing = self.repository.get_by_id(game.id)
+        if existing and existing.cover_path:
+            game.cover_path = existing.cover_path
+
     def match_vndb_metadata(self, game_id: str, force: bool = False, cover_cb=None,
                             cancel_event=None) -> Tuple[str, str]:
         """为指定游戏匹配 VNDB 元数据并写回数据库
@@ -379,6 +387,7 @@ class GameManager:
             game, force=force, cover_cb=cover_cb, cancel_event=cancel_event)
         # 无论是否更新都写回数据库（已标记匹配 ID 时也保存，避免重复匹配）
         if status in ("match", "skip") and (game.vndb_id or game.bangumi_id):
+            self._preserve_cover_path(game)
             self.repository.update_game(game)
         return status, msg
 
@@ -411,6 +420,7 @@ class GameManager:
         for game in games:
             if game.vndb_id or game.bangumi_id:
                 try:
+                    self._preserve_cover_path(game)
                     self.repository.update_game(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
@@ -446,6 +456,7 @@ class GameManager:
         for game in games:
             if game.vndb_id or game.bangumi_id:
                 try:
+                    self._preserve_cover_path(game)
                     self.repository.update_game(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)

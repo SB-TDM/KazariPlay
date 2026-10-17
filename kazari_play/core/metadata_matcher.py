@@ -59,8 +59,8 @@ def _extract_japanese(title: str) -> str:
     """
     if not title:
         return ""
-    # 先去掉 [] 包裹的公司名（避免把公司名当主标题）
-    cleaned = re.sub(r"\[[^\]]*\]", "", title)
+    # 先去掉 [] / () / （） / 【】 包裹的公司名或章节名（避免把后缀当主标题）
+    cleaned = re.sub(r"\[[^\]]*\]|\([^)]*\)|（[^）]*）|【[^】]*】", "", title)
     # 匹配 CJK 统一表意文字 + 平假名 + 片假名
     m = re.findall(r"[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]+", cleaned)
     if not m:
@@ -90,8 +90,13 @@ def _cover_dest_path(game_id: str, cover_url: str) -> str:
 
 
 def _match_key(text: str) -> str:
-    """标题归一化键：去括号内容、标点、空白，仅保留字母/数字/CJK"""
+    """标题归一化键：去子标题/括号内容、标点、空白，仅保留字母/数字/CJK"""
     s = (text or "").lower()
+    # 子标题分隔：" -Love is Pure White-"、"～不連続存在～"、"* tagline"
+    for pattern in (r"\s+[-–—]\s*", r"\s*[～〜]\s*", r"\s+\*\s*|\s*\*\s+"):
+        parts = re.split(pattern, s, maxsplit=1)
+        if parts[0].strip():
+            s = parts[0]
     s = re.sub(r"\[[^\]]*\]|\([^)]*\)", "", s)
     s = re.sub(r"[^0-9a-z\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af]+", "", s)
     # Bangumi 备用名常带 "Episode.1 Miyako Kujo" 等章节后缀，比较时剔除
@@ -119,6 +124,10 @@ def _edition_tokens(title: str) -> List[str]:
         out.append("remake")
     if "sana" in low:
         out.append("sana")
+    if "reflection blue" in low:
+        out.append("reflection blue")
+    if "golden time" in low:
+        out.append("golden time")
     return out
 
 
@@ -211,18 +220,25 @@ def _build_queries(title: str) -> List[str]:
 
 def _pick_result(results: List[dict], queries: List[str],
                  edition_tokens: Optional[List[str]], trust_rank: bool) -> dict:
-    """在结果集中选最佳候选：版本标记匹配优先，其次标题相似度"""
+    """在结果集中选最佳候选：版本标记匹配优先，其次标题相似度；
+    无标记命中时（重制版目录）取发行年份最新的条目"""
     if trust_rank:
         return results[0]
     tokens = edition_tokens or []
+    if tokens:
+        hits = [r for r in results
+                if all(t in " ".join(_candidate_titles(r)).lower() for t in tokens)]
+        pool = hits or results
+        best = max(pool, key=lambda r: _query_sim(r, queries))
+        if _query_sim(best, queries) >= _PICK_BY_TITLE_RATIO:
+            return best
+        return pool[0]
 
     def score(r: dict) -> tuple:
-        titles = " ".join(_candidate_titles(r)).lower()
-        token_ok = 1 if tokens and all(t in titles for t in tokens) else 0
-        return (token_ok, _query_sim(r, queries))
+        return (_query_sim(r, queries), int(_release_year(r) or 0))
 
     best = max(results, key=score)
-    if score(best)[1] >= _PICK_BY_TITLE_RATIO:
+    if score(best)[0] >= _PICK_BY_TITLE_RATIO:
         return best
     return results[0]
 
@@ -234,6 +250,8 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
 
     - year_hint：优先选发行年份一致的候选（用于按年份选重制版）；当前关键词
       没有同年结果时继续尝试后续关键词，全部失败才回退到首个结果
+    - edition_tokens：目录带 FHD/HD/Remake 等标记时，优先带标记的候选；
+      都不带时按发行年份取最新（自动选重制版），并继续尝试后续关键词
     - trust_rank=True 时直接取搜索排名第一条（用于跨语言桥接）
     """
     meta = multi_source.SOURCES.get(source_id) or {}
@@ -241,6 +259,12 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
     if client is None:
         return None
     fallback: Optional[dict] = None
+
+    def keep_newest(cand: dict) -> None:
+        nonlocal fallback
+        if fallback is None or int(_release_year(cand) or 0) > int(_release_year(fallback) or 0):
+            fallback = cand
+
     for q in queries:
         if cancel_event is not None and cancel_event.is_set():
             return None
@@ -251,14 +275,27 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
             continue
         if not results:
             continue
+
+        pool = results
         if year_hint:
             same_year = [r for r in results if _release_year(r) == year_hint]
             if not same_year:
-                if fallback is None:
-                    fallback = _pick_result(results, queries, edition_tokens, trust_rank)
+                keep_newest(_pick_result(results, queries, edition_tokens, trust_rank))
                 continue
-            return _pick_result(same_year, queries, edition_tokens, trust_rank)
-        return _pick_result(results, queries, edition_tokens, trust_rank)
+            pool = same_year
+
+        if edition_tokens and not trust_rank:
+            hits = [r for r in pool
+                    if all(t in " ".join(_candidate_titles(r)).lower()
+                           for t in edition_tokens)]
+            if hits:
+                return _pick_result(hits, queries, edition_tokens, trust_rank)
+            best = _pick_result(pool, queries, edition_tokens, trust_rank)
+            if fallback is None or _query_sim(best, queries) > _query_sim(fallback, queries):
+                fallback = best
+            continue
+
+        return _pick_result(pool, queries, edition_tokens, trust_rank)
     return fallback
 
 
@@ -319,10 +356,69 @@ def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
                 continue
             if cand:
                 candidates[sid] = cand
+
+    # 年份冲突修复：以 VNDB 为锚点补查另一源，只接受年份一致的候选；
+    # 另一源当前候选已带目录版本标记时跳过（避免把 HD/BLUE 版换成原版）
+    vndb = candidates.get("vndb")
+    if vndb and len(candidates) >= 2:
+        for sid in list(candidates):
+            if sid == "vndb":
+                continue
+            current = candidates[sid]
+            if _year_compatible(current, vndb):
+                continue
+            if edition_tokens:
+                now_titles = " ".join(_candidate_titles(current)).lower()
+                if all(t in now_titles for t in edition_tokens):
+                    continue
+            titles = _candidate_titles(vndb)[:2]
+            if not titles:
+                continue
+            try:
+                cand = _search_source(sid, titles, cancel_event, False, "", None)
+            except Exception as e:  # noqa: BLE001
+                logger.warning("元数据源 %s 年份修复失败: %s", sid, e)
+                continue
+            if cand and _year_compatible(cand, vndb):
+                candidates[sid] = cand
+
+    # 版本标记补搜：目录带 HD/FHD/Reflection Blue 等标记但当前候选都没有时，
+    # 用已命中源的标题再查（例如 VNDB 只有原版、Bangumi 才有 HD 条目）
+    if edition_tokens and candidates:
+        has_token = any(
+            all(t in " ".join(_candidate_titles(c)).lower() for t in edition_tokens)
+            for c in candidates.values())
+        if not has_token:
+            titles: List[str] = []
+            for sid in ("vndb", "bangumi"):
+                cand = candidates.get(sid)
+                if cand:
+                    for t in _candidate_titles(cand):
+                        if t not in titles:
+                            titles.append(t)
+            if not titles:
+                for cand in candidates.values():
+                    for t in _candidate_titles(cand):
+                        if t not in titles:
+                            titles.append(t)
+            for sid in list(candidates):
+                if cancel_event is not None and cancel_event.is_set():
+                    break
+                try:
+                    cand = _search_source(sid, titles[:2], cancel_event, False, "",
+                                          edition_tokens)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("元数据源 %s 版本标记补搜失败: %s", sid, e)
+                    continue
+                if cand:
+                    cand_titles = " ".join(_candidate_titles(cand)).lower()
+                    if all(t in cand_titles for t in edition_tokens):
+                        candidates[sid] = cand
     return candidates
 
 
-def _pick_group(candidates: Dict[str, dict], queries: List[str]) -> Tuple[Optional[Dict[str, dict]], str]:
+def _pick_group(candidates: Dict[str, dict], queries: List[str],
+                edition_tokens: Optional[List[str]] = None) -> Tuple[Optional[Dict[str, dict]], str]:
     """跨源一致性校验，返回可合并的源组；失败时返回原因"""
     if not candidates:
         return None, "未找到匹配"
@@ -336,11 +432,41 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str]) -> Tuple[Option
 
     edges = []
     sids = list(candidates)
+
+    def _has_tokens(cand: dict) -> bool:
+        if not edition_tokens:
+            return False
+        titles = " ".join(_candidate_titles(cand)).lower()
+        return all(t in titles for t in edition_tokens)
+
     for i, a in enumerate(sids):
         for b in sids[i + 1:]:
             if _year_compatible(candidates[a], candidates[b]):
-                edges.append((_title_sim(candidates[a], candidates[b]), a, b))
+                sim = _title_sim(candidates[a], candidates[b])
+                # 两个源都带同一版本标记（如 Golden Time）→ 即使跨语言也视为同一版本
+                if _has_tokens(candidates[a]) and _has_tokens(candidates[b]):
+                    sim = 1.0
+                edges.append((sim, a, b))
     if not edges:
+        # 先接受“带目录版本标记”的候选（如 HD 版 / REFLECTION BLUE / FHD）
+        tokens = edition_tokens or []
+        if tokens:
+            token_cands = []
+            for sid, cand in candidates.items():
+                titles = " ".join(_candidate_titles(cand)).lower()
+                if all(t in titles for t in tokens):
+                    token_cands.append((sid, cand))
+            if token_cands:
+                sid, cand = max(token_cands, key=lambda kv: _query_sim(kv[1], queries))
+                if _query_sim(cand, queries) >= _SINGLE_QUERY_RATIO:
+                    return {sid: cand}, ""
+        # 否则年份冲突时，VNDB 标题与查询完全一致则以 VNDB 为准
+        vndb = candidates.get("vndb")
+        if vndb and _release_year(vndb):
+            qkeys = {_match_key(q) for q in queries}
+            tkeys = {_match_key(t) for t in _candidate_titles(vndb)}
+            if qkeys & tkeys:
+                return {"vndb": vndb}, ""
         detail = " / ".join(f"{sid}:{candidates[sid].get('title', '')}"
                             for sid in sids)
         return None, f"各源发行年份不一致（{detail}），请手动确认"
@@ -442,14 +568,13 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
                              edition_tokens=tokens)
     if cancel_event is not None and cancel_event.is_set():
         return "cancelled", "已取消"
-    group, reason = _pick_group(candidates, queries)
+    group, reason = _pick_group(candidates, queries, tokens)
 
     if not group:
         logger.info("元数据未匹配: %s (%s)", game.title, reason)
         return "fail", reason
 
-    # 版本标记守卫：文件夹带 FHD/Remake/SANA 等标记而候选标题全部缺失时，
-    # 仅当候选发行年份与线索年份一致才按重制版采用，否则交给用户手动确认
+    # 版本标记守卫：候选缺少 FHD/HD/Remake 等标记时，只有年份线索一致才按重制版采用
     if tokens:
         cand_titles = " ".join(
             t for c in group.values() for t in _candidate_titles(c)).lower()
