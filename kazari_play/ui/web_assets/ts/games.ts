@@ -14,7 +14,6 @@ function reloadCovers(): void {
   document.querySelectorAll<HTMLElement>('.card').forEach(card => {
     const c = card.querySelector('.cover');
     if (!c) return;
-    card.dataset.coverLoaded = '';
     c.classList.remove('loaded');   // 重新加载时先去掉淡入标记，实图到达后再淡入
     loadCoverToCard(card, card.dataset.id!);
   });
@@ -26,7 +25,6 @@ function reloadCover(gameId: string): void {
   const card = document.querySelector<HTMLElement>(`.card[data-id="${gameId}"]`);
   const c = card && card.querySelector('.cover');
   if (!card || !c) return;
-  card.dataset.coverLoaded = '';
   c.classList.remove('loaded');
   loadCoverToCard(card, gameId);
 }
@@ -150,7 +148,13 @@ function _gamesChanged(a: Game[], b: Game[]): boolean {
 function syncCurrentGame(): void {
   if (!App.data.currentGame) return;
   const fresh = App.data.games.find(g => g.id === App.data.currentGame!.id);
-  if (!fresh) { App.data.currentGame = null; return; }
+  if (!fresh) {
+    App.data.currentGame = null;
+    setActiveCard(null);
+    const overlay = document.getElementById('detailOverlay');
+    if (overlay && overlay.classList.contains('show')) closeSheet('detailOverlay', true);
+    return;
+  }
   App.data.currentGame = fresh;
   if (document.getElementById('detailOverlay')!.classList.contains('show')) {
     refreshDetail();

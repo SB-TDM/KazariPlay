@@ -31,7 +31,6 @@
   .pill-btn:disabled{opacity:.6;cursor:default;}
   .pill-btn.danger{color:#ff6f81;border-color:#ffb3bd;}
   .pill-btn.danger:hover{background:#fff0f2;border-color:#ff6f81;}
-  .pill-btn.mini{padding:3px 10px;font-size:12px;border-radius:20px;}
   .chip{height:24px;padding:0 12px;border-radius:50px;font-size:12px;display:inline-flex;
         align-items:center;gap:5px;}
   .chip.manage{background:var(--bg-panel);border:1.5px dashed var(--pink);color:var(--pink-deep);

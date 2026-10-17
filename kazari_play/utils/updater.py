@@ -38,6 +38,9 @@ API_LATEST_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 ASSET_SUMS_NAME = "SHA256SUMS.txt"
 READY_FILE = "ready.json"
 CHECK_INTERVAL_SECONDS = 24 * 3600
+MAX_UPDATE_DOWNLOAD_BYTES = 512 * 1024 * 1024
+MAX_EXTRACT_BYTES = 2 * 1024 * 1024 * 1024
+MAX_EXTRACT_ENTRIES = 200000
 REQUEST_TIMEOUT = 15
 LANE_TIMEOUT = 10                    # 单通道 socket 连接/读超时（秒）
 LANE_LOW_SPEED_AFTER = 15.0          # 下载开始后第 N 秒做一次低速检查
@@ -61,6 +64,10 @@ _DIGEST_RE = re.compile(r"^sha256:([0-9a-fA-F]{64})$")
 
 class _LaneSwitch(Exception):
     """当前下载通道被主动放弃（低速检查未达标）"""
+
+
+class _DownloadTooLarge(Exception):
+    """更新包超过允许大小"""
 
 
 # ---------- 版本比较 ----------
@@ -181,6 +188,9 @@ def resolve_package_root(extract_dir: str) -> str:
     for name in os.listdir(root):
         if name.lower() in PACKAGE_FORBIDDEN_DIRS:
             raise RuntimeError(f"更新包包含用户数据目录，已拒绝：{name}")
+    internal = os.path.join(root, "_internal")
+    if not any(entry.is_file() for entry in os.scandir(internal)):
+        raise RuntimeError("更新包 _internal 为空")
     return root
 
 
@@ -191,7 +201,12 @@ def extract_package(zip_path: str, dest: str) -> None:
         shutil.rmtree(dest_abs, ignore_errors=True)
     os.makedirs(dest_abs, exist_ok=True)
     with zipfile.ZipFile(zip_path) as zf:
-        for info in zf.infolist():
+        infos = zf.infolist()
+        if len(infos) > MAX_EXTRACT_ENTRIES:
+            raise RuntimeError("更新包条目过多，已拒绝")
+        if sum(max(0, info.file_size) for info in infos) > MAX_EXTRACT_BYTES:
+            raise RuntimeError("更新包解压后过大，已拒绝")
+        for info in infos:
             target = os.path.abspath(os.path.join(dest_abs, info.filename))
             if target != dest_abs and not target.startswith(dest_abs + os.sep):
                 raise RuntimeError("更新包内路径越界：" + info.filename)
@@ -631,7 +646,8 @@ class Updater:
             part = dest + ".part"
             if os.path.exists(part):
                 os.remove(part)
-            lane = self._download_with_lanes(zip_url, part, opener)
+            lane = self._download_with_lanes(
+                zip_url, part, opener, limit=int(asset.get("size") or 0))
             if lane is None:
                 raise RuntimeError("下载失败，请重试")
 
@@ -650,6 +666,11 @@ class Updater:
             extract_dir = resolve_package_root(extract_dir)   # 安装结构预检 + 规范化
             self._downloaded_path = dest
             self._extract_dir = extract_dir
+            if str(self._cfg_get("update.skipped_version", "") or "") == rel.version:
+                self._invalidate_ready(remove_zip=True)
+                self._set(state="skipped", latest_version=rel.version)
+                logger.info("更新版本已被用户跳过，下载结果已丢弃：%s", rel.version)
+                return
             self._write_ready(rel, asset_name, expected, os.path.basename(dest))
             self._set(state="ready", percent=100.0, offline=False)
             logger.info("更新包已下载、通过校验并解压：%s", dest)
@@ -699,12 +720,16 @@ class Updater:
                 continue
         return None
 
-    def _download_with_lanes(self, url: str, dest: str, opener) -> Optional[str]:
+    def _download_with_lanes(self, url: str, dest: str, opener, limit: int = 0) -> Optional[str]:
         """按候选链下载到 dest；成功返回通道标签，全部失败返回 None（1 轮，不整体重试）"""
+        if limit <= 0:
+            limit = MAX_UPDATE_DOWNLOAD_BYTES
         started = time.monotonic()
+        last_reason = ""
         for label, candidate in self._lanes(url):
-            ok, _reason = self._download_lane(label, candidate, dest, opener)
+            ok, reason = self._download_lane(label, candidate, dest, opener, limit)
             if not ok:
+                last_reason = reason
                 self._demoted.add(label)
                 try:
                     os.remove(dest)
@@ -718,9 +743,12 @@ class Updater:
             logger.info("下载完成：通道=%s 总耗时=%.1fs 均速=%.2fMB/s 字节=%d",
                         label, elapsed, speed, size)
             return label
+        if last_reason == "too-large":
+            raise RuntimeError("更新包超过允许大小")
         return None
 
-    def _download_lane(self, label: str, url: str, dest: str, opener) -> Tuple[bool, str]:
+    def _download_lane(self, label: str, url: str, dest: str, opener,
+                       limit: int = MAX_UPDATE_DOWNLOAD_BYTES) -> Tuple[bool, str]:
         """单通道下载：10s 超时、15s 单次低速检查（不足 5MiB 即切）；从零重传"""
         logger.info("下载通道开始：%s", label)
         start = time.monotonic()
@@ -735,6 +763,8 @@ class Updater:
                     total = int(resp.headers.get("Content-Length") or 0)
                 except (TypeError, ValueError):
                     total = 0
+                if total > limit:
+                    raise _DownloadTooLarge()
                 self._emit_progress(0, total, 0.0)
                 with open(dest, "wb") as f:
                     while True:
@@ -745,6 +775,8 @@ class Updater:
                             first_byte = time.monotonic() - start
                         f.write(chunk)
                         got += len(chunk)
+                        if got > limit:
+                            raise _DownloadTooLarge()
                         now = time.monotonic()
                         if not checked and now - start >= LANE_LOW_SPEED_AFTER:
                             checked = True
@@ -765,6 +797,10 @@ class Updater:
             elapsed = time.monotonic() - start
             logger.info("下载通道结束：%s 结果=低速切换 耗时=%.1fs 字节=%d", label, elapsed, got)
             return False, "low-speed"
+        except _DownloadTooLarge:
+            elapsed = time.monotonic() - start
+            logger.info("下载通道结束：%s 结果=超过大小上限 耗时=%.1fs 字节=%d", label, elapsed, got)
+            return False, "too-large"
         except Exception as e:
             elapsed = time.monotonic() - start
             logger.info("下载通道结束：%s 结果=%s 耗时=%.1fs 字节=%d",

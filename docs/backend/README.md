@@ -42,7 +42,6 @@
 | `singleton.py` | 单例装饰器 |
 | `time_utils.py` | 时间格式化 |
 | `title_utils.py` | `normalize_title`（VNDB 搜索清洗 + `for_identity` 保守模式） |
-| `image_safe_loader.py` | 安全图片加载（Pillow） |
 | `hotkeys.py` | 全局热键注册（keyboard） |
 | `vndb_client.py` | VNDB API 客户端（搜索/封面下载/重试/进度回调） |
 | `bangumi_client.py` | Bangumi API 客户端 |

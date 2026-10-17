@@ -12,8 +12,20 @@
 // ============================================================
 
 // ---------- 侧边栏树形收藏夹 ----------
+let _collectionTreeSig = '';
+
 function renderCollectionTree(): void {
   const cl = document.getElementById('collectionTree')!;
+  const sig = JSON.stringify({
+    active: App.ui.state.collectionId,
+    open: App.ui.state.openGroupId,
+    tree: App.ui.state.collectionTree.map(g => ({
+      id: g.id, name: g.name, count: g.game_count || 0,
+      children: (g.children || []).map(c => ({ id: c.id, name: c.name, count: c.game_count || 0 })),
+    })),
+  });
+  if (sig === _collectionTreeSig) return;
+  _collectionTreeSig = sig;
   cl.innerHTML = '';
   App.ui.state.collectionTree.forEach(group => cl.appendChild(renderCollectionGroup(group)));
   bindCollectionItems();
@@ -35,14 +47,18 @@ function renderCollectionGroup(group: CollectionTreeNode): HTMLElement {
   // 点击分组名 → 直接筛选该分组（含子分类），不展开
   hdr.setAttribute('role', 'button');
   hdr.tabIndex = 0;
-hdr.onclick = () => selectCollection(group.id, group);
+  hdr.onclick = () => selectCollection(group.id, group);
     hdr.onkeydown = (e: KeyboardEvent) => {
+      if (e.target !== hdr) return;
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCollection(group.id, group); }
     };
   hdr.addEventListener('contextmenu', (e: MouseEvent) => { e.preventDefault(); showCollectionCtx(e.clientX, e.clientY, group); });
-  // 小按钮 → 仅展开/收起子分类（手风琴），不筛选
+  // 小按钮：仅展开/收起子分类（手风琴），不筛选
   const tgl = el.querySelector('.toggle') as HTMLElement | null;
-  if (tgl) tgl.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); toggleExpand(group); });
+  if (tgl) {
+    tgl.setAttribute('aria-expanded', open ? 'true' : 'false');
+    tgl.addEventListener('click', (e: MouseEvent) => { e.stopPropagation(); toggleExpand(group); });
+  }
   return el;
 }
 
@@ -160,7 +176,14 @@ function delCollection(node: CollectionTreeNode): void {
   showConfirmDialog({
     title: '删除收藏夹',
     message: `删除「${node.name}」？${kids ? `其 ${kids} 个子分类一并删除，` : ''}关联游戏将不再属于该收藏夹。`,
-    danger: true, okText: '删除', cb: () => { bridge.deleteCollection(node.id); toast('已删除'); }
+    danger: true, okText: '删除', cb: () => {
+      const removedIds = [node.id].concat((node.children || []).map(c => c.id));
+      bridge.deleteCollection(node.id);
+      toast('已删除');
+      if (App.ui.state.collectionId !== null && removedIds.includes(App.ui.state.collectionId)) {
+        clearCollectionFilter();
+      }
+    }
   });
 }
 

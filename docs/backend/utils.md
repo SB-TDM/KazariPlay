@@ -80,12 +80,6 @@
 
 ---
 
-## image_safe_loader.py — 安全图片加载
-
-`safe_load_pixmap(path, max_dimension)` / `safe_load_pixmap_scaled(...)` → `QPixmap | None`：带尺寸上限的安全加载（历史 Qt 残留；原版主要用 PIL，此模块保留兼容）。
-
----
-
 ## hotkeys.py — 全局热键
 
 **仅截图热键**（默认 `f12`，`keyboard` 库；缺失/失败静默降级，截图仍可由前端按钮触发）。
@@ -105,13 +99,11 @@
 
 **搜索**
 - `search_vn(title, count=5, cancel_event=None) -> List[dict]`：`filters=["search","=",title]`，`sort="searchrank"`，fields 含 `id,title,alttitle,image.url,rating,description,released,length_minutes,developers.name`；失败返回 `[]`（不抛）。
-- `search_first_vn(title, cancel)`：取第一条（自动选策略）。
 - `search = search_vn`：**multi_source 统一入口**（`client.search(keyword, count=...)`）。
 - `_parse_vn_item(item)`：`vndb_id`（补 `v` 前缀）、`title`（**优先 alttitle 日文原名**）、`cover_url`、`rating`（0-100 → `rating_from_100` → 0-5 半星，<1 归 0）、`description`（`_clean_html` 去 BBCode/HTML 实体）、`developer`（developers 名字拼接）、`released`、`length_minutes`。
 
 **封面**
 - `download_cover(cover_url, dest_path, cancel_event=None, timeout=None, retries=0, progress_cb=None) -> bool`：`timeout` 缺省读 `cover_download.timeout`（**改设置即时生效**）；`_http_get` 按 `Content-Length` 分块上报 `progress_cb(read/total)`（0.0~1.0）；写入后校验非空。
-- `rate_limit_sleep(seconds=1.0)`：VNDB 推荐间隔（本模块不做限速，节奏由调用方控制）。
 
 ---
 

@@ -158,8 +158,6 @@
 - 多源：`ThreadPoolExecutor` 并发发起；`as_completed(timeout=_SEARCH_DEADLINE=30s)`，超时返回已完成部分；`shutdown(wait=False)` 不等慢源；完成后按源配置顺序还原
 - 去重 `_dedupe`：先 `(source, source_id)` 精确，再标题归一化模糊；保留先到源顺序
 
-**`download_cover(candidate, dest_path)`**：按 `candidate.source` 找对应 client 下载。
-
 **配置读取**：`Config().get("metadata_sources")`。
 
 ---

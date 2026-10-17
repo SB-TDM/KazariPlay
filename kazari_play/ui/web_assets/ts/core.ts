@@ -15,7 +15,6 @@ type BridgeCallback = (result: unknown, failed?: boolean) => void;
 // 代理按名转发到 window.pywebview.api，返回 Promise；最后一个函数参数视为回调（兼容旧调用方式）。
 const bridge = new Proxy({} as Record<string, (...args: unknown[]) => Promise<unknown>>, {
   get(t, name: string) {
-    if (name === 'dataChanged') return { connect: function (): void {} };  // 无信号，改为轮询
     return function (...args: unknown[]): Promise<unknown> {
       let cb: BridgeCallback | null = null;
       if (args.length && typeof args[args.length - 1] === 'function') { cb = args.pop() as BridgeCallback; }
@@ -101,7 +100,6 @@ function loadCoverToCard(card: HTMLElement, gameId: string): void {
   const url = g ? (g.cover_url || '') : '';
   const apply = (src: string): void => {
     if (!isCoverRequestCurrent(card, seq) || !src) return;
-    card.dataset.coverLoaded = '1';
     applyCoverSrc(c, src, 'bg');
     _playCoverFade(c);
   };

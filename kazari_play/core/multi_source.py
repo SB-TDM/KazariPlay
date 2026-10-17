@@ -196,16 +196,3 @@ def search_metadata(
         # 并发完成顺序不定，按源配置顺序还原
         all_candidates.sort(key=lambda c: order.get(c.get("source"), len(order)))
     return _dedupe(all_candidates)
-
-
-def download_cover(candidate: dict, dest_path: str) -> bool:
-    """按候选的来源下载封面图到本地"""
-    cover_url = (candidate or {}).get("cover_url", "")
-    if not cover_url:
-        return False
-    source = (candidate or {}).get("source", "")
-    client = SOURCES.get(source, {}).get("client")
-    if client is not None and hasattr(client, "download_cover"):
-        return client.download_cover(cover_url, dest_path)
-    # 未知来源：兜底简单 HTTP GET
-    return bangumi_client.download_cover(cover_url, dest_path)

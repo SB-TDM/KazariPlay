@@ -579,17 +579,47 @@ def test_download_space_precheck():
     print("[下载-磁盘空间预检] OK")
 
 
+def test_download_size_limit():
+    payload = b"x" * 4096
+    digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+    asset = ("KazariPlay-win64.zip",
+             "https://github.com/SB-TDM/KazariPlay/releases/download/v9.9.9/KazariPlay-win64.zip",
+             1024, digest)
+
+    def fake(url, opener=None, timeout=None):
+        return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        up = new_updater(tmp)
+        rel = make_release(assets=[asset, SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            up.check(force=True)
+        st = _run_download(up, fake)
+        assert st["state"] == "failed" and "超过允许大小" in st["error"], st
+    print("[下载-大小上限] OK")
+
+
 def test_resolve_package_root():
     with tempfile.TemporaryDirectory() as tmp:
         ok = os.path.join(tmp, "ok")
         os.makedirs(os.path.join(ok, "_internal"))
         open(os.path.join(ok, "KazariPlay.exe"), "wb").close()
+        open(os.path.join(ok, "_internal", "python311.dll"), "wb").close()
         assert U.resolve_package_root(ok) == ok
         wrapped_root = os.path.join(tmp, "wrapped")
         wrapped = os.path.join(wrapped_root, "KazariPlay")
         os.makedirs(os.path.join(wrapped, "_internal"))
         open(os.path.join(wrapped, "KazariPlay.exe"), "wb").close()
+        open(os.path.join(wrapped, "_internal", "python311.dll"), "wb").close()
         assert U.resolve_package_root(wrapped_root) == wrapped
+        empty = os.path.join(tmp, "empty_internal")
+        os.makedirs(os.path.join(empty, "_internal"))
+        open(os.path.join(empty, "KazariPlay.exe"), "wb").close()
+        try:
+            U.resolve_package_root(empty)
+            raise AssertionError("空 _internal 应被拒绝")
+        except RuntimeError as e:
+            assert "_internal 为空" in str(e)
         bare = os.path.join(tmp, "bare")
         os.makedirs(bare)
         open(os.path.join(bare, "KazariPlay.exe"), "wb").close()
@@ -718,6 +748,7 @@ if __name__ == "__main__":
     test_probe_ready()
     test_skip_deletes_ready()
     test_download_space_precheck()
+    test_download_size_limit()
     test_resolve_package_root()
     test_download_nested_package_normalized()
     test_download_invalid_structure_fails()

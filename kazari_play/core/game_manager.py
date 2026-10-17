@@ -1,5 +1,6 @@
 """游戏管理门面 - 对外统一接口，协调 scanner/launcher/monitor/repository"""
 from typing import List, Optional, Dict, Any, Callable, Tuple
+import copy
 from core.game_model import Game
 from core.game_scanner import GameScanner
 from core.game_launcher import GameLauncher
@@ -383,12 +384,13 @@ class GameManager:
         game = self.repository.get_by_id(game_id)
         if not game:
             return "fail", "游戏不存在"
+        original = copy.deepcopy(game)
         status, msg = metadata_matcher.match_single(
             game, force=force, cover_cb=cover_cb, cancel_event=cancel_event)
         # 无论是否更新都写回数据库（已标记匹配 ID 时也保存，避免重复匹配）
         if status in ("match", "skip") and (game.vndb_id or game.bangumi_id):
             self._preserve_cover_path(game)
-            self.repository.update_game_metadata(game)
+            self.repository.update_game_metadata_if_unchanged(game, original)
         return status, msg
 
     def match_all_vndb_metadata(
@@ -412,6 +414,7 @@ class GameManager:
         if not games:
             return 0, 0, 0
 
+        originals = {g.id: copy.deepcopy(g) for g in games}
         # 先在内存中批量匹配（避免每次都查库）
         matched, skipped, failed = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cover_cb=cover_cb
@@ -421,7 +424,8 @@ class GameManager:
             if game.vndb_id or game.bangumi_id:
                 try:
                     self._preserve_cover_path(game)
-                    self.repository.update_game_metadata(game)
+                    self.repository.update_game_metadata_if_unchanged(
+                        game, originals.get(game.id, game))
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
         return matched, skipped, failed
@@ -449,6 +453,7 @@ class GameManager:
         from core import metadata_matcher
         if not games:
             return 0, 0, 0
+        originals = {g.id: copy.deepcopy(g) for g in games}
         matched, skipped, failed = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cancel_event=cancel_event, cover_cb=cover_cb
         )
@@ -457,7 +462,8 @@ class GameManager:
             if game.vndb_id or game.bangumi_id:
                 try:
                     self._preserve_cover_path(game)
-                    self.repository.update_game_metadata(game)
+                    self.repository.update_game_metadata_if_unchanged(
+                        game, originals.get(game.id, game))
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
         return matched, skipped, failed

@@ -282,12 +282,6 @@ def search_vn(title: str, count: int = 5, cancel_event=None) -> List[dict]:
     return parsed
 
 
-def search_first_vn(title: str, cancel_event=None) -> Optional[dict]:
-    """搜索并返回第一个匹配结果（自动选策略用）"""
-    results = search_vn(title, count=1, cancel_event=cancel_event)
-    return results[0] if results else None
-
-
 # multi_source 统一调用 client.search(keyword, count=...) 的入口
 search = search_vn
 
@@ -347,8 +341,3 @@ def download_cover(cover_url: str, dest_path: str, cancel_event=None,
     except Exception as e:
         logger.warning("写入封面失败: %s, %s", dest_path, e)
         return False
-
-
-def rate_limit_sleep(seconds: float = 1.0):
-    """速率限制 sleep（VNDB 推荐间隔 ≥ 1s）"""
-    time.sleep(seconds)

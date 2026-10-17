@@ -173,7 +173,6 @@ function buildCard(g: Game): HTMLElement {
   card.dataset.id = String(g.id);
   card.dataset.coverVersion = String(g.cover_version || 0);
   card.dataset.coverUrl = g.cover_url || '';
-  card.dataset.coverLoaded = '';
   card.innerHTML = `<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
       ${g.fav ? '<span class="fav">' + ICON.starFill + '</span>' : ''}
       <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
@@ -213,7 +212,6 @@ function syncCard(card: HTMLElement, g: Game): boolean {
   card.dataset.coverUrl = g.cover_url || '';
   if (card.dataset.coverVersion !== String(g.cover_version || 0) || urlChanged) {
     card.dataset.coverVersion = String(g.cover_version || 0);
-    card.dataset.coverLoaded = '';
     beginCoverRequest(card);   // 作废在途旧封面响应
     const c = card.querySelector('.cover');
     if (c) {

@@ -168,21 +168,32 @@ class GameRepository:
              game.id)
         )
 
-    def update_game_metadata(self, game: Game) -> bool:
-        """仅更新元数据字段，保留用户标签/分类/路径/身份/封面等编辑。
+    def update_game_metadata_if_unchanged(self, game: Game, original: Game) -> bool:
+        """条件写回元数据：仅当当前库中字段仍等于 original 时才更新。
 
-        评分只在当前仍为 0 时写入，避免覆盖匹配期间用户手动评分。
+        这样批量匹配期间用户修改的标题/简介/评分等不会被旧快照覆盖。
         """
         return self.db.execute(
             """UPDATE games SET
-               title = ?, engine = ?, description = ?,
-               vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
-               rating = CASE WHEN rating = 0 THEN ? ELSE rating END,
-               bangumi_id = ?
+               title = CASE WHEN COALESCE(title,'') = ? THEN ? ELSE title END,
+               engine = CASE WHEN COALESCE(engine,'') = ? THEN ? ELSE engine END,
+               description = CASE WHEN COALESCE(description,'') = ? THEN ? ELSE description END,
+               vndb_id = CASE WHEN COALESCE(vndb_id,'') = ? THEN ? ELSE vndb_id END,
+               released = CASE WHEN COALESCE(released,'') = ? THEN ? ELSE released END,
+               developer = CASE WHEN COALESCE(developer,'') = ? THEN ? ELSE developer END,
+               length_minutes = CASE WHEN COALESCE(length_minutes,0) = ? THEN ? ELSE length_minutes END,
+               rating = CASE WHEN COALESCE(rating,0) = ? THEN ? ELSE rating END,
+               bangumi_id = CASE WHEN COALESCE(bangumi_id,'') = ? THEN ? ELSE bangumi_id END
                WHERE id = ?""",
-            (game.title, game.engine or "", game.description or "",
-             game.vndb_id or "", game.released or "", game.developer or "",
-             game.length_minutes or 0, game.rating or 0, game.bangumi_id or "",
+            (original.title or "", game.title or "",
+             original.engine or "", game.engine or "",
+             original.description or "", game.description or "",
+             original.vndb_id or "", game.vndb_id or "",
+             original.released or "", game.released or "",
+             original.developer or "", game.developer or "",
+             int(original.length_minutes or 0), int(game.length_minutes or 0),
+             float(original.rating or 0), float(game.rating or 0),
+             original.bangumi_id or "", game.bangumi_id or "",
              game.id)
         )
 

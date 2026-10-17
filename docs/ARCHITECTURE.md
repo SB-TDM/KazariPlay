@@ -89,7 +89,7 @@ main.py
 扫描后自动 / 右键单游戏 / 批量
  → GameManager.match_vndb_*()
    → metadata_matcher.match_batch()（逐游戏，每游戏多关键词回退）
-     → vndb_client.search_first_vn()（api.vndb.org，~1s/次）
+     → vndb_client.search_vn()（api.vndb.org，~1s/次）
      → 命中 → 保守更新字段 → 封面通过 cover_cb 交给调用方异步下载
  → 写回 DB → UISync games_delta 刷新卡片
  → 封面：WebBridge 线程池后台下载（可配超时/并发）→ 完成 reloadCover + cover_progress 进度

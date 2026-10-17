@@ -9,6 +9,7 @@
 
 // 详情请求代际：连续打开不同游戏或已关闭时，丢弃迟到响应（参考 screenshots.ts 的 request+gid）
 let detailRequest = 0;
+let detailRateSlider: StarSlider | null = null;
 
 // 打开详情（卡片闭包数据可能是快照，随后异步重取最新数据刷新）
 function openDetail(g: Game): void {
@@ -22,6 +23,7 @@ function openDetail(g: Game): void {
   document.getElementById('dlgDesc')!.textContent = g.description || '暂无简介';
   updateFavBtn();
   document.getElementById('dlgMoreMenu')!.classList.remove('show');
+  renderScreenshots();
   const detailBody = document.querySelector('.detail-body') as HTMLElement | null;
   if (detailBody) detailBody.scrollTop = 0;
   showSheet('detailOverlay');
@@ -51,17 +53,36 @@ function refreshDetail(): void {
   document.getElementById('dlgTitle')!.textContent = App.data.currentGame.title;
   document.getElementById('dlgDesc')!.textContent = App.data.currentGame.description || '暂无简介';
   renderDetailTags();
-  renderInfoBar();
+  updateInfoValues();
   updateFavBtn();
   renderScreenshots();
-  const rate = document.querySelector('.rate-edit') as HTMLElement | null;
-  if (rate) { rate.dataset.r = String(App.data.currentGame.rating); initRateEdit(); }
+  if (detailRateSlider) detailRateSlider.set(+App.data.currentGame.rating || 0);
+  else initRateEdit();
   markRunning();
+}
+
+function updateInfoValues(): void {
+  const g = App.data.currentGame!;
+  const info = document.getElementById('dlgInfo')!;
+  const rows: [string, string][] = [
+    ['开发商', g.dev ? esc(g.dev) : '未知'], ['引擎', g.engine ? esc(g.engine) : '未知'],
+    ['发售日', g.released ? esc(g.released) : '未知'],
+    ['游玩时长', g.play_time_text ? esc(g.play_time_text) : '未游玩'],
+    ['上次游玩', g.last_text ? esc(g.last_text) : '从未'],
+  ];
+  const items = info.querySelectorAll('.info-item');
+  if (items.length !== rows.length + 1) { renderInfoBar(); return; }
+  rows.forEach((row, i) => {
+    items[i].innerHTML = `<b>${row[0]}</b>${row[1]}`;
+  });
+  const rate = info.querySelector('.rate-edit') as HTMLElement | null;
+  if (rate) rate.dataset.r = String(g.rating || 0);
 }
 
 // 详情信息栏（开发商/引擎/发售日/游玩时长/上次游玩/评分）
 // 注意：dev/engine/released 等为用户可编辑字段，必须 esc() 后再进 innerHTML，防 XSS/破版
 function renderInfoBar(): void {
+  detailRateSlider = null;
   const g = App.data.currentGame!;
   document.getElementById('dlgInfo')!.innerHTML = [
     ['开发商', g.dev ? esc(g.dev) : '未知'], ['引擎', g.engine ? esc(g.engine) : '未知'],
@@ -76,7 +97,7 @@ function renderInfoBar(): void {
 function initRateEdit(): void {
   const el = document.querySelector('.rate-edit') as HTMLElement | null;
   if (!el) return;
-  makeStarSlider(el, +el.dataset.r! || 0, (v: number) => {
+  detailRateSlider = makeStarSlider(el, +el.dataset.r! || 0, (v: number) => {
     if (!App.data.currentGame) return;
     const g = App.data.currentGame;
     const prev = +g.rating || 0;
