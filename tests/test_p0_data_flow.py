@@ -80,13 +80,20 @@ class DataFlowTests(unittest.TestCase):
 
     def test_batch_match_preserves_async_cover_path(self):
         game = self.fixture()
-        game.cover_path = "fixture-cover.jpg"
-        self.manager.update_game(game)
+        self.manager.repository.update_cover_path(game.id, "fixture-cover.jpg")
         from core import metadata_matcher
         with patch.object(metadata_matcher, "match_batch", return_value=(0, 0, 0)):
             game.cover_path = ""
             self.manager.match_vndb_for_games([game])
         self.assertEqual(self.manager.get_game(game.id).cover_path, "fixture-cover.jpg")
+
+    def test_update_game_does_not_touch_cover(self):
+        game = self.fixture()
+        self.manager.repository.update_cover_path(game.id, "keep-cover.jpg")
+        game.cover_path = ""
+        game.title = "Metadata only"
+        self.assertTrue(self.manager.update_game(game))
+        self.assertEqual(self.manager.get_game(game.id).cover_path, "keep-cover.jpg")
 
     def test_partial_edit_and_failed_edit_do_not_report_success(self):
         game = self.fixture()

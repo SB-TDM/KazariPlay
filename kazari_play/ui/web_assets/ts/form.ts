@@ -302,8 +302,11 @@ document.getElementById('btnPickCover')!.onclick = () => {
     try { r = JSON.parse(String(s || '{}')) as { path?: string; preview?: string }; } catch (e) { }
     if (r.path) {
       (document.getElementById('fCoverPrev') as HTMLImageElement).src = r.preview || '';
-      bridge.setCover(String(App.data.editingId), r.path);
-      toast('封面已更换');
+      bridge.setCover(String(App.data.editingId), r.path, function (s2: unknown) {
+        let res: { ok?: boolean; msg?: string } = {};
+        try { res = JSON.parse(String(s2 || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+        toast(res.ok === false ? (res.msg || '封面更新失败') : (res.msg || '封面已更新'));
+      });
     }
   });
 };

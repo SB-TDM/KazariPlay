@@ -143,21 +143,22 @@ class GameRepository:
         )
 
     def update_game(self, game: Game) -> bool:
-        """更新游戏的全部可编辑字段（标题/引擎/评分/标签/Logo/封面/描述/启动路径/VNDB元数据/分类）
+        """更新游戏的可编辑字段（标题/引擎/评分/标签/Logo/描述/启动路径/元数据/分类）
 
+        封面路径由 update_cover_path / CoverStore 单独维护，避免批量写回覆盖异步换图。
         play_count/play_time/last_played/date_added/is_favorite 不变。
         标签不写 games.tags 列（由 GameManager 联动 TagRepository 写关联表）。
         """
         return self.db.execute(
             """UPDATE games SET
                title = ?, engine = ?, tags = ?,
-               cover_path = ?, logo_path = ?, description = ?,
+               logo_path = ?, description = ?,
                launch_exe_path = ?, exe_path = ?, folder = ?,
                vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
                category_id = ?, rating = ?, identity = ?, bangumi_id = ?
                WHERE id = ?""",
             (game.title, game.engine or "", "",
-             game.cover_path or "", game.logo_path or "",
+             game.logo_path or "",
              game.description or "", game.launch_exe_path or "",
              game.exe_path or "", game.folder or "",
              game.vndb_id or "", game.released or "",

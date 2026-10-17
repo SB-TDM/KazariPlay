@@ -10,10 +10,9 @@
 import glob
 import os
 import re
-import shutil
 import threading
 import time
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Optional
 
 from PIL import Image
 
@@ -28,6 +27,7 @@ _LEGACY_SUFFIXES = ("_manual", "_ms", "_vndb")
 _THUMB_WIDTH = 512
 _THUMB_QUALITY = 85
 _CLEANUP_GRACE = 600
+_MAX_COVER_BYTES = 64 * 1024 * 1024
 
 
 def detect_extension(data: bytes) -> str:
@@ -136,6 +136,9 @@ class CoverStore:
                 pass
 
     def save_bytes(self, game_id: str, data: bytes) -> str:
+        if len(data) > _MAX_COVER_BYTES:
+            logger.warning("封面文件过大，拒绝保存: game_id=%s, %d bytes", game_id, len(data))
+            return ""
         ext = detect_extension(data)
         if not ext:
             logger.warning("封面格式无法识别: game_id=%s, %d bytes", game_id, len(data))
@@ -161,6 +164,9 @@ class CoverStore:
 
     def save_file(self, game_id: str, src: str) -> str:
         try:
+            if os.path.getsize(src) > _MAX_COVER_BYTES:
+                logger.warning("封面文件过大，拒绝保存: %s", src)
+                return ""
             with open(src, "rb") as f:
                 data = f.read()
         except OSError as e:
@@ -180,6 +186,9 @@ class CoverStore:
             ok = vndb_client.download_cover(url, tmp, cancel_event=cancel_event,
                                             progress_cb=progress_cb)
             if not ok or not os.path.isfile(tmp):
+                return ""
+            if os.path.getsize(tmp) > _MAX_COVER_BYTES:
+                logger.warning("下载封面过大，拒绝保存: %s", url)
                 return ""
             with open(tmp, "rb") as f:
                 head = f.read(16)
@@ -259,6 +268,12 @@ class CoverStore:
             except Exception as e:  # noqa: BLE001
                 logger.warning("封面缩略图生成失败: game_id=%s, %s", game_id, e)
                 return ""
+            finally:
+                if os.path.isfile(thumb + ".part"):
+                    try:
+                        os.remove(thumb + ".part")
+                    except OSError:
+                        pass
 
     # ---------- 迁移 / 清理 ----------
 
@@ -277,16 +292,19 @@ class CoverStore:
                 src_name = os.path.basename(src)
                 canonical = self.find_cover(g.id)
                 is_canonical = bool(re.fullmatch(rf"{re.escape(g.id)}\.(jpg|png|webp|gif)", src_name))
+                changed = False
                 if is_canonical and canonical:
                     dest = canonical
                 else:
                     dest = self.save_file(g.id, src)
                     if not dest:
                         continue
-                    # 只清理由 CoverStore 管理的旧变体；旧目录/外部路径保留，避免误删用户文件
+                    changed = True
                 if os.path.normcase(os.path.abspath(g.cover_path or "")) != os.path.normcase(os.path.abspath(dest)):
                     repo.update_cover_path(g.id, dest)
-                migrated += 1
+                    changed = True
+                if changed:
+                    migrated += 1
             except Exception as e:  # noqa: BLE001
                 logger.warning("封面迁移失败: %s, %s", g.id, e)
         if migrated:

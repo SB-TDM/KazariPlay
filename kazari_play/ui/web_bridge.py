@@ -1345,14 +1345,15 @@ class WebBridge:
         return json.dumps({"path": path, "preview": _cover_data_uri(path)},
                           ensure_ascii=False)
 
-    def setCover(self, game_id: str, path: str):
+    def setCover(self, game_id: str, path: str) -> str:
         g = self.manager.get_game(game_id)
         if not g or not path or not os.path.exists(path):
-            return
+            return json.dumps({"ok": False, "msg": "封面文件不存在"}, ensure_ascii=False)
         try:
             dest = self._cover_store.save_file(game_id, path)
             if not dest:
-                return
+                return json.dumps({"ok": False, "msg": "封面格式不支持或读取失败"},
+                                  ensure_ascii=False)
             g.cover_path = dest
             self.manager.repository.update_cover_path(game_id, dest)
             try:
@@ -1360,9 +1361,12 @@ class WebBridge:
             except Exception:
                 pass
             self.reloadCover(game_id)   # 只失效该游戏封面缓存并重载该卡
+            self.refresh_delta([game_id])
+            return json.dumps({"ok": True, "msg": "封面已更新"}, ensure_ascii=False)
         except Exception as e:
             logger.error("更换封面失败: %s", e)
-        self.refresh_delta([game_id])
+            self.refresh_delta([game_id])
+            return json.dumps({"ok": False, "msg": "封面更新失败"}, ensure_ascii=False)
 
     # ---------- 多源搜索手动匹配（源可自行配置，见 core/multi_source.py）----------
     def searchMetadata(self, keyword: str, sources_json: str = "") -> str:
@@ -1458,6 +1462,8 @@ class WebBridge:
                 g.bangumi_id = sid
         if changed:
             self.manager.update_game(g)
+            if g.cover_path:
+                self.manager.repository.update_cover_path(game_id, g.cover_path)
             try:
                 self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
             except Exception:
@@ -1498,6 +1504,7 @@ class WebBridge:
         g = self.manager.get_game(game_id)
         if g:
             _cover_cache_invalidate(g.cover_path)
+            _cover_cache_invalidate(self._cover_store.thumb_path(game_id))
         self._ui.invalidate("cover", str(game_id))
 
     def cleanup_unused_covers(self) -> int:

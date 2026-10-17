@@ -59,7 +59,6 @@ class _CoverHandler(BaseHTTPRequestHandler):
 
     def _send_file(self, path: str, with_body: bool) -> None:
         try:
-            size = os.path.getsize(path)
             ext = os.path.splitext(path)[1].lower()
             ctype = _CONTENT_TYPES.get(ext, "application/octet-stream")
             with open(path, "rb") as f:

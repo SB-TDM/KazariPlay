@@ -54,6 +54,13 @@ def main():
     assert detect_extension(b"RIFF1234WEBP....") == ".webp"
     assert detect_extension(b"GIF89a....") == ".gif"
     assert detect_extension(b"not an image") == ""
+    from core import cover_store as cs
+    old_max = cs._MAX_COVER_BYTES
+    try:
+        cs._MAX_COVER_BYTES = 10
+        assert store.save_bytes("big", data) == ""
+    finally:
+        cs._MAX_COVER_BYTES = old_max
     print("[detect] OK")
 
     # 写入 + 旧变体清除
@@ -83,6 +90,7 @@ def main():
     repo = Repo([g2])
     migrated = store.migrate(repo)
     assert migrated == 1
+    assert store.migrate(repo) == 0, "迁移应幂等"
     assert g2.cover_path and g2.cover_path.endswith("g2.jpg")
     assert os.path.isfile(g2.cover_path)
     assert os.path.exists(old), "外部旧路径不应被删除（安全边界）"

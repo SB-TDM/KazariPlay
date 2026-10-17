@@ -21,6 +21,8 @@ interface PyWebViewApi {
   getCover(game_id: string): Promise<string>;
   /** 本地封面服务 URL；服务未启动/无封面返回空串 */
   getCoverUrl(game_id: string): Promise<string>;
+  /** 设置手动封面；返回 {ok, msg} JSON 字符串 */
+  setCover(game_id: string, path: string): Promise<string>;
   /** 标签 JSON 数组 */
   getTags(): Promise<string>;
   /** 分类 JSON 数组 */

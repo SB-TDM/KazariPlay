@@ -69,6 +69,13 @@ def main():
     assert os.path.isfile(store.thumb_path("g1"))
     service.stop()
     assert not service.started
+
+    disabled = CoverService(store, token="t", port=0, enabled=False, config=FakeCfg())
+    assert not disabled.start()
+    cfg = FakeCfg()
+    cfg.d["cover_service"] = {"enabled": False}
+    cfg_disabled = CoverService(store, token="t", port=0, config=cfg)
+    assert not cfg_disabled.start()
     print("COVER SERVICE TEST PASS")
     return 0
 
