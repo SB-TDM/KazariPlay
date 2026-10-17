@@ -2,6 +2,16 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.0.0-beta.3 自测包：更新提速与就绪复用（2026-10-14）
+
+- **下载通道**（DEV-UPD-03，归并 DEV-UPD-02）：候选链改为「记忆通道 → 直连 → 镜像」；单通道 socket 超时 30s→**10s**、下载开始 15s 做**单次**低速检查（已收 <5MiB 即切）、候选链**1 轮**（失败交界面重试）；切换静默从零重传；`update.last_good_lane` 记忆成功通道（校验失败不清记忆、本次会话降权）；默认镜像更新为 gh-proxy/ghfast/ghproxy.net；逐通道埋点（首字节/耗时/均速/结果）。
+- **就绪缓存**（DEV-UPD-01）：校验通过后写 `update_cache/ready.json` 并保留 zip；检查更新命中 tag+摘要时**跳过下载**直接 ready（按需重解压）；离线（检查失败）命中就绪时标注"基于上次检查"；失效含 tag/digest 变化、zip 损坏、结构预检失败、当前版本 ≥ ready 版本、跳过该版本；确认成功后**先删 ready.json 再全清**。
+- **应用方式**：移除「退出时更新」，就绪弹层只保留「立即重启更新」；删除 exit 分支、`apply_pending_update_on_exit`、`_update_on_exit` 与关闭钩子调用；原子占用保留。
+- **观测与体验**：助手分阶段耗时（wait_exit/backup_data/backup_program/replace/launch）、下载逐通道日志、新版「入口→窗口就绪/前端就绪」耗时；新版首启 toast「已更新到 vX」；早期观察窗口 20s→**8s**；快速退出机制就位（默认关闭，等埋点数据决定）。
+- **清理与预检**：启动自愈清理安装根目录白名单 `*.new`；下载前/替换前磁盘空间预检；`ready.json` 清理顺序修正。
+- 验证：`tests/test_updater.py`（31 项）、`tests/test_update_apply.py`（26 项）、`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py`；冻结包自检 + `scripts/verify_frozen_update.py`（新增就绪缓存保留场景）。真实链路复测（替换 v9.9.9 测试 Release 资产）待执行后补记。
+- 版本同步：`version.py`、前端 package/lock、README、RELEASE_NOTES、VERSIONING 示例、docs/README、AGENTS、本文件。
+
 ## 自动更新审查问题修复（2026-10-14，UPD-REV-01～13）
 
 - **恢复与健康确认**（REV-01/02/03）：启动自愈的回滚改为**独立回滚助手**（`--apply-rollback`，从更新解压缓存运行、等待当前进程退出后从程序备份恢复并重启旧版），不再在运行中的进程内覆盖自身 EXE；回滚助手拉起失败时保留状态、备份与可诊断错误，不误报成功。新版首启确认改为**前端就绪握手**（首屏数据加载成功后经桥 `updateFrontendReady` 确认），移除"窗口显示 1 秒即成功"的定时器确认。替换助手在拉起新版异常、或新版未完成启动确认即退出时，立即回滚并拉起旧版。

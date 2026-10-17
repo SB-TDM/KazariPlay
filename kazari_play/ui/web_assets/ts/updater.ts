@@ -21,6 +21,7 @@ interface UpdateState {
   speed_mb?: number;
   eta_seconds?: number;
   downloaded_path?: string;
+  offline?: boolean;
 }
 
 let updatePollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -114,7 +115,7 @@ function updateSetStage(stage: 'available' | 'downloading' | 'ready' | 'failed')
   }
   updaterById('updateTitle')!.textContent =
     stage === 'downloading' ? '正在下载更新'
-      : stage === 'ready' ? '更新包已就绪'
+      : stage === 'ready' ? ('更新包已就绪' + (st.offline ? '（基于上次检查）' : ''))
         : stage === 'failed' ? '更新失败' : '发现新版本';
 }
 
@@ -231,15 +232,15 @@ function updaterStartDownload(): void {
   });
 }
 
-function updaterApply(mode: 'now' | 'exit'): void {
-  const btn = mode === 'now' ? updaterById<HTMLButtonElement>('updateApplyNow') : updaterById<HTMLButtonElement>('updateApplyExit');
+function updaterApply(): void {
+  const btn = updaterById<HTMLButtonElement>('updateApplyNow');
   if (btn) btn.disabled = true;
-  bridge.applyUpdate(mode, function (raw: unknown, failed?: boolean) {
+  bridge.applyUpdate(function (raw: unknown, failed?: boolean) {
     let result: { ok?: boolean; msg?: string; notice?: string } = {};
     try { result = JSON.parse(String(raw || '{}')); } catch (e) { }
-    const okNow = !failed && !!result.ok && mode === 'now';
+    const okNow = !failed && !!result.ok;
     updaterShowNotice(result as UpdateState);
-    // 「立即重启」成功时应用即将退出：保持按钮禁用，防止重复发起（后端亦有单次防护）
+    // 成功发起时应用即将退出：保持按钮禁用，防止重复发起（后端亦有单次防护）
     if (btn && !okNow) btn.disabled = false;
     if (failed || !result.ok) toast(result.msg || '更新应用失败，请重试');
   });
@@ -296,9 +297,7 @@ function updaterBindModal(): void {
   const retry = updaterById('updateRetry');
   if (retry) retry.onclick = () => updaterStartDownload();
   const now = updaterById('updateApplyNow');
-  if (now) now.onclick = () => updaterApply('now');
-  const applyExit = updaterById('updateApplyExit');
-  if (applyExit) applyExit.onclick = () => updaterApply('exit');
+  if (now) now.onclick = () => updaterApply();
   const page = updaterById('updateOpenPage');
   if (page) page.onclick = () => bridge.openReleasePage();
   const leave = updaterById('updateExit');

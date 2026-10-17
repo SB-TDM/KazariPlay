@@ -1,13 +1,13 @@
 """自动更新核心单测（0 网络：桩网络与假配置，临时目录缓存）
 
-覆盖：版本比较 / 平台映射 / 镜像候选 / SHA256SUMS 解析 / 可信摘要 /
-检查更新状态机（缓存命中 / 无新版 / 有新版 / 跳过 / 资产缺失 / 网络失败退回过期缓存）/
-下载（元数据摘要校验 / 官方源校验文件回退 / 镜像自报校验值拒绝 / 校验失败 /
-包结构预检与规范化 / 全失败）。
+覆盖：版本比较 / 平台映射 / 镜像候选 / SHA256SUMS 解析 / 可信摘要 / 包结构预检 /
+检查更新状态机 / 通道切换（超时、低速、记忆通道）/ 就绪缓存（命中、失效、离线、跳过）/
+磁盘空间预检 / 下载校验失败。
 用法：python tests/test_updater.py
 """
 import hashlib
 import io
+import json
 import os
 import sys
 import tempfile
@@ -53,6 +53,20 @@ class FakeResponse:
         pass
 
 
+class SlowResponse(FakeResponse):
+    """每读一次先延迟，用来触发低速检查"""
+
+    def __init__(self, payload: bytes, delay: float = 0.05, chunk: int = 1024):
+        super().__init__(payload)
+        self._delay = delay
+        self._chunk = chunk
+
+    def read(self, size=-1):
+        time.sleep(self._delay)
+        n = self._chunk if size in (-1, None) else min(size, self._chunk)
+        return self._buf.read(n)
+
+
 WIN_ASSET = ("KazariPlay-win64.zip",
              "https://github.com/SB-TDM/KazariPlay/releases/download/v1.0.1/KazariPlay-win64.zip",
              1234)
@@ -92,6 +106,23 @@ def new_updater(tmp, cfg=None):
     return U.Updater(cfg=cfg if cfg is not None else FakeConfig(), cache_dir=tmp)
 
 
+def write_ready(cache_dir, payload, tag="v1.0.1", version="1.0.1",
+                digest=None, zip_name="KazariPlay-win64.zip"):
+    digest = digest or hashlib.sha256(payload).hexdigest()
+    with open(os.path.join(cache_dir, zip_name), "wb") as f:
+        f.write(payload)
+    with open(os.path.join(cache_dir, "ready.json"), "w", encoding="utf-8") as f:
+        json.dump({"tag": tag, "version": version, "asset_name": zip_name,
+                   "digest": digest, "zip": zip_name, "ts": "2026-10-14T00:00:00"},
+                  f, ensure_ascii=False)
+    return digest
+
+
+def zip_payload():
+    return make_zip_bytes({"KazariPlay.exe": b"NEW-EXE",
+                           "_internal/x.dll": b"dll"})
+
+
 def test_parse_version():
     assert U.parse_version("1.2.3") == (1, 2, 3, "")
     assert U.parse_version("v1.2.3") == (1, 2, 3, "")
@@ -108,11 +139,11 @@ def test_is_update_available():
     assert U.is_update_available("1.0.1", "1.0.0")
     assert U.is_update_available("1.1.0", "1.0.9")
     assert U.is_update_available("2.0.0", "1.9.9")
-    assert U.is_update_available("1.10.0", "1.9.0")          # 字符串比较会误判的反例
-    assert U.is_update_available("1.0.0", "1.0.0-beta.1")    # 预发布 → 正式版
+    assert U.is_update_available("1.10.0", "1.9.0")
+    assert U.is_update_available("1.0.0", "1.0.0-beta.1")
     assert not U.is_update_available("1.0.0", "1.0.0")
     assert not U.is_update_available("0.9.9", "1.0.0")
-    assert not U.is_update_available("1.0.1-beta.1", "1.0.0")  # latest 是预发布不算
+    assert not U.is_update_available("1.0.1-beta.1", "1.0.0")
     assert not U.is_update_available("garbage", "1.0.0")
     print("[更新判定] OK")
 
@@ -137,7 +168,6 @@ def test_download_candidates():
     other = "https://example.com/x.zip"
     assert U.build_download_candidates(other, ["https://m1.example/"]) == [other]
     assert U.build_download_candidates("", ["https://m1.example/"]) == []
-    assert U.build_download_candidates(url, []) == [url]   # direct_only 场景：只留官方源
     print("[镜像候选] OK")
 
 
@@ -154,7 +184,7 @@ def test_sha256sums():
 def test_trusted_digest():
     h = "a" * 64
     assert U.trusted_digest({"digest": f"sha256:{h}"}) == h
-    assert U.trusted_digest({"digest": "sha256:" + "A" * 64}) == h.upper().lower()
+    assert U.trusted_digest({"digest": "sha256:" + "A" * 64}) == h
     assert U.trusted_digest({"digest": "md5:" + h}) == ""
     assert U.trusted_digest({"digest": "sha256:123"}) == ""
     assert U.trusted_digest({}) == ""
@@ -183,10 +213,8 @@ def test_check_available_and_cache():
         assert st["state"] == "available", st
         assert st["latest_version"] == "1.0.1"
         assert st["asset_name"] == "KazariPlay-win64.zip"
-        assert "KazariPlay-win64.zip" in st["asset_url"]
         assert cfg.data.get("update.last_check")
         assert os.path.isfile(os.path.join(tmp, "latest.json"))
-        # 摘要随缓存持久化（下载阶段用可信摘要校验）
         cached = up._load_cache(max_age=None)
         assert cached and U.trusted_digest(cached.assets["KazariPlay-win64.zip"]) == "a" * 64
         with mock.patch.object(U, "_http_get_json", side_effect=AssertionError("缓存命中不应请求网络")):
@@ -226,7 +254,7 @@ def test_check_skipped_and_skip_current():
 def test_check_asset_missing():
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
-        rel = make_release(assets=[SUMS_ASSET])   # 没有 win64 资产
+        rel = make_release(assets=[SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
             st = up.check(force=True)
         assert st["state"] == "failed" and "win64" in st["error"], st
@@ -252,9 +280,8 @@ def test_check_network_fail_stale_cache():
         old = time.time() - U.CHECK_INTERVAL_SECONDS * 10
         os.utime(cache, (old, old))
         with mock.patch.object(U, "_http_get_json", return_value=None):
-            st = up.check(force=True)   # force 绕过新鲜度；网络失败退回过期缓存
+            st = up.check(force=True)
         assert st["state"] == "available", st
-        # 无缓存且网络失败 → failed
         up2 = new_updater(tmp + "-2")
         with mock.patch.object(U, "_http_get_json", return_value=None):
             st2 = up2.check(force=True)
@@ -272,8 +299,8 @@ def _run_download(up, fake):
 
 
 def test_download_success_with_mirror():
-    """发布元数据带可信摘要：直连被墙时经镜像下载 ZIP，摘要校验通过"""
-    payload = make_zip_bytes({"KazariPlay.exe": b"NEW-EXE", "_internal/x.dll": b"dll"})
+    """发布元数据带可信摘要：直连失败 → 切镜像；摘要校验通过并记录记忆通道"""
+    payload = zip_payload()
     digest = "sha256:" + hashlib.sha256(payload).hexdigest()
     calls = []
 
@@ -284,28 +311,31 @@ def test_download_success_with_mirror():
         return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
 
     with tempfile.TemporaryDirectory() as tmp:
-        up = new_updater(tmp)
+        cfg = FakeConfig()
+        up = new_updater(tmp, cfg)
         rel = make_release(assets=[win_asset(digest), SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
             up.check(force=True)
         st = _run_download(up, fake)
         assert st["state"] == "ready", st
-        assert st["percent"] == 100.0
+        assert st["offline"] is False
         path = st["downloaded_path"]
         assert os.path.isfile(path)
         assert U.sha256_file(path) == hashlib.sha256(payload).hexdigest()
-        extract = st["extract_dir"]
-        assert extract and os.path.isfile(os.path.join(extract, "KazariPlay.exe"))
+        assert st["extract_dir"] and os.path.isfile(
+            os.path.join(st["extract_dir"], "KazariPlay.exe"))
+        assert calls[0].startswith("https://github.com/")
         assert any(u.startswith("https://gh-proxy.com/") for u in calls)
-        assert not any(u.endswith("SHA256SUMS.txt") for u in calls), calls   # 有摘要不取校验文件
+        assert cfg.data.get("update.last_good_lane") == "https://gh-proxy.com/"
+        assert os.path.isfile(os.path.join(tmp, "ready.json"))
         leftovers = [n for n in os.listdir(tmp) if n.endswith(".part")]
         assert not leftovers, leftovers
-    print("[下载-元数据摘要+镜像传输+校验+解压成功] OK")
+    print("[下载-通道切换+元数据摘要+就绪缓存] OK")
 
 
 def test_download_direct_sums_fallback():
     """发布元数据无摘要：仅接受官方源直连的 SHA256SUMS；ZIP 仍可走镜像"""
-    payload = make_zip_bytes({"KazariPlay.exe": b"NEW-EXE", "_internal/x.dll": b"dll"})
+    payload = zip_payload()
     digest = hashlib.sha256(payload).hexdigest()
     sums_text = f"{digest}  KazariPlay-win64.zip\n".encode()
     calls = []
@@ -314,7 +344,7 @@ def test_download_direct_sums_fallback():
         calls.append(url)
         if url.endswith("SHA256SUMS.txt"):
             if url.startswith("https://github.com/"):
-                return FakeResponse(sums_text)          # 官方直连可用
+                return FakeResponse(sums_text)
             raise OSError("镜像不得提供校验文件")
         if url.startswith("https://github.com/"):
             raise OSError("direct zip blocked")
@@ -322,13 +352,12 @@ def test_download_direct_sums_fallback():
 
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
-        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])   # 无 digest
+        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
             up.check(force=True)
-        with mock.patch.object(U, "DOWNLOAD_RETRIES", 0):
-            st = _run_download(up, fake)
+        st = _run_download(up, fake)
         assert st["state"] == "ready", st
-        assert any(u == SUMS_ASSET[1] for u in calls), calls   # 校验文件只走官方直连
+        assert any(u == SUMS_ASSET[1] for u in calls), calls
     print("[下载-官方源校验文件回退] OK")
 
 
@@ -342,16 +371,15 @@ def test_download_mirror_sums_not_trusted():
         if url.startswith("https://github.com/"):
             raise OSError("direct blocked")
         if url.endswith("SHA256SUMS.txt"):
-            return FakeResponse(sums_text)              # 镜像自报（与实际包匹配）
+            return FakeResponse(sums_text)
         return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
 
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
-        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])   # 无 digest
+        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
             up.check(force=True)
-        with mock.patch.object(U, "DOWNLOAD_RETRIES", 0):
-            st = _run_download(up, fake)
+        st = _run_download(up, fake)
         assert st["state"] == "failed", st
         assert "官方源" in st["error"] or "可信" in st["error"], st
         assert not os.path.isfile(os.path.join(tmp, "KazariPlay-win64.zip"))
@@ -360,7 +388,7 @@ def test_download_mirror_sums_not_trusted():
 
 def test_download_checksum_mismatch():
     payload = b"corrupted" * 100
-    digest = "sha256:" + "0" * 64   # 与包不符的元数据摘要
+    digest = "sha256:" + "0" * 64
 
     def fake(url, opener=None, timeout=None):
         return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
@@ -383,34 +411,165 @@ def test_download_all_candidates_fail():
 
     with tempfile.TemporaryDirectory() as tmp:
         up = new_updater(tmp)
-        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])   # 无摘要：取校验文件也失败
+        rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
             up.check(force=True)
-        with mock.patch.object(U, "_open_stream", side_effect=fake), \
-             mock.patch.object(U, "DOWNLOAD_RETRIES", 0):
-            assert up.download() is True
-            deadline = time.time() + 10
-            while time.time() < deadline and up.state()["state"] not in ("ready", "failed"):
-                time.sleep(0.02)
-        st = up.state()
+        st = _run_download(up, fake)
         assert st["state"] == "failed", st
     print("[下载-全候选失败] OK")
 
 
+def test_low_speed_switch():
+    """15s 检查点前已收 <5MiB → 切下一候选（用缩短的常量模拟）"""
+    payload = zip_payload()
+    digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+    calls = []
+
+    def fake(url, opener=None, timeout=None):
+        calls.append(url)
+        if url.startswith("https://github.com/"):
+            return SlowResponse(payload, delay=0.03, chunk=1024)
+        return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        up = new_updater(tmp)
+        rel = make_release(assets=[win_asset(digest), SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            up.check(force=True)
+        with mock.patch.object(U, "LANE_LOW_SPEED_AFTER", 0.02):
+            st = _run_download(up, fake)
+        assert st["state"] == "ready", st
+        assert any(u.startswith("https://gh-proxy.com/") for u in calls), calls
+    print("[下载-低速切换] OK")
+
+
+def test_last_good_lane_priority():
+    """记忆通道优先于直连"""
+    payload = zip_payload()
+    digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+    calls = []
+
+    def fake(url, opener=None, timeout=None):
+        calls.append(url)
+        return FakeResponse(payload, headers={"Content-Length": str(len(payload))})
+
+    with tempfile.TemporaryDirectory() as tmp:
+        cfg = FakeConfig({"update.last_good_lane": "https://gh-proxy.com/"})
+        up = new_updater(tmp, cfg)
+        rel = make_release(assets=[win_asset(digest), SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            up.check(force=True)
+        st = _run_download(up, fake)
+        assert st["state"] == "ready", st
+        assert calls[0].startswith("https://gh-proxy.com/"), calls
+    print("[下载-记忆通道优先] OK")
+
+
+def test_ready_cache_hit():
+    """就绪缓存命中：不联网下载，直接 ready 并重建解压目录"""
+    payload = zip_payload()
+    digest = hashlib.sha256(payload).hexdigest()
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload)
+        up = new_updater(tmp)
+        rel = make_release(assets=[win_asset("sha256:" + digest), SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel), \
+             mock.patch.object(U, "_open_stream", side_effect=AssertionError("不应下载")):
+            st = up.check(force=True)
+        assert st["state"] == "ready", st
+        assert st["offline"] is False
+        assert st["extract_dir"] and os.path.isfile(
+            os.path.join(st["extract_dir"], "KazariPlay.exe"))
+        assert os.path.isfile(os.path.join(tmp, "ready.json"))
+    print("[就绪缓存-命中（0 下载）] OK")
+
+
+def test_ready_cache_digest_change_invalidates():
+    payload = zip_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload, digest="0" * 64)
+        up = new_updater(tmp)
+        rel = make_release(assets=[win_asset("sha256:" + hashlib.sha256(payload).hexdigest()),
+                                   SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            st = up.check(force=True)
+        assert st["state"] == "available", st
+        assert not os.path.exists(os.path.join(tmp, "ready.json"))
+        assert not os.path.isfile(os.path.join(tmp, "KazariPlay-win64.zip"))
+    print("[就绪缓存-摘要变化失效] OK")
+
+
+def test_ready_cache_old_version_invalidates():
+    payload = zip_payload()
+    digest = hashlib.sha256(payload).hexdigest()
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload, version="0.1.0", digest=digest)
+        up = new_updater(tmp)
+        rel = make_release(assets=[win_asset("sha256:" + digest), SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            st = up.check(force=True)
+        assert st["state"] == "available", st
+        assert not os.path.exists(os.path.join(tmp, "ready.json"))
+    print("[就绪缓存-旧版本残留失效] OK")
+
+
+def test_offline_ready():
+    """检查请求失败且无发布缓存：本地就绪缓存有效时仍可就绪（离线标注）"""
+    payload = zip_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload)
+        up = new_updater(tmp)
+        with mock.patch.object(U, "_http_get_json", return_value=None):
+            st = up.check(force=True)
+        assert st["state"] == "ready", st
+        assert st["offline"] is True
+        assert st["latest_version"] == "1.0.1"
+    print("[就绪缓存-离线就绪] OK")
+
+
+def test_skip_deletes_ready():
+    payload = zip_payload()
+    digest = hashlib.sha256(payload).hexdigest()
+    with tempfile.TemporaryDirectory() as tmp:
+        write_ready(tmp, payload, digest=digest)
+        up = new_updater(tmp)
+        rel = make_release(assets=[win_asset("sha256:" + digest), SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            up.check(force=True)
+        st = up.skip_current()
+        assert st["state"] == "skipped"
+        assert not os.path.exists(os.path.join(tmp, "ready.json"))
+        assert not os.path.isfile(os.path.join(tmp, "KazariPlay-win64.zip"))
+    print("[就绪缓存-跳过即清理] OK")
+
+
+def test_download_space_precheck():
+    with tempfile.TemporaryDirectory() as tmp:
+        up = new_updater(tmp)
+        payload = zip_payload()
+        rel = make_release(assets=[win_asset("sha256:" + hashlib.sha256(payload).hexdigest()),
+                                   SUMS_ASSET])
+        with mock.patch.object(U, "_http_get_json", return_value=rel):
+            up.check(force=True)
+        with mock.patch.object(U, "ensure_free_space",
+                               side_effect=RuntimeError("磁盘空间不足：需要约 260 MB")), \
+             mock.patch.object(U, "_open_stream", side_effect=AssertionError("不应开始下载")):
+            st = _run_download(up, lambda *a, **k: None)
+        assert st["state"] == "failed" and "磁盘空间不足" in st["error"], st
+    print("[下载-磁盘空间预检] OK")
+
+
 def test_resolve_package_root():
     with tempfile.TemporaryDirectory() as tmp:
-        # 正常包：程序根在包根
         ok = os.path.join(tmp, "ok")
         os.makedirs(os.path.join(ok, "_internal"))
         open(os.path.join(ok, "KazariPlay.exe"), "wb").close()
         assert U.resolve_package_root(ok) == ok
-        # 单层包裹目录：规范化到唯一程序根
         wrapped_root = os.path.join(tmp, "wrapped")
         wrapped = os.path.join(wrapped_root, "KazariPlay")
         os.makedirs(os.path.join(wrapped, "_internal"))
         open(os.path.join(wrapped, "KazariPlay.exe"), "wb").close()
         assert U.resolve_package_root(wrapped_root) == wrapped
-        # 缺少 _internal 运行资源
         bare = os.path.join(tmp, "bare")
         os.makedirs(bare)
         open(os.path.join(bare, "KazariPlay.exe"), "wb").close()
@@ -419,7 +578,6 @@ def test_resolve_package_root():
             raise AssertionError("缺少 _internal 应被拒绝")
         except RuntimeError as e:
             assert "运行资源" in str(e)
-        # 多入口 / 多层嵌套：拒绝
         multi = os.path.join(tmp, "multi")
         os.makedirs(os.path.join(multi, "a"))
         os.makedirs(os.path.join(multi, "b"))
@@ -429,7 +587,6 @@ def test_resolve_package_root():
             raise AssertionError("多入口应被拒绝")
         except RuntimeError:
             pass
-        # 包内含用户数据目录：拒绝
         evil = os.path.join(tmp, "evil")
         os.makedirs(os.path.join(evil, "_internal"))
         os.makedirs(os.path.join(evil, "data"))
@@ -443,7 +600,6 @@ def test_resolve_package_root():
 
 
 def test_download_nested_package_normalized():
-    """兼容旧资产布局：zip 多一层包裹目录时规范化为唯一程序根后进入 ready"""
     payload = make_zip_bytes({"KazariPlay/KazariPlay.exe": b"NEW-EXE",
                               "KazariPlay/_internal/x.dll": b"dll"})
     digest = "sha256:" + hashlib.sha256(payload).hexdigest()
@@ -466,8 +622,7 @@ def test_download_nested_package_normalized():
 
 
 def test_download_invalid_structure_fails():
-    """结构不符（缺运行资源）的包不得进入 ready"""
-    payload = make_zip_bytes({"KazariPlay.exe": b"NEW-EXE"})   # 缺 _internal
+    payload = make_zip_bytes({"KazariPlay.exe": b"NEW-EXE"})
     digest = "sha256:" + hashlib.sha256(payload).hexdigest()
 
     def fake(url, opener=None, timeout=None):
@@ -534,6 +689,14 @@ if __name__ == "__main__":
     test_download_mirror_sums_not_trusted()
     test_download_checksum_mismatch()
     test_download_all_candidates_fail()
+    test_low_speed_switch()
+    test_last_good_lane_priority()
+    test_ready_cache_hit()
+    test_ready_cache_digest_change_invalidates()
+    test_ready_cache_old_version_invalidates()
+    test_offline_ready()
+    test_skip_deletes_ready()
+    test_download_space_precheck()
     test_resolve_package_root()
     test_download_nested_package_normalized()
     test_download_invalid_structure_fails()

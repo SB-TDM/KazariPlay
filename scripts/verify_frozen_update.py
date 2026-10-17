@@ -182,6 +182,29 @@ def scenario_install_lock(package: Path, tmp: str):
     print("[冻结演练-安装锁互斥] OK")
 
 
+def scenario_ready_cache_retention(tmp):
+    """就绪缓存：启动清理保留被 ready.json 引用的 zip；确认成功后全清（D3/D9）"""
+    root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(root / "kazari_play"))
+    from utils import update_apply as UA
+
+    data = os.path.join(tmp, "cache", "KazariPlay", "data")
+    cache = os.path.join(data, "update_cache")
+    os.makedirs(cache)
+    zip_path = os.path.join(cache, "KazariPlay-win64.zip")
+    with open(zip_path, "wb") as f:
+        f.write(b"zip-bytes")
+    with open(os.path.join(cache, "ready.json"), "w", encoding="utf-8") as f:
+        json.dump({"zip": "KazariPlay-win64.zip"}, f, ensure_ascii=False)
+    UA.cleanup_update_cache(data, keep_extract=False)
+    assert os.path.isfile(zip_path), "启动清理不得删除就绪缓存引用的 zip"
+    assert os.path.isfile(os.path.join(cache, "ready.json"))
+    UA.cleanup_update_cache(data, keep_ready=False)
+    assert not os.path.exists(zip_path), "确认成功后应清掉就绪 zip"
+    assert not os.path.exists(os.path.join(cache, "ready.json"))
+    print("[冻结演练-就绪缓存保留/确认清理] OK")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", type=Path, required=True,
@@ -200,6 +223,7 @@ def main():
         scenario_update(package, tmp)
         scenario_rollback(package, tmp)
         scenario_install_lock(package, tmp)
+        scenario_ready_cache_retention(tmp)
     finally:
         try:
             kill_package_processes(tmp)

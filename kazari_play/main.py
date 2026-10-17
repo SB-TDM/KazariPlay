@@ -29,6 +29,7 @@ import re
 import sys
 import ctypes
 import threading
+import time
 from html import escape
 
 import webview
@@ -40,6 +41,9 @@ from utils.logger import get_logger, set_level
 from version import DISPLAY_VERSION, PRODUCT_LINE, WINDOW_TITLE
 
 logger = get_logger()
+
+# 进程内入口时刻（不含 PyInstaller bootloader；用于「入口→窗口就绪/前端就绪」埋点）
+_PROCESS_T0 = time.monotonic()
 
 
 def _icon_data_uri() -> str:
@@ -215,6 +219,7 @@ def _apply_window_extras(bridge):
 
     def _do():
         hwnd = bridge._win32_hwnd()
+        logger.info("启动耗时：入口→窗口就绪=%.2fs", time.monotonic() - _PROCESS_T0)
         if hwnd:
             _ensure_minimize_style(hwnd)
             _apply_icon_win32(hwnd)
@@ -251,7 +256,8 @@ def main():
 
     # WebView2 依赖显式检测（缺失时给明确指引，避免 pywebview 原始报错）
     from utils.path_utils import get_app_data_dir
-    from utils.update_apply import (cleanup_update_cache, ensure_webview2,
+    from utils.update_apply import (cleanup_stale_new_files, cleanup_update_cache,
+                                    current_install_dir, ensure_webview2,
                                     has_pending_update_state, startup_self_heal)
     if not ensure_webview2():
         return
@@ -261,12 +267,15 @@ def main():
     if update_exit:
         # 回滚助手已拉起：本进程立即退出，由助手等待退出后恢复旧版并重新启动
         os._exit(0)
-    # 待回滚/待确认期间保留解压缓存（回滚助手需要）；其余情况照常清理
+    # 清理中断现场可能残留的根级 *.new（无状态时也兜底一次）
+    cleanup_stale_new_files(current_install_dir())
+    # 待回滚/待确认期间保留解压缓存（回滚助手需要）；其余情况照常清理（就绪缓存 zip 保留）
     cleanup_update_cache(get_app_data_dir(),
                          keep_extract=has_pending_update_state(get_app_data_dir()))
 
     manager = GameManager()
     bridge = WebBridge(manager)
+    bridge._start_ts = _PROCESS_T0   # 供「入口→前端就绪」埋点
     if update_notice:
         try:
             bridge.set_update_notice(update_notice)
@@ -294,11 +303,6 @@ def main():
     # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时退出 overlay.exe，
     # 避免独立 overlay 进程残留
     def _on_window_closing():
-        try:
-            if bridge.apply_pending_update_on_exit():   # 「退出时更新」：关闭前拉起替换助手
-                pass
-        except Exception:
-            pass
         try:
             overlay = getattr(bridge, "_overlay_client", None)
             if overlay is not None:

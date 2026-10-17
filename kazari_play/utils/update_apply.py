@@ -24,6 +24,7 @@ import time
 from typing import Callable, List, Optional, Tuple
 
 from utils.logger import get_logger
+from utils.updater import READY_FILE, ensure_free_space
 
 logger = get_logger()
 
@@ -42,7 +43,8 @@ PROGRAM_WHITELIST = {
 # 禁用区（用户数据）；任何目标路径命中即中止
 FORBIDDEN_PARTS = {"data", "screenshots", "logs"}
 BACKUP_KEEP = 3
-EARLY_EXIT_GRACE = 20.0      # 新版启动后观察窗口：确认前退出 → 回滚（秒）
+EARLY_EXIT_GRACE = 8.0       # 新版启动后观察窗口：确认前退出 → 回滚（秒）
+APPLY_SPACE_MARGIN = 64 * 1024 * 1024    # 替换前预留空间余量
 
 
 class UpdateStateError(RuntimeError):
@@ -362,6 +364,26 @@ def _await_startup(data_dir: str, proc) -> bool:
 
 # ---------- 助手主流程 ----------
 
+def _estimate_program_size(target: str) -> int:
+    """估算 target 中白名单程序条目总字节数（替换前空间预检用）"""
+    total = 0
+    for name in PROGRAM_WHITELIST:
+        path = os.path.join(target, name)
+        if os.path.isfile(path):
+            try:
+                total += os.path.getsize(path)
+            except OSError:
+                pass
+        elif os.path.isdir(path):
+            for root, _dirs, files in os.walk(path):
+                for f in files:
+                    try:
+                        total += os.path.getsize(os.path.join(root, f))
+                    except OSError:
+                        pass
+    return total
+
+
 def apply_update(pid: int, target: str, source: str, data_dir: str,
                  launch: Optional[Callable[[str], object]] = None,
                  wait_timeout: float = 30.0) -> int:
@@ -372,6 +394,17 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
     data_dir = os.path.abspath(data_dir)
     old_exe = os.path.join(target, "KazariPlay.exe")
     marker: Optional[dict] = None
+    timings = {"wait_exit": 0.0, "backup_data": 0.0, "backup_program": 0.0,
+               "replace": 0.0, "launch": 0.0}
+    started = time.monotonic()
+
+    def _log_phases() -> None:
+        total = time.monotonic() - started
+        logger.info(
+            "更新阶段耗时：wait_exit=%.2fs backup_data=%.2fs backup_program=%.2fs "
+            "replace=%.2fs launch=%.2fs 总计=%.2fs",
+            timings["wait_exit"], timings["backup_data"], timings["backup_program"],
+            timings["replace"], timings["launch"], total)
 
     def abort(msg: str) -> int:
         """未进入替换：记录原因并尽力拉起旧版（旧进程仍存活时不重复拉起）"""
@@ -403,57 +436,78 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
         _launch_quiet(launch, old_exe)
         return 1
 
-    # 1) 等待旧进程退出（无法确认退出即中止，不进入备份与替换）
     try:
-        if pid:
-            wait_process_exit(pid, timeout=wait_timeout)
-    except Exception as e:
-        return abort(f"更新中止：无法结束旧进程（{e}）")
+        # 1) 等待旧进程退出（无法确认退出即中止，不进入备份与替换）
+        t0 = time.monotonic()
+        try:
+            if pid:
+                wait_process_exit(pid, timeout=wait_timeout)
+        except Exception as e:
+            return abort(f"更新中止：无法结束旧进程（{e}）")
+        finally:
+            timings["wait_exit"] = time.monotonic() - t0
 
-    # 2) 前置校验与备份（任何失败都不做替换；状态不可写即中止）
-    try:
-        plan = build_replace_plan(target, source)          # 先校验，后任何改动
-        data_backup = backup_user_data(data_dir) or ""     # 备份失败即抛异常
-        stamp = time.strftime("%Y%m%d-%H%M%S")
-        old_dir = os.path.join(target, "_old", stamp)
-        _backup_program(target, old_dir)
-        marker = {
-            "phase": STATE_APPLYING, "target": target,
-            "new_version": _read_build_version(source), "old_version": _read_build_version(target),
-            "backup_program": old_dir, "backup_data": data_backup,
-            "attempts": 0, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
-        }
-        _write_state(data_dir, marker)
-    except Exception as e:
-        return abort(f"更新未执行（前置检查或备份失败）：{e}")
+        # 2) 前置校验与备份（任何失败都不做替换；状态不可写即中止）
+        t0 = time.monotonic()
+        try:
+            plan = build_replace_plan(target, source)          # 先校验，后任何改动
+            ensure_free_space(target,
+                              _estimate_program_size(target) + APPLY_SPACE_MARGIN,
+                              "替换程序文件")
+            t1 = time.monotonic()
+            data_backup = backup_user_data(data_dir) or ""     # 备份失败即抛异常
+            timings["backup_data"] = time.monotonic() - t1
+            t1 = time.monotonic()
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            old_dir = os.path.join(target, "_old", stamp)
+            _backup_program(target, old_dir)
+            timings["backup_program"] = time.monotonic() - t1
+            marker = {
+                "phase": STATE_APPLYING, "target": target,
+                "new_version": _read_build_version(source), "old_version": _read_build_version(target),
+                "backup_program": old_dir, "backup_data": data_backup,
+                "attempts": 0, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            }
+            _write_state(data_dir, marker)
+        except Exception as e:
+            return abort(f"更新未执行（前置检查或备份失败）：{e}")
 
-    # 3) 白名单替换；失败立即回滚
-    try:
-        _copy_new_files(plan)
-        _remove_stale(target, plan)
-    except Exception as e:
-        logger.warning("替换失败，回滚：%s", e)
-        return rollback(f"更新失败，已回滚：{e}")
+        # 3) 白名单替换；失败立即回滚
+        t0 = time.monotonic()
+        try:
+            _copy_new_files(plan)
+            _remove_stale(target, plan)
+        except Exception as e:
+            timings["replace"] = time.monotonic() - t0
+            logger.warning("替换失败，回滚：%s", e)
+            return rollback(f"更新失败，已回滚：{e}")
+        timings["replace"] = time.monotonic() - t0
 
-    # 4) 持久化"待验证"；不可写即回滚（避免状态不可恢复的替换）
-    try:
-        _write_state(data_dir, {**marker, "phase": STATE_VERIFY, "attempts": 0})
-    except Exception as e:
-        logger.error("待验证状态写入失败，回滚：%s", e)
-        return rollback(f"更新失败，已回滚：状态不可写（{e}）")
+        # 4) 持久化"待验证"；不可写即回滚（避免状态不可恢复的替换）
+        try:
+            _write_state(data_dir, {**marker, "phase": STATE_VERIFY, "attempts": 0})
+        except Exception as e:
+            logger.error("待验证状态写入失败，回滚：%s", e)
+            return rollback(f"更新失败，已回滚：状态不可写（{e}）")
 
-    # 5) 拉起新版；拉起异常立即回滚
-    try:
-        proc = launch(os.path.join(target, "KazariPlay.exe"))
-    except Exception as e:
-        logger.error("拉起新版失败，回滚：%s", e)
-        return rollback(f"新版本拉起失败，已回滚：{e}")
+        # 5) 拉起新版；拉起异常立即回滚
+        t0 = time.monotonic()
+        try:
+            proc = launch(os.path.join(target, "KazariPlay.exe"))
+        except Exception as e:
+            timings["launch"] = time.monotonic() - t0
+            logger.error("拉起新版失败，回滚：%s", e)
+            return rollback(f"新版本拉起失败，已回滚：{e}")
+        timings["launch"] = time.monotonic() - t0
+        logger.info("已拉起新版：%s", time.strftime("%Y-%m-%dT%H:%M:%S"))
 
-    # 6) 观察启动：新版在完成启动确认前退出 → 立即回滚
-    if not _await_startup(data_dir, proc):
-        logger.warning("新版本启动后未确认即退出，回滚")
-        return rollback("新版本启动失败，已回滚到更新前的版本")
-    return 0
+        # 6) 观察启动：新版在完成启动确认前退出 → 立即回滚
+        if not _await_startup(data_dir, proc):
+            logger.warning("新版本启动后未确认即退出，回滚")
+            return rollback("新版本启动失败，已回滚到更新前的版本")
+        return 0
+    finally:
+        _log_phases()
 
 
 def _find_helper_exe(data_dir: str) -> str:
@@ -618,6 +672,20 @@ def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int) -> Tuple
 
 # ---------- 启动自愈 ----------
 
+def cleanup_stale_new_files(target: str) -> None:
+    """删除安装根目录白名单条目的 `.new` 残留（不递归、不碰用户数据区）"""
+    if not target or not os.path.isdir(target):
+        return
+    for name in PROGRAM_WHITELIST:
+        path = os.path.join(target, name + ".new")
+        if os.path.isfile(path):
+            try:
+                os.remove(path)
+                logger.info("清理更新残留：%s", path)
+            except OSError as e:
+                logger.warning("清理更新残留失败（忽略）：%s（%s）", path, e)
+
+
 def startup_self_heal(data_dir: str,
                       spawn_helper: Optional[Callable[[str, str], bool]] = None
                       ) -> Tuple[Optional[str], bool]:
@@ -634,6 +702,9 @@ def startup_self_heal(data_dir: str,
     phase = st.get("phase", "")
     target = st.get("target") or ""
     old_dir = st.get("backup_program") or ""
+
+    # 中断现场可能残留 .new 临时文件（写 .new → os.replace 之间被杀）
+    cleanup_stale_new_files(target)
 
     if phase == STATE_APPLYING:
         # 助手中断（替换中途被杀/断电）：交由回滚助手恢复
@@ -678,29 +749,71 @@ def startup_self_heal(data_dir: str,
     return None, False
 
 
-def mark_startup_success(data_dir: str) -> None:
-    """新版前端完成首屏数据加载后调用：完成"待验证"确认并清理旧文件与下载缓存"""
+def mark_startup_success(data_dir: str) -> Optional[str]:
+    """新版前端完成首屏数据加载后调用：完成"待验证"确认并清理旧文件与下载缓存
+
+    返回完成提示（如「已更新到 v1.0.0」）；非更新确认场景返回 None。
+    """
     st = _read_state(data_dir)
     if not st or st.get("phase") != STATE_VERIFY:
-        return
-    _delete_state(data_dir)
+        return None
     target = st.get("target") or ""
+    version = _read_build_version(target) if target else ""
+    _delete_state(data_dir)
     if target:
         shutil.rmtree(os.path.join(target, "_old"), ignore_errors=True)
-    cleanup_update_cache(data_dir)
+        cleanup_stale_new_files(target)
+    cleanup_update_cache(data_dir, keep_ready=False)   # 先删 ready.json，再清 zip/extract
     logger.info("更新完成确认，旧版本文件已清理")
+    return f"已更新到 v{version}" if version else "更新完成"
 
 
-def cleanup_update_cache(data_dir: str, keep_extract: bool = False) -> None:
-    """清理下载与解压缓存（确认成功后调用；待回滚期间 keep_extract=True 保留解压目录）"""
+def _read_ready_marker(cache: str) -> Optional[dict]:
+    try:
+        with open(os.path.join(cache, READY_FILE), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def cleanup_update_cache(data_dir: str, keep_extract: bool = False,
+                         keep_ready: bool = True) -> None:
+    """清理下载与解压缓存
+
+    - keep_extract=True：待回滚期间保留解压目录（回滚助手运行来源）
+    - keep_ready=True：保留被 `ready.json` 引用的完整 zip（就绪缓存）；zip 缺失则丢弃记录
+    - keep_ready=False：确认成功后先删 `ready.json`，再全清
+    """
     cache = os.path.join(data_dir, "update_cache")
     if not os.path.isdir(cache):
         return
+    keep_zip = ""
+    if keep_ready:
+        ready = _read_ready_marker(cache)
+        keep_zip = os.path.basename(str((ready or {}).get("zip") or ""))
+        if keep_zip and not os.path.isfile(os.path.join(cache, keep_zip)):
+            keep_zip = ""
+            try:
+                os.remove(os.path.join(cache, READY_FILE))
+            except OSError:
+                pass
+    else:
+        try:
+            os.remove(os.path.join(cache, READY_FILE))
+        except OSError:
+            pass
+    try:
+        os.remove(os.path.join(cache, READY_FILE + ".tmp"))
+    except OSError:
+        pass
     if not keep_extract:
         shutil.rmtree(os.path.join(cache, "extract"), ignore_errors=True)
     try:
         for name in os.listdir(cache):
             if name.endswith(".zip") or name.endswith(".part"):
+                if keep_zip and name == keep_zip:
+                    continue
                 try:
                     os.remove(os.path.join(cache, name))
                 except OSError:

@@ -128,10 +128,20 @@ def test_apply_success():
         assert st["target"] == os.path.abspath(d.target)
         assert st["backup_program"] and os.path.isdir(st["backup_program"])
         assert d.launched == [d.exe()]
-        # 两段确认收尾
-        UA.mark_startup_success(d.data_dir)
+        # 两段确认收尾：就绪缓存（ready.json + zip）也要随确认清理
+        cache = os.path.join(d.data_dir, "update_cache")
+        os.makedirs(cache, exist_ok=True)
+        zip_path = os.path.join(cache, "KazariPlay-win64.zip")
+        with open(zip_path, "wb") as f:
+            f.write(b"x")
+        with open(os.path.join(cache, "ready.json"), "w", encoding="utf-8") as f:
+            json.dump({"zip": "KazariPlay-win64.zip"}, f, ensure_ascii=False)
+        msg = UA.mark_startup_success(d.data_dir)
+        assert msg and "已更新到" in msg, msg
         assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
         assert not os.path.exists(os.path.join(d.target, "_old"))
+        assert not os.path.exists(zip_path)
+        assert not os.path.exists(os.path.join(cache, "ready.json"))
         print("[替换-成功+数据保全+两段确认] OK")
     finally:
         d.close()
@@ -200,6 +210,22 @@ def test_apply_state_write_failure_aborts():
         assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
         assert d.launched == [d.exe()]
         print("[替换-状态不可写中止] OK")
+    finally:
+        d.close()
+
+
+def test_apply_space_precheck_aborts():
+    """替换前磁盘空间不足：中止且不改动文件（D11）"""
+    d = Drill()
+    try:
+        with mock.patch.object(UA, "ensure_free_space",
+                               side_effect=RuntimeError("磁盘空间不足：需要约 450 MB")):
+            rc = d.apply()
+        assert rc == 1
+        assert read_bytes(os.path.join(d.target, "KazariPlay.exe")) == b"OLD-EXE"
+        st = d.state()
+        assert st["phase"] == UA.STATE_ROLLED_BACK and "磁盘空间不足" in st["msg"]
+        print("[替换-空间预检中止] OK")
     finally:
         d.close()
 
@@ -560,18 +586,16 @@ def test_bridge_update_claim_atomic():
     print("[桥-更新任务原子占用] OK")
 
 
-def test_bridge_two_entries_single_helper():
-    """并发触发"立即更新"与"退出时更新"：begin_apply 至多执行一次（UPD-REV-04）"""
+def test_bridge_single_entry_repeat_trigger():
+    """单入口重复点击/重试：begin_apply 至多执行一次（原子占用）"""
     from ui.web_bridge import WebBridge
     b = WebBridge.__new__(WebBridge)
     b._update_apply_lock = threading.Lock()
     b._update_apply_claimed = False
     b._update_applied = False
-    b._update_on_exit = True
     calls = []
 
     def fake_begin(extract_dir, target, data_dir, pid):
-        time.sleep(0.05)   # 拉大检查-置位窗口，验证占用原子性
         calls.append(1)
         return True, "ok"
 
@@ -583,32 +607,18 @@ def test_bridge_two_entries_single_helper():
             def state(self):
                 return {"state": "ready", "extract_dir": extract}
 
-        barrier = threading.Barrier(2)
-
-        def w1():
-            barrier.wait()
-            b.applyUpdate("now")
-
-        def w2():
-            barrier.wait()
-            b.apply_pending_update_on_exit()
-
         with mock.patch("ui.web_bridge.get_updater", return_value=FakeUpdater()), \
              mock.patch("ui.web_bridge.get_app_data_dir", return_value=tmp), \
              mock.patch.object(UA, "current_install_dir", return_value=tmp), \
              mock.patch.object(UA, "begin_apply", side_effect=fake_begin):
-            t1 = threading.Thread(target=w1)
-            t2 = threading.Thread(target=w2)
-            t1.start()
-            t2.start()
-            t1.join()
-            t2.join()
+            b.applyUpdate()
+            b.applyUpdate()   # 重复触发：已在进行中，不再拉起
     assert len(calls) == 1, calls
-    print("[桥-双入口单助手] OK")
+    print("[桥-单入口重复触发] OK")
 
 
 def test_frontend_ready_handshake():
-    """前端就绪握手是首启确认的唯一入口（UPD-REV-02）"""
+    """前端就绪握手是首启确认的唯一入口，并返回完成提示（UPD-REV-02/D6）"""
     from ui.web_bridge import WebBridge
     d = Drill()
     try:
@@ -616,26 +626,58 @@ def test_frontend_ready_handshake():
                        "backup_program": "", "attempts": 1})
         b = WebBridge.__new__(WebBridge)
         with mock.patch("ui.web_bridge.get_app_data_dir", return_value=d.data_dir):
-            assert b.updateFrontendReady() is True
+            msg = b.updateFrontendReady()
+        assert isinstance(msg, str) and "已更新到" in msg, msg
         assert not os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
         print("[桥-前端就绪握手确认] OK")
     finally:
         d.close()
 
 
-def test_cleanup_keeps_extract_when_pending():
-    """待回滚期间清理缓存必须保留解压目录（回滚助手运行来源）"""
+def test_startup_heals_stale_new_files():
+    """启动自愈清理根级白名单 *.new；不碰非白名单与用户数据区（D9）"""
+    d = Drill()
+    try:
+        for name in ("KazariPlay.exe.new", "LICENSE.new"):
+            open(os.path.join(d.target, name), "wb").close()
+        open(os.path.join(d.target, "custom.new"), "wb").close()
+        os.makedirs(os.path.join(d.data_dir, "x"), exist_ok=True)
+        open(os.path.join(d.data_dir, "x", "a.new"), "wb").close()
+        d.write_state({"phase": UA.STATE_ROLLED_BACK, "target": d.target, "msg": "已回滚"})
+        notice, exit_req = UA.startup_self_heal(d.data_dir)
+        assert notice and exit_req is False
+        assert not os.path.exists(os.path.join(d.target, "KazariPlay.exe.new"))
+        assert not os.path.exists(os.path.join(d.target, "LICENSE.new"))
+        assert os.path.exists(os.path.join(d.target, "custom.new"))
+        assert os.path.exists(os.path.join(d.data_dir, "x", "a.new"))
+        print("[自愈-清理根级 *.new] OK")
+    finally:
+        d.close()
+
+
+def test_cleanup_ready_cache_and_extract():
+    """清理规则：待回滚保留 extract 与就绪 zip；确认后（keep_ready=False）全清"""
     with tempfile.TemporaryDirectory() as tmp:
-        extract = os.path.join(tmp, "update_cache", "extract")
+        cache = os.path.join(tmp, "update_cache")
+        extract = os.path.join(cache, "extract")
         os.makedirs(extract)
-        with open(os.path.join(tmp, "update_cache", "KazariPlay-win64.zip.part"), "wb") as f:
+        zip_path = os.path.join(cache, "KazariPlay-win64.zip")
+        with open(zip_path, "wb") as f:
             f.write(b"x")
+        with open(os.path.join(cache, "KazariPlay-win64.zip.part"), "wb") as f:
+            f.write(b"x")
+        with open(os.path.join(cache, "ready.json"), "w", encoding="utf-8") as f:
+            json.dump({"zip": "KazariPlay-win64.zip"}, f, ensure_ascii=False)
         UA.cleanup_update_cache(tmp, keep_extract=True)
         assert os.path.isdir(extract)
-        assert not os.path.exists(os.path.join(tmp, "update_cache", "KazariPlay-win64.zip.part"))
-        UA.cleanup_update_cache(tmp)
+        assert os.path.isfile(zip_path)          # 就绪缓存引用的 zip 保留
+        assert os.path.isfile(os.path.join(cache, "ready.json"))
+        assert not os.path.exists(os.path.join(cache, "KazariPlay-win64.zip.part"))
+        UA.cleanup_update_cache(tmp, keep_ready=False)
         assert not os.path.exists(extract)
-        print("[清理-待回滚保留解压目录] OK")
+        assert not os.path.exists(zip_path)
+        assert not os.path.exists(os.path.join(cache, "ready.json"))
+        print("[清理-就绪 zip/解压目录/确认全清] OK")
 
 
 if __name__ == "__main__":
@@ -644,6 +686,7 @@ if __name__ == "__main__":
     test_apply_refuses_data_in_package()
     test_apply_backup_failure_aborts()
     test_apply_state_write_failure_aborts()
+    test_apply_space_precheck_aborts()
     test_apply_verify_state_write_failure_rolls_back()
     test_apply_launch_failure_rolls_back()
     test_apply_early_exit_rolls_back()
@@ -660,7 +703,8 @@ if __name__ == "__main__":
     test_wait_process_exit()
     test_wait_process_exit_kill_failure_raises()
     test_bridge_update_claim_atomic()
-    test_bridge_two_entries_single_helper()
+    test_bridge_single_entry_repeat_trigger()
     test_frontend_ready_handshake()
-    test_cleanup_keeps_extract_when_pending()
+    test_startup_heals_stale_new_files()
+    test_cleanup_ready_cache_and_extract()
     print("UPDATE APPLY TEST PASS")

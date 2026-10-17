@@ -67,6 +67,7 @@ def install():
                 update_state = json.loads(bridge.getUpdateState())
                 assert update_state.get("state") == "idle", update_state
                 assert "extract_dir" in update_state
+                assert isinstance(bridge.updateFrontendReady(), str)
                 report["checks"].append("frozen update modules and bridge API")
 
                 game_exe = os.environ.get("KAZARIPLAY_SMOKE_GAME", "")

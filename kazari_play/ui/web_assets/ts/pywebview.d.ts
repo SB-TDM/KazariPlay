@@ -86,10 +86,10 @@ interface PyWebViewApi {
   checkUpdate(force?: boolean): Promise<string>;
   downloadUpdate(): Promise<string>;
   skipUpdate(): Promise<string>;
-  applyUpdate(mode?: string): Promise<string>;
+  applyUpdate(): Promise<string>;
   openReleasePage(): Promise<boolean>;
-  /** 前端首屏数据加载成功后的就绪握手（更新后新版首启确认；非更新场景为空操作） */
-  updateFrontendReady(): Promise<boolean>;
+  /** 前端首屏数据加载成功后的就绪握手；返回完成提示（如「已更新到 vX」），无更新时为空串 */
+  updateFrontendReady(): Promise<string>;
 
   getRunning(): Promise<string>;
   updateScreenshotHotkey(hotkey?: string): Promise<boolean>;
