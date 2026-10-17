@@ -6,11 +6,13 @@
 
 - 元数据自动匹配改为多源（按设置中的混合源，默认 VNDB + Bangumi）并行搜索：每个源按“归一化标题 → 纯 CJK 提取 → 原标题”逐级尝试；跨源标题一致性校验（相似度 ≥0.7 + 发行年份一致）一致才合并，单源命中要求候选与标题相似度 ≥0.8，冲突则拒绝并提示手动确认，降低误匹配。
 - 无空格驼峰标题拆分（`MashiroiroSymphonyFHD` → `Mashiroiro Symphony FHD`）；某源无结果时用已命中源的标题做跨语言桥接（解决罗马音/日文标题在 Bangumi 搜不到）；Bangumi 备用名的 `Episode.N` 后缀在相似度比较时剔除。
-- 版本标记守卫：文件夹含 `FHD/HD/Remake/SANA` 而候选标题全部缺失时拒绝自动匹配，避免把重制版匹配到原版。
+- 版本标记守卫：文件夹含 `FHD/HD/Remake/SANA` 而候选标题全部缺失时，优先按已有发售年份选择重制版；无年份线索才拒绝，避免把重制版匹配到原版。
+- `force=True` 重匹配时覆盖已有非空元数据字段（开发商/发售日/时长/简介等），但**不覆盖用户评分**；常规匹配仍只覆盖标题/简介/ID。
+- 简介按 中文 → 日语 → 英文 优先选择并替换（force 时无条件替换），语言优先级相同时按 Bangumi → 月幕 → VNDB。
 - 字段合并：标题/简介优先 Bangumi（取 `name_cn` 中文名/中文简介），开发商/时长优先 VNDB；VNDB 候选补充 `alt_title` 供跨语言标题校验。
 - `games` 表新增 `bangumi_id`（自动迁移）：Bangumi-only 匹配也会记录 ID 并跳过重复匹配；手动应用候选同步记录来源 ID。
-- 新增 `tests/test_metadata_match.py` 离线回归（合并/单源/冲突/跳过），`test_p0_data_flow.py` 覆盖 `bangumi_id` 读写与编辑保留。
-- 真实 API 小样本（10 个）：9 个匹配成功并获得中文标题，1 个 FHD 版本因版本标记缺失按预期拒绝；发现旧数据里的错误开发商在 force 下不会被覆盖（保守策略，待定）。
+- 新增 `tests/test_metadata_match.py` 离线回归（合并/单源/冲突/跳过/年份重制版/force 覆盖/简介语言优先级），`test_p0_data_flow.py` 覆盖 `bangumi_id` 读写与编辑保留。
+- 真实 API 小样本（10 个）：**10/10 匹配成功**且全部获得中文标题/简介；`MashiroiroSymphonyFHD` 按年份选中 2023 重制版（`v37651` / Bangumi `417463`，纯白交响曲 SANA EDITION）；「9-nine- 新章」旧数据里的错误开发商 `NanaWind` 已修正为 `Palette`。
 
 ## 1.0.1 应用内更新实证（2026-10-17）
 

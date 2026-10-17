@@ -4,9 +4,11 @@
 - 按配置的混合源并行搜索；每个源依次尝试 归一化标题 → 纯 CJK 提取 → 原标题
 - 跨源标题一致性校验（相似度 ≥ 0.7 视为同一游戏），一致才合并；
   仅单源命中时要求候选与标题相似度 ≥ 0.8，否则不采用，避免误匹配
-- 字段合并：标题/简介优先 Bangumi（中文），开发商/时长优先 VNDB
-- 保守更新：除标题外仅填充空字段，已有数据不动
+- 字段合并：标题/简介优先 Bangumi（中文），开发商/时长优先 VNDB；
+  简介按 中文 → 日语 → 英文 选择，常规匹配会替换为更优语言版本
+- 常规匹配只覆盖标题/简介/ID，其余字段仅填空；force=True 时覆盖非空元数据字段（用户评分除外）
 - 已匹配（vndb_id 或 bangumi_id）的游戏跳过，强制覆盖需 force=True
+- 文件夹带 FHD/Remake/SANA 等版本标记时，优先按已有发售年份选择重制版
 
 封面下载：
 - 下载到 AppData/covers/{game_id}_vndb.jpg
@@ -120,6 +122,34 @@ def _edition_tokens(title: str) -> List[str]:
     return out
 
 
+def _strip_edition(text: str) -> str:
+    """去掉版本标记，用于补搜原版/重制版条目"""
+    s = _split_camel(text)
+    s = re.sub(r"(?i)\s*(?:fhd|remake|sana(?:\s+edition)?)\b", "", s)
+    s = re.sub(r"(?i)\s*hd\b", "", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _year_hint(game: Game) -> str:
+    """已有发售日或标题中的年份，作为重制版选择线索"""
+    y = _release_year({"released": game.released})
+    if y:
+        return y
+    m = re.search(r"(?<!\d)((?:19|20)\d{2})(?!\d)", game.title or "")
+    return m.group(1) if m else ""
+
+
+def _lang_rank(text: str) -> int:
+    """简介语言优先级：中文 0 < 日语 1 < 英文/其他 2"""
+    kana = len(re.findall(r"[\u3040-\u30ff]", text or ""))
+    han = len(re.findall(r"[\u4e00-\u9fff]", text or ""))
+    if han and han >= kana:
+        return 0
+    if kana:
+        return 1
+    return 2
+
+
 def _similarity(a: str, b: str) -> float:
     """归一化标题相似度（0~1）"""
     ka, kb = _match_key(a), _match_key(b)
@@ -167,9 +197,10 @@ def _build_queries(title: str) -> List[str]:
     """按策略构造搜索关键词：归一化 → 纯 CJK → 原标题（含驼峰拆分，去重）"""
     out: List[str] = []
     seen = set()
-    bases = [normalize_title(title), _extract_japanese(title), title, _split_camel(title)]
+    bases = [normalize_title(title), _extract_japanese(title), title, _split_camel(title),
+             _strip_edition(title), _strip_edition(_split_camel(title))]
     for base in bases:
-        for q in (base, _split_camel(base)):
+        for q in (base, _split_camel(base), _strip_edition(base)):
             q = (q or "").strip()
             key = q.lower()
             if q and key not in seen:
@@ -178,17 +209,38 @@ def _build_queries(title: str) -> List[str]:
     return out
 
 
+def _pick_result(results: List[dict], queries: List[str],
+                 edition_tokens: Optional[List[str]], trust_rank: bool) -> dict:
+    """在结果集中选最佳候选：版本标记匹配优先，其次标题相似度"""
+    if trust_rank:
+        return results[0]
+    tokens = edition_tokens or []
+
+    def score(r: dict) -> tuple:
+        titles = " ".join(_candidate_titles(r)).lower()
+        token_ok = 1 if tokens and all(t in titles for t in tokens) else 0
+        return (token_ok, _query_sim(r, queries))
+
+    best = max(results, key=score)
+    if score(best)[1] >= _PICK_BY_TITLE_RATIO:
+        return best
+    return results[0]
+
+
 def _search_source(source_id: str, queries: List[str], cancel_event=None,
-                   trust_rank: bool = False) -> Optional[dict]:
+                   trust_rank: bool = False, year_hint: str = "",
+                   edition_tokens: Optional[List[str]] = None) -> Optional[dict]:
     """在单个源上按关键词策略搜索，返回最合适的候选
 
-    trust_rank=True 时直接取搜索排名第一条（用于跨语言桥接：关键词来自另一源的
-    标题，源自身的相关度排序比标题相似度更可靠）。
+    - year_hint：优先选发行年份一致的候选（用于按年份选重制版）；当前关键词
+      没有同年结果时继续尝试后续关键词，全部失败才回退到首个结果
+    - trust_rank=True 时直接取搜索排名第一条（用于跨语言桥接）
     """
     meta = multi_source.SOURCES.get(source_id) or {}
     client = meta.get("client")
     if client is None:
         return None
+    fallback: Optional[dict] = None
     for q in queries:
         if cancel_event is not None and cancel_event.is_set():
             return None
@@ -199,16 +251,19 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
             continue
         if not results:
             continue
-        if trust_rank:
-            return results[0]
-        best = max(results, key=lambda r: _query_sim(r, queries))
-        if _query_sim(best, queries) >= _PICK_BY_TITLE_RATIO:
-            return best
-        return results[0]
-    return None
+        if year_hint:
+            same_year = [r for r in results if _release_year(r) == year_hint]
+            if not same_year:
+                if fallback is None:
+                    fallback = _pick_result(results, queries, edition_tokens, trust_rank)
+                continue
+            return _pick_result(same_year, queries, edition_tokens, trust_rank)
+        return _pick_result(results, queries, edition_tokens, trust_rank)
+    return fallback
 
 
-def _search_all(queries: List[str], cancel_event=None) -> Dict[str, dict]:
+def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
+                edition_tokens: Optional[List[str]] = None) -> Dict[str, dict]:
     """并行查询各源，返回 {source_id: 候选}；失败的源忽略"""
     sources = [s for s in multi_source.get_mixed_sources()
                if (multi_source.SOURCES.get(s) or {}).get("client") is not None]
@@ -216,10 +271,12 @@ def _search_all(queries: List[str], cancel_event=None) -> Dict[str, dict]:
         return {}
     candidates: Dict[str, dict] = {}
     if len(sources) == 1:
-        cand = _search_source(sources[0], queries, cancel_event)
+        cand = _search_source(sources[0], queries, cancel_event, False,
+                              year_hint, edition_tokens)
         return {sources[0]: cand} if cand else {}
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=len(sources))
-    futs = {ex.submit(_search_source, sid, queries, cancel_event): sid for sid in sources}
+    futs = {ex.submit(_search_source, sid, queries, cancel_event, False,
+                      year_hint, edition_tokens): sid for sid in sources}
     try:
         for fut in concurrent.futures.as_completed(futs, timeout=_SEARCH_DEADLINE):
             sid = futs[fut]
@@ -255,7 +312,8 @@ def _search_all(queries: List[str], cancel_event=None) -> Dict[str, dict]:
             if cancel_event is not None and cancel_event.is_set():
                 break
             try:
-                cand = _search_source(sid, bridge[:2], cancel_event, trust_rank=True)
+                cand = _search_source(sid, bridge[:2], cancel_event, True,
+                                      year_hint, edition_tokens)
             except Exception as e:  # noqa: BLE001
                 logger.warning("元数据源 %s 桥接搜索失败: %s", sid, e)
                 continue
@@ -319,6 +377,17 @@ def _pick_field(group: Dict[str, dict], field: str, order: Tuple[str, ...]):
     return ""
 
 
+def _preferred_description(group: Dict[str, dict]) -> str:
+    """按 中文 → 日语 → 英文 选简介；同语言按源优先级（Bangumi→月幕→VNDB）"""
+    order = {sid: i for i, sid in enumerate(_TITLE_DESC_ORDER)}
+    cands = []
+    for sid, cand in group.items():
+        d = (cand.get("description") or "").strip()
+        if d:
+            cands.append((_lang_rank(d), order.get(sid, 99), d))
+    return min(cands)[2] if cands else ""
+
+
 def _merge_candidates(group: Dict[str, dict]) -> dict:
     """按字段优先级合并多源候选"""
     vndb = group.get("vndb") or {}
@@ -327,7 +396,7 @@ def _merge_candidates(group: Dict[str, dict]) -> dict:
         "vndb_id": (vndb.get("vndb_id") or "").strip(),
         "bangumi_id": str(bangumi.get("source_id") or "").strip(),
         "title": _pick_field(group, "title", _TITLE_DESC_ORDER),
-        "description": _pick_field(group, "description", _TITLE_DESC_ORDER),
+        "description": _preferred_description(group),
         "developer": _pick_field(group, "developer", _DETAIL_ORDER),
         "released": _pick_field(group, "released", _DETAIL_ORDER),
         "rating": (_pick_field(group, "rating", _DETAIL_ORDER) or 0),
@@ -341,7 +410,7 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
 
     Args:
         game: 要匹配的游戏（会被原地修改）
-        force: True 时即使已有匹配 ID 也重新匹配
+        force: True 时即使已有匹配 ID 也重新匹配，并覆盖已有非空元数据字段
         cancel_event: threading.Event，置位时尽快终止
         cover_cb: 封面回调 (game_id, cover_url, dest)；提供时封面异步下载、
                   不阻塞匹配；为 None 时回退同步下载
@@ -367,7 +436,10 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
     logger.info("元数据匹配开始: game_id=%s, title='%s', queries=%s",
                 game.id, game.title, queries)
 
-    candidates = _search_all(queries, cancel_event)
+    tokens = _edition_tokens(game.title)
+    year_hint = _year_hint(game)
+    candidates = _search_all(queries, cancel_event, year_hint=year_hint,
+                             edition_tokens=tokens)
     if cancel_event is not None and cancel_event.is_set():
         return "cancelled", "已取消"
     group, reason = _pick_group(candidates, queries)
@@ -376,21 +448,23 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
         logger.info("元数据未匹配: %s (%s)", game.title, reason)
         return "fail", reason
 
-    # 版本标记守卫：文件夹带 FHD/Remake/SANA 等标记，而候选标题全部缺失时拒绝，
-    # 避免把重制版/完整版匹配到原版（交给用户手动确认）
-    tokens = _edition_tokens(game.title)
+    # 版本标记守卫：文件夹带 FHD/Remake/SANA 等标记而候选标题全部缺失时，
+    # 仅当候选发行年份与线索年份一致才按重制版采用，否则交给用户手动确认
     if tokens:
         cand_titles = " ".join(
             t for c in group.values() for t in _candidate_titles(c)).lower()
         missing_tokens = [t for t in tokens if t not in cand_titles]
         if missing_tokens:
-            reason = f"候选缺少版本标记（{', '.join(missing_tokens)}），请手动确认"
-            logger.info("元数据未匹配: %s (%s)", game.title, reason)
-            return "fail", reason
+            group_years = {_release_year(c) for c in group.values()} - {""}
+            if not (year_hint and group_years == {year_hint}):
+                reason = f"候选缺少版本标记（{', '.join(missing_tokens)}），请手动确认"
+                logger.info("元数据未匹配: %s (%s)", game.title, reason)
+                return "fail", reason
 
     merged = _merge_candidates(group)
     sources = "+".join(multi_source.SOURCES.get(s, {}).get("name", s)
                        for s in group)
+    overwrite = bool(force)
     updated_fields: List[str] = []
 
     if merged["vndb_id"] and game.vndb_id != merged["vndb_id"]:
@@ -405,23 +479,28 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
         game.title = merged["title"]
         updated_fields.append("title")
 
-    if not game.description and merged["description"]:
-        game.description = merged["description"]
-        updated_fields.append("description")
+    # 简介：按 中文→日语→英文 选出的结果替换；force 时无条件覆盖
+    if merged["description"]:
+        old_rank = _lang_rank(game.description) if game.description else 99
+        if (overwrite or _lang_rank(merged["description"]) <= old_rank) \
+                and game.description != merged["description"]:
+            game.description = merged["description"]
+            updated_fields.append("description")
 
-    if not game.rating and merged["rating"]:
+    # 评分属于用户自己的评分，force 也不覆盖，仅在未评分时填元数据评分
+    if merged["rating"] and not game.rating:
         game.rating = merged["rating"]
         updated_fields.append("rating")
 
-    if not game.released and merged["released"]:
+    if merged["released"] and (overwrite or not game.released):
         game.released = merged["released"]
         updated_fields.append("released")
 
-    if not game.developer and merged["developer"]:
+    if merged["developer"] and (overwrite or not game.developer):
         game.developer = merged["developer"]
         updated_fields.append("developer")
 
-    if not game.length_minutes and merged["length_minutes"]:
+    if merged["length_minutes"] and (overwrite or not game.length_minutes):
         game.length_minutes = merged["length_minutes"]
         updated_fields.append("length_minutes")
 

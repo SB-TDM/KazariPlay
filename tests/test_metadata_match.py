@@ -55,7 +55,7 @@ VNDB_SUMMER = {
     "alt_title": "Summer Pockets",
     "cover_url": "",
     "rating": 4.2,
-    "description": "",
+    "description": "English description",
     "developer": "Key",
     "released": "2018-06-29",
     "length_minutes": 1800,
@@ -148,6 +148,83 @@ def test_skip_when_matched():
     print("[skip matched] OK")
 
 
+def test_year_remake_selection():
+    old = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
+           "cover_url": "", "rating": 3, "description": "old",
+           "developer": "OldDev", "released": "2009-01-01",
+           "length_minutes": 100}
+    new = {"vndb_id": "v2", "title": "Foo Remake", "alt_title": "Foo Remake",
+           "cover_url": "", "rating": 4, "description": "new",
+           "developer": "NewDev", "released": "2023-06-23",
+           "length_minutes": 2000}
+    bgm = {"source": "Bangumi", "source_id": "b2", "title": "Foo 中文",
+           "alt_title": "Foo Remake", "cover_url": "",
+           "description": "中文简介", "developer": "",
+           "released": "2023-06-23", "rating": 4, "length_minutes": 0,
+           "tags": []}
+    _install([old, new], [bgm])
+    g = _game("Foo FHD", released="2023-06-23")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.vndb_id == "v2", g.vndb_id
+    assert g.bangumi_id == "b2", g.bangumi_id
+    assert g.title == "Foo 中文", g.title
+    assert g.released == "2023-06-23", g.released
+    assert g.developer == "NewDev", g.developer
+    assert "Foo" in mm._build_queries("Foo FHD"), mm._build_queries("Foo FHD")
+    print("[year remake selection] OK")
+
+
+def test_force_overwrites_fields():
+    _install([VNDB_SUMMER], [BGM_SUMMER])
+    g = _game("Summer Pockets", vndb_id="v_old", bangumi_id="b_old",
+              description="old english text", developer="WrongDev",
+              released="1999-01-01", rating=1, length_minutes=1)
+    status, msg = mm.match_single(g, force=True, cover_cb=lambda *a: None)
+    assert status == "match", msg
+    assert g.vndb_id == "v123" and g.bangumi_id == "12345"
+    assert g.description == "中文简介", g.description
+    assert g.developer == "Key", g.developer
+    assert g.released == "2018-06-29", g.released
+    assert g.rating == 1, g.rating  # 用户评分不被覆盖
+    assert g.length_minutes == 1800, g.length_minutes
+    print("[force overwrite] OK")
+
+
+def test_description_language_priority():
+    _install([VNDB_SUMMER], [BGM_SUMMER])
+    g = _game("Summer Pockets", description="English old text")
+    status, _ = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "match", status
+    assert g.description == "中文简介", g.description
+
+    _install([VNDB_SUMMER], [])
+    g2 = _game("Summer Pockets", description="中文旧简介")
+    status, _ = mm.match_single(g2, cover_cb=lambda *a: None)
+    assert status == "match", status
+    assert g2.description == "中文旧简介", g2.description
+
+    _install([VNDB_SUMMER], [])
+    g3 = _game("Summer Pockets", description="中文旧简介")
+    status, _ = mm.match_single(g3, force=True, cover_cb=lambda *a: None)
+    assert status == "match", status
+    assert g3.description == "English description", g3.description
+    print("[description priority] OK")
+
+
+def test_edition_guard_without_year():
+    v = {"vndb_id": "v9", "title": "Mashiroiro Symphony",
+         "alt_title": "Mashiroiro Symphony", "cover_url": "",
+         "rating": 0, "description": "", "developer": "Palette",
+         "released": "2009-10-30", "length_minutes": 100}
+    _install([v], [])
+    g = _game("Mashiroiro Symphony FHD")
+    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
+    assert status == "fail", (status, msg)
+    assert "版本标记" in msg, msg
+    print("[edition guard without year] OK")
+
+
 def test_similarity():
     assert mm._similarity("Summer Pockets", "summer-pockets") == 1.0
     assert mm._similarity("千恋万花", "千恋＊万花") > 0.9
@@ -162,6 +239,10 @@ def main():
     test_single_source_weak_rejected()
     test_sources_disagree_rejected()
     test_skip_when_matched()
+    test_year_remake_selection()
+    test_force_overwrites_fields()
+    test_description_language_priority()
+    test_edition_guard_without_year()
     print("METADATA MATCH TEST PASS")
     return 0
 
