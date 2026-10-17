@@ -16,14 +16,7 @@ function reloadCovers(): void {
     if (!c) return;
     card.dataset.coverLoaded = '';
     c.classList.remove('loaded');   // 重新加载时先去掉淡入标记，实图到达后再淡入
-    const seq = beginCoverRequest(card);
-    bridge.getCover(card.dataset.id!, function (uri: unknown, failed?: boolean) {
-      if (failed || !isCoverRequestCurrent(card, seq)) return;
-      if (!uri) return;
-      card.dataset.coverLoaded = '1';
-      c.classList.add('loaded');
-      (c as HTMLElement).style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-    });
+    loadCoverToCard(card, card.dataset.id!);
   });
 }
 
@@ -35,14 +28,7 @@ function reloadCover(gameId: string): void {
   if (!card || !c) return;
   card.dataset.coverLoaded = '';
   c.classList.remove('loaded');
-  const seq = beginCoverRequest(card);
-  bridge.getCover(gameId, function (uri: unknown, failed?: boolean) {
-    if (failed || !isCoverRequestCurrent(card, seq)) return;
-    if (!uri) return;
-    card.dataset.coverLoaded = '1';
-    c.classList.add('loaded');
-    (c as HTMLElement).style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-  });
+  loadCoverToCard(card, gameId);
 }
 
 // 封面尺寸档位（对应设置 cover_size）

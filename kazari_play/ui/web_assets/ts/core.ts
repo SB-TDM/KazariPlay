@@ -86,16 +86,65 @@ function isCoverRequestCurrent(el: HTMLElement, seq: string): boolean {
   return el.dataset.coverSeq === seq;
 }
 
-// 把封面 data URI 应用到元素（prefix='img' → 设 src；否则设 backgroundImage + 渐变兜底）
+// 把封面 URL / data URI 应用到元素（prefix='img' → 设 src；否则设 backgroundImage + 渐变兜底）
+function applyCoverSrc(el: HTMLElement, src: string, prefix: string): void {
+  if (prefix === 'img') { (el as HTMLImageElement).src = src; return; }
+  el.style.backgroundImage = `url('${src}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+}
+
+function loadCoverToCard(card: HTMLElement, gameId: string): void {
+  const gid = String(gameId);
+  const c = card.querySelector('.cover') as HTMLElement | null;
+  if (!c) return;
+  const seq = beginCoverRequest(card);
+  const g = App.data.games.find(x => String(x.id) === gid);
+  const url = g ? (g.cover_url || '') : '';
+  const apply = (src: string): void => {
+    if (!isCoverRequestCurrent(card, seq) || !src) return;
+    card.dataset.coverLoaded = '1';
+    applyCoverSrc(c, src, 'bg');
+    _playCoverFade(c);
+  };
+  if (url) {
+    const img = new Image();
+    img.onload = () => apply(url);
+    img.onerror = () => {
+      bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
+        if (!failed && uri) apply(String(uri));
+      });
+    };
+    img.src = url;
+    return;
+  }
+  bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
+    if (!failed && uri) apply(String(uri));
+  });
+}
+
+// 把封面应用到任意元素（详情/编辑预览）：优先本地 HTTP URL，失败回退 base64
 function loadCoverTo(gameId: string, el: HTMLElement | null, prefix: string): void {
   if (!el) return;
   const gid = String(gameId);
   const seq = beginCoverRequest(el);
+  const g = App.data.games.find(x => String(x.id) === gid) || App.data.currentGame;
+  const url = g ? (g.cover_url || '') : '';
+  const apply = (src: string): void => {
+    if (!isCoverRequestCurrent(el, seq) || !src) return;
+    applyCoverSrc(el, src, prefix);
+  };
+  if (url) {
+    const img = new Image();
+    img.onload = () => apply(url);
+    img.onerror = () => {
+      bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
+        if (!failed && uri) apply(String(uri));
+      });
+    };
+    img.src = url;
+    return;
+  }
   bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
-    if (failed || !isCoverRequestCurrent(el, seq)) return;
-    if (!uri) return;
-    if (prefix === 'img') { (el as HTMLImageElement).src = String(uri); return; }
-    el.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
+    if (!failed && uri) apply(String(uri));
   });
 }
 

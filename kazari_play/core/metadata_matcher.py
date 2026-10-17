@@ -637,12 +637,15 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
             if cover_cb is not None:
                 cover_cb(game.id, merged["cover_url"], dest)
                 cover_queued = True
-            elif vndb_client.download_cover(merged["cover_url"], dest,
-                                            cancel_event=cancel_event):
-                game.cover_path = dest
-                updated_fields.append("cover_path")
             else:
-                logger.warning("封面下载失败，跳过: %s", merged["cover_url"])
+                from core.cover_store import CoverStore
+                path = CoverStore().download(game.id, merged["cover_url"],
+                                             cancel_event=cancel_event)
+                if path:
+                    game.cover_path = path
+                    updated_fields.append("cover_path")
+                else:
+                    logger.warning("封面下载失败，跳过: %s", merged["cover_url"])
 
     if not updated_fields and not cover_queued:
         return "skip", "所有字段已存在，未更新"

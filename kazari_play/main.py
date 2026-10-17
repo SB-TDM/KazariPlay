@@ -274,8 +274,14 @@ def main():
                          keep_extract=has_pending_update_state(get_app_data_dir()))
 
     manager = GameManager()
-    bridge = WebBridge(manager)
-    # 后台清理未被引用的封面与过期缩略图（不阻塞启动）
+    from core.cover_store import CoverStore
+    from ui.cover_service import CoverService
+    cover_store = CoverStore()
+    cover_service = CoverService(cover_store)
+    cover_service.start()   # 失败/禁用时 bridge 自动回退 base64
+    bridge = WebBridge(manager, cover_store=cover_store,
+                       cover_service=cover_service if cover_service.started else None)
+    # 后台迁移旧封面路径并清理未引用文件（不阻塞启动）
     try:
         import threading as _threading
         _threading.Thread(target=bridge.cleanup_unused_covers, daemon=True).start()
@@ -309,6 +315,10 @@ def main():
     # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时退出 overlay.exe，
     # 避免独立 overlay 进程残留
     def _on_window_closing():
+        try:
+            cover_service.stop()
+        except Exception:
+            pass
         try:
             overlay = getattr(bridge, "_overlay_client", None)
             if overlay is not None:

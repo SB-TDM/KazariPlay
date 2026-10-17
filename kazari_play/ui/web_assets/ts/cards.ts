@@ -157,21 +157,11 @@ function _currentGame(id: string): Game | null {
   return App.data.games.find(x => x.id === id) || null;
 }
 
-// 单卡封面加载（懒加载 observer 与主页卡片共用；按请求代际丢弃迟到响应）
+// 单卡封面加载（懒加载 observer 与主页卡片共用；优先 HTTP URL，失败回退 base64）
 function loadCardCover(card: HTMLElement): void {
   const gid = card.dataset.id;
   if (!gid) return;
-  const seq = beginCoverRequest(card);
-  bridge.getCover(gid, function (uri: unknown, failed?: boolean) {
-    if (failed || !isCoverRequestCurrent(card, seq)) return;
-    if (!uri) return;
-    const c = card.querySelector('.cover') as HTMLElement | null;
-    if (c) {
-      card.dataset.coverLoaded = '1';
-      c.style.backgroundImage = `url('${uri}'),linear-gradient(160deg,#ffd7e0,#ff9fbc)`;
-      _playCoverFade(c);
-    }
-  });
+  loadCoverToCard(card, gid);
 }
 
 // 创建单张卡片 DOM（不含封面加载，封面由 observer 懒加载）
@@ -180,6 +170,7 @@ function buildCard(g: Game): HTMLElement {
   card.className = 'card' + (App.ui.state.selected.has(g.id) ? ' selected' : '');
   card.dataset.id = String(g.id);
   card.dataset.coverVersion = String(g.cover_version || 0);
+  card.dataset.coverUrl = g.cover_url || '';
   card.dataset.coverLoaded = '';
   card.innerHTML = `<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
       ${g.fav ? '<span class="fav">' + ICON.starFill + '</span>' : ''}
@@ -216,7 +207,9 @@ function buildCard(g: Game): HTMLElement {
 function syncCard(card: HTMLElement, g: Game): boolean {
   const id = String(g.id);
   let coverStale = false;
-  if (card.dataset.coverVersion !== String(g.cover_version || 0)) {
+  const urlChanged = card.dataset.coverUrl !== (g.cover_url || '');
+  card.dataset.coverUrl = g.cover_url || '';
+  if (card.dataset.coverVersion !== String(g.cover_version || 0) || urlChanged) {
     card.dataset.coverVersion = String(g.cover_version || 0);
     card.dataset.coverLoaded = '';
     beginCoverRequest(card);   // 作废在途旧封面响应

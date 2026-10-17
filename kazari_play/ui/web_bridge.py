@@ -22,6 +22,7 @@ import webview
 
 from core.game_manager import GameManager
 from core.game_model import Game
+from core.cover_store import CoverStore
 from ui.sync import UISync
 from utils.config import Config
 from utils.path_utils import get_app_data_dir
@@ -181,17 +182,16 @@ def _ensure_cover_thumb(path: str) -> str:
         return path
 
 
-def _cover_data_uri(path: str) -> str:
-    """封面图 → base64 data URI（优先缩略图；html= 模式下 file:// 会被 WebView2 拦截）
+def _cover_data_uri(path: str, ensure_thumb: bool = True) -> str:
+    """封面图 → base64 data URI（服务不可用时的回退通道）
 
-    并发去重：同一路径同时只执行一次「读文件 + base64 编码」，其余等待其结果。
-    等到的线程直接读缓存（结果已写入）；超时后自身重算兜底。
+    ensure_thumb=True 时沿用旧的 mtime 缩略图；传 False 时由调用方提供已确定的缩略图/原图。
     """
     if not path or not os.path.exists(path):
         path = _default_cover_path()
     if not path:
         return ""
-    src = _ensure_cover_thumb(path)   # 缩略图或原图（生成失败回退）
+    src = _ensure_cover_thumb(path) if ensure_thumb else path
     cached = _cover_cache_get(src)
     if cached is not None:
         return cached
@@ -245,7 +245,7 @@ def _cover_data_uri(path: str) -> str:
     return uri
 
 
-def _game_dict(g: Game) -> Dict[str, Any]:
+def _game_dict(g: Game, cover_url: str = "", has_cover: Optional[bool] = None) -> Dict[str, Any]:
     from utils.time_utils import format_play_time, format_relative_time
     return {
         "id": g.id,
@@ -268,9 +268,9 @@ def _game_dict(g: Game) -> Dict[str, Any]:
         "description": g.description or "",
         "play_time_text": format_play_time(g.play_time),
         "last_text": format_relative_time(g.last_played),
-        # 封面改为按需懒加载：getGames 不再内联 base64，前端滚动到卡片附近再取
-        "cover_url": "",
-        "has_cover": bool(g.cover_path and os.path.exists(g.cover_path)),
+        # 封面走本地 HTTP 服务；服务不可用时为空，前端回退 getCover(base64)
+        "cover_url": cover_url,
+        "has_cover": bool(g.cover_path and os.path.exists(g.cover_path)) if has_cover is None else bool(has_cover),
         "cover_version": _cover_version(g),
     }
 
@@ -318,9 +318,12 @@ def _set_clipboard_dib(data: bytes) -> bool:
 class WebBridge:
     """pywebview js_api 桥（前端通过 pywebview.api.* 调用）"""
 
-    def __init__(self, manager: GameManager):
+    def __init__(self, manager: GameManager, cover_store: Optional[CoverStore] = None,
+                 cover_service=None):
         self.manager = manager
         self._cfg = Config()
+        self._cover_store = cover_store or CoverStore()
+        self._cover_service = cover_service
         self._window = None          # 由 create_window 后绑定
         self._ui = UISync()          # 界面更新总线（全部前端推送经它合并发出）
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
@@ -353,20 +356,44 @@ class WebBridge:
         self._ui.bind_window(window)
 
     # ---------- 数据 ----------
+    def _cover_url(self, g: Game) -> str:
+        if self._cover_service is None:
+            return ""
+        path = self._cover_store.find_cover(g.id)
+        if not path:
+            return ""
+        return self._cover_service.cover_url(g.id, self._cover_store.version(path))
+
     def getGames(self) -> str:
         games = self.manager.get_all_games()
-        return json.dumps([_game_dict(g) for g in games], ensure_ascii=False)
+        return json.dumps([
+            _game_dict(g, self._cover_url(g), bool(self._cover_store.find_cover(g.id)))
+            for g in games
+        ], ensure_ascii=False)
 
     def getGame(self, game_id: str) -> str:
         g = self.manager.get_game(game_id)
-        return json.dumps(_game_dict(g), ensure_ascii=False) if g else "{}"
+        if not g:
+            return "{}"
+        return json.dumps(
+            _game_dict(g, self._cover_url(g), bool(self._cover_store.find_cover(g.id))),
+            ensure_ascii=False)
+
+    def getCoverUrl(self, game_id: str) -> str:
+        """本地封面服务 URL；服务未启动/无封面时返回空串（前端回退 getCover）"""
+        g = self.manager.get_game(game_id)
+        return self._cover_url(g) if g else ""
 
     def getCover(self, game_id: str) -> str:
-        """按需返回单个游戏封面的 base64 data URI（懒加载用，缓存命中直接返回）"""
+        """base64 回退通道（封面服务不可用时使用）"""
         g = self.manager.get_game(game_id)
         if not g:
             return ""
-        return _cover_data_uri(g.cover_path)
+        path = self._cover_store.find_cover(g.id)
+        if not path:
+            return _cover_data_uri("")
+        thumb = self._cover_store.ensure_thumb(g.id)
+        return _cover_data_uri(thumb or path, ensure_thumb=False)
 
     def getTags(self) -> str:
         return json.dumps(self.manager.get_all_tags(), ensure_ascii=False)
@@ -552,11 +579,9 @@ class WebBridge:
 
     def batchDelete(self, ids_json: str):
         ids = json.loads(ids_json)
-        covers = [g.cover_path for g in (self.manager.get_game(i) for i in ids)
-                  if g and g.cover_path]
         if self.manager.batch_delete(ids):
-            for p in covers:
-                self._delete_cover_if_unused(p)
+            for gid in ids:
+                self._cover_store.delete(gid)
         self.refresh()
 
     # ---------- 批量重新定位（路径修正，不重算 id）----------
@@ -1324,16 +1349,16 @@ class WebBridge:
         g = self.manager.get_game(game_id)
         if not g or not path or not os.path.exists(path):
             return
-        old = g.cover_path
         try:
-            covers_dir = os.path.join(get_app_data_dir(), "covers")
-            os.makedirs(covers_dir, exist_ok=True)
-            ext = os.path.splitext(path)[1] or ".jpg"
-            dest = os.path.join(covers_dir, f"{game_id}_manual{ext.lower()}")
-            shutil.copy2(path, dest)
+            dest = self._cover_store.save_file(game_id, path)
+            if not dest:
+                return
             g.cover_path = dest
             self.manager.repository.update_cover_path(game_id, dest)
-            self._delete_cover_if_unused(old)
+            try:
+                self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
+            except Exception:
+                pass
             self.reloadCover(game_id)   # 只失效该游戏封面缓存并重载该卡
         except Exception as e:
             logger.error("更换封面失败: %s", e)
@@ -1411,19 +1436,11 @@ class WebBridge:
             g.length_minutes = int(cand["length_minutes"])
             changed = True
         cover_failed = False
-        old_cover = g.cover_path
-        if cand.get("cover_url") and (selected is None and not g.cover_path or "cover" in (selected or ())):
+        has_cover = bool(g.cover_path and os.path.isfile(g.cover_path))
+        if cand.get("cover_url") and ((selected is None and not has_cover) or "cover" in (selected or ())):
             try:
-                covers_dir = os.path.join(get_app_data_dir(), "covers")
-                os.makedirs(covers_dir, exist_ok=True)
-                ext = ".jpg"
-                url = (cand["cover_url"] or "").split("?")[0].lower()
-                if url.endswith(".png"):
-                    ext = ".png"
-                elif url.endswith(".webp"):
-                    ext = ".webp"
-                dest = os.path.join(covers_dir, f"{game_id}_ms{ext}")
-                if multi_source.download_cover(cand, dest):
+                dest = self._cover_store.download(game_id, cand["cover_url"])
+                if dest:
                     g.cover_path = dest
                     changed = True
                 else:
@@ -1441,8 +1458,10 @@ class WebBridge:
                 g.bangumi_id = sid
         if changed:
             self.manager.update_game(g)
-            if g.cover_path != old_cover:
-                self._delete_cover_if_unused(old_cover)
+            try:
+                self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
+            except Exception:
+                pass
             self.reloadCover(game_id)   # 单游戏元数据应用，只定向重载该卡封面
         self.refresh_delta([game_id])
         if cover_failed:
@@ -1481,105 +1500,17 @@ class WebBridge:
             _cover_cache_invalidate(g.cover_path)
         self._ui.invalidate("cover", str(game_id))
 
-    def _delete_cover_if_unused(self, path: str) -> None:
-        """删除不再被任何游戏引用的封面文件及其缩略图（换封面/删游戏时调用）"""
-        if not path:
-            return
-        covers_dir = os.path.normcase(os.path.abspath(
-            os.path.join(get_app_data_dir(), "covers")))
-        p = os.path.abspath(path)
-        if os.path.normcase(os.path.dirname(p)) != covers_dir or not os.path.isfile(p):
-            return
-        target = os.path.normcase(p)
-        for g in self.manager.repository.get_all():
-            if g.cover_path and os.path.normcase(os.path.abspath(g.cover_path)) == target:
-                return
-        thumb = _cover_thumb_path(p)
-        try:
-            os.remove(p)
-        except OSError:
-            return
-        try:
-            if os.path.isfile(thumb):
-                os.remove(thumb)
-        except OSError:
-            pass
-
     def cleanup_unused_covers(self) -> int:
-        """删除 covers/ 中未被任何游戏引用的封面与过期缩略图（启动时后台执行）"""
-        import time
-        covers_dir = os.path.join(get_app_data_dir(), "covers")
-        if not os.path.isdir(covers_dir):
+        """启动后台迁移旧封面并清理未引用文件/过期缩略图"""
+        try:
+            self._cover_store.migrate(self.manager.repository)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("封面迁移失败: %s", e)
+        try:
+            return self._cover_store.cleanup(self.manager.repository)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("封面清理失败: %s", e)
             return 0
-        games = self.manager.repository.get_all()
-        covers_abs = os.path.abspath(covers_dir)
-        # 数据目录搬迁/复制后 cover_path 可能仍指向旧目录：迁移回当前 covers/
-        for g in games:
-            p = g.cover_path
-            if not p:
-                continue
-            in_current = (os.path.normcase(os.path.abspath(os.path.dirname(p)))
-                          == os.path.normcase(covers_abs))
-            if in_current and os.path.isfile(p):
-                continue
-            candidate = os.path.join(covers_dir, os.path.basename(p))
-            if not os.path.isfile(candidate) and not in_current and os.path.isfile(p):
-                try:
-                    shutil.copy2(p, candidate)
-                except Exception:
-                    candidate = ""
-            if not os.path.isfile(candidate):
-                matches = [n for n in os.listdir(covers_dir)
-                           if n.startswith(f"{g.id}_")
-                           and os.path.isfile(os.path.join(covers_dir, n))]
-                candidate = (os.path.join(
-                    covers_dir,
-                    max(matches, key=lambda n: os.path.getmtime(
-                        os.path.join(covers_dir, n)))) if matches else "")
-            if candidate and os.path.isfile(candidate):
-                try:
-                    self.manager.repository.update_cover_path(g.id, candidate)
-                    g.cover_path = candidate
-                except Exception:
-                    pass
-        refs = {os.path.normcase(os.path.abspath(g.cover_path))
-                for g in games if g.cover_path}
-        now = time.time()
-        removed = 0
-        for name in os.listdir(covers_dir):
-            p = os.path.join(covers_dir, name)
-            if not os.path.isfile(p):
-                continue
-            if os.path.normcase(os.path.abspath(p)) in refs:
-                continue
-            try:
-                if now - os.path.getmtime(p) < _COVER_CLEANUP_GRACE:
-                    continue
-                os.remove(p)
-                removed += 1
-            except OSError:
-                pass
-
-        thumbs_dir = os.path.join(covers_dir, "thumbs")
-        expected = set()
-        for g in games:
-            if g.cover_path and os.path.isfile(g.cover_path):
-                expected.add(os.path.basename(_cover_thumb_path(g.cover_path)))
-        if os.path.isdir(thumbs_dir):
-            for name in os.listdir(thumbs_dir):
-                p = os.path.join(thumbs_dir, name)
-                if not os.path.isfile(p) or name in expected:
-                    continue
-                try:
-                    if now - os.path.getmtime(p) < _COVER_CLEANUP_GRACE:
-                        continue
-                    os.remove(p)
-                    removed += 1
-                except OSError:
-                    pass
-        if removed:
-            logger.info("封面清理: 删除 %d 个未使用文件（含过期缩略图）", removed)
-        return removed
 
     # ---------- 封面异步下载（与匹配解耦，见 docs/archive/COVER_DOWNLOAD_OPTIMIZATION.md）----------
     def _queue_cover(self, game_id: str, cover_url: str, dest: str):
@@ -1605,20 +1536,24 @@ class WebBridge:
 
     def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
         """后台下载封面（可配超时、不重试），上报进度；成功写库并定向刷新该卡"""
-        from utils import vndb_client
         self._set_cover_progress(game_id, 0.0)
         try:
+            game = self.manager.get_game(game_id)
+            if game and game.cover_path and os.path.isfile(game.cover_path):
+                return
+
             def _pc(pct, _gid=game_id):
                 self._set_cover_progress(_gid, pct)
-            if vndb_client.download_cover(cover_url, dest, progress_cb=_pc):
-                game = self.manager.get_game(game_id)
-                if game and not game.cover_path:
-                    self.manager.repository.update_cover_path(game_id, dest)
-                    self.reloadCover(game_id)
+
+            path = self._cover_store.download(game_id, cover_url, progress_cb=_pc)
+            if path:
+                self.manager.repository.update_cover_path(game_id, path)
+                self._cover_store.ensure_thumb(game_id)
+                self.reloadCover(game_id)
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)
-        # 结束（成功/失败）都移除进度；失败不重试、不显示
-        self._set_cover_progress(game_id, None)
+        finally:
+            self._set_cover_progress(game_id, None)
 
     def _on_game_exit(self, game_id: str, runtime_seconds: int):
         # 游戏退出：即时清除"运行中"状态 + 增量刷新该游戏数据（时长/最后游玩）

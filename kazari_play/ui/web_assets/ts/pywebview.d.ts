@@ -17,8 +17,10 @@ interface PyWebViewApi {
   getGames(): Promise<string>;
   /** 单游戏 JSON 字符串 */
   getGame(game_id: string): Promise<string>;
-  /** 封面 data URI（可能为空串） */
+  /** 封面 data URI（服务不可用时的回退通道，可能为空串） */
   getCover(game_id: string): Promise<string>;
+  /** 本地封面服务 URL；服务未启动/无封面返回空串 */
+  getCoverUrl(game_id: string): Promise<string>;
   /** 标签 JSON 数组 */
   getTags(): Promise<string>;
   /** 分类 JSON 数组 */

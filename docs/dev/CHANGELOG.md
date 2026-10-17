@@ -2,6 +2,15 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.1.0-beta.5 自测（2026-10-17）
+
+- 封面改为单文件模型：`covers/{game_id}.{ext}` + `thumbs/{game_id}_w512.jpg`；旧 `_vndb/_ms/_manual` 变体迁移后删除。
+- 新增本地 HTTP 封面服务：只绑 `127.0.0.1`，持久化 token 与首选端口，`/c/{token}/cover/{id}?v=<mtime>-<size>`；只提供 512 缩略图，`Cache-Control: immutable`，支持 GET/HEAD；`cover_service.enabled` 可关闭。
+- 前端改用 WebView 原生加载 `cover_url`（payload 内嵌 + `getCoverUrl`）；加载失败回退默认图；服务启动失败整会话回退 base64（保留一个 beta）。
+- 缩略图保存/下载时后台预生成，HTTP 首次请求按 game_id 加锁懒生成；失败回退原图，原图缺失回退默认图。
+- 删游戏同步删封面；启动迁移旧路径/旧变体并清理未引用文件与过期缩略图。
+- 验证：Phase 0 内联 `html=` 可加载 localhost 图片；真实 34 游戏 34/34 `cover_url` 返回 200，base64 回退正常。
+
 ## 1.1.0-beta.4 自测（2026-10-17）
 
 - 新增封面清理：启动时后台删除 `covers/` 中未被任何游戏引用的封面与过期缩略图（10 分钟宽限期）；换封面/删游戏时立即清理旧文件及其缩略图。
