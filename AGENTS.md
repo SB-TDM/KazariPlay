@@ -13,7 +13,7 @@ npm --prefix kazari_play/ui/web_assets ci
 npm --prefix kazari_play/ui/web_assets run build
 python kazari_play/main.py        # 在对应工作区根目录运行
 # develop 自测包（新目录；不写入现有用户数据，不对外发布）
-python scripts/package_develop.py --output trial-build-1.0.0
+python scripts/package_develop.py --output trial-build-1.0.1
 ```
 
 前端改动（改 `ts/` 后必须编译）：
@@ -63,7 +63,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
 - 当前版本 `1.0.0`（新界面世代首个正式版，已发布；后续开发线 `1.0.x` 自测包）；版本规则与历史映射见 `docs/dev/VERSIONING.md`，历史版本见 `RELEASE_NOTES.md`
-- 更新器（1.0.0）：通道切换 + 就绪缓存（启动本地探测自动提示，确认期间跳过）+ 硬链接程序备份 + 分阶段埋点；应用方式仅「立即重启更新」；设计见 `docs/dev/AUTO_UPDATE_SPEEDUP_PLAN.md`
+- 更新器（1.0.x）：通道切换 + 就绪缓存（启动本地探测自动提示，确认期间跳过）+ 硬链接程序备份 + 分阶段埋点；应用方式仅「立即重启更新」；设计见 `docs/dev/AUTO_UPDATE_SPEEDUP_PLAN.md`
 - `scripts/package_develop.py` 生成隔离的 onedir 试用包，运行时数据在包旁 `data/`；不覆盖现有构建目录，打包前需先完成 Overlay x64/x86 构建。
 - 主界面重构、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；本目录 `KazariPlay_main-ui` 为独立克隆（`origin`=本机 `KazariPlay_main`，`github`=SB-TDM/KazariPlay）。
 - 分支职责见 `docs/dev/BRANCH_WORKFLOW.md`；不将实验分支整分支合入原版，不混用两版生成物，不删除用户数据或旧实验字段。

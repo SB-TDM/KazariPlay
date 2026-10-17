@@ -68,10 +68,10 @@ class SlowResponse(FakeResponse):
 
 
 WIN_ASSET = ("KazariPlay-win64.zip",
-             "https://github.com/SB-TDM/KazariPlay/releases/download/v1.0.1/KazariPlay-win64.zip",
+             "https://github.com/SB-TDM/KazariPlay/releases/download/v9.9.9/KazariPlay-win64.zip",
              1234)
 SUMS_ASSET = ("SHA256SUMS.txt",
-              "https://github.com/SB-TDM/KazariPlay/releases/download/v1.0.1/SHA256SUMS.txt",
+              "https://github.com/SB-TDM/KazariPlay/releases/download/v9.9.9/SHA256SUMS.txt",
               100)
 
 
@@ -80,7 +80,7 @@ def win_asset(digest=""):
     return (name, url, size, digest)
 
 
-def make_release(tag="v1.0.1", notes="修复若干问题", assets=None):
+def make_release(tag="v9.9.9", notes="修复若干问题", assets=None):
     items = []
     for spec in (assets or []):
         name, url, size = spec[:3]
@@ -106,7 +106,7 @@ def new_updater(tmp, cfg=None):
     return U.Updater(cfg=cfg if cfg is not None else FakeConfig(), cache_dir=tmp)
 
 
-def write_ready(cache_dir, payload, tag="v1.0.1", version="1.0.1",
+def write_ready(cache_dir, payload, tag="v9.9.9", version="9.9.9",
                 digest=None, zip_name="KazariPlay-win64.zip"):
     digest = digest or hashlib.sha256(payload).hexdigest()
     with open(os.path.join(cache_dir, zip_name), "wb") as f:
@@ -136,14 +136,14 @@ def test_parse_version():
 
 
 def test_is_update_available():
-    assert U.is_update_available("1.0.1", "1.0.0")
+    assert U.is_update_available("9.9.9", "1.0.0")
     assert U.is_update_available("1.1.0", "1.0.9")
     assert U.is_update_available("2.0.0", "1.9.9")
     assert U.is_update_available("1.10.0", "1.9.0")
     assert U.is_update_available("1.0.0", "1.0.0-beta.1")
     assert not U.is_update_available("1.0.0", "1.0.0")
     assert not U.is_update_available("0.9.9", "1.0.0")
-    assert not U.is_update_available("1.0.1-beta.1", "1.0.0")
+    assert not U.is_update_available("9.9.9-beta.1", "1.0.0")
     assert not U.is_update_available("garbage", "1.0.0")
     print("[更新判定] OK")
 
@@ -211,7 +211,7 @@ def test_check_available_and_cache():
         with mock.patch.object(U, "_http_get_json", return_value=rel) as m:
             st = up.check(force=True)
         assert st["state"] == "available", st
-        assert st["latest_version"] == "1.0.1"
+        assert st["latest_version"] == "9.9.9"
         assert st["asset_name"] == "KazariPlay-win64.zip"
         assert cfg.data.get("update.last_check")
         assert os.path.isfile(os.path.join(tmp, "latest.json"))
@@ -235,7 +235,7 @@ def test_check_up_to_date():
 
 def test_check_skipped_and_skip_current():
     with tempfile.TemporaryDirectory() as tmp:
-        cfg = FakeConfig({"update.skipped_version": "1.0.1"})
+        cfg = FakeConfig({"update.skipped_version": "9.9.9"})
         up = new_updater(tmp, cfg)
         rel = make_release(assets=[WIN_ASSET, SUMS_ASSET])
         with mock.patch.object(U, "_http_get_json", return_value=rel):
@@ -247,7 +247,7 @@ def test_check_skipped_and_skip_current():
             up2.check(force=True)
         st2 = up2.skip_current()
         assert st2["state"] == "skipped"
-        assert cfg2.data.get("update.skipped_version") == "1.0.1"
+        assert cfg2.data.get("update.skipped_version") == "9.9.9"
     print("[检查-跳过此版本] OK")
 
 
@@ -523,7 +523,7 @@ def test_offline_ready():
             st = up.check(force=True)
         assert st["state"] == "ready", st
         assert st["offline"] is True
-        assert st["latest_version"] == "1.0.1"
+        assert st["latest_version"] == "9.9.9"
     print("[就绪缓存-离线就绪] OK")
 
 
