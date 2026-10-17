@@ -1,6 +1,6 @@
 # KazariPlay 版本说明
 
-> 当前开发版：原版 `1.0.0-beta.4`（新界面世代预发布；`-beta.N` 自测包不对外发布），翻译实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）。稳定 `main` 尚未接收本轮开发提交。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)，分支状态见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
+> 当前开发版：原版 `1.0.0-beta.5`（新界面世代预发布；`-beta.N` 自测包不对外发布），翻译实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）。稳定 `main` 尚未接收本轮开发提交。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)，分支状态见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
 
 ## 1.0.0 线（开发中）— 已知限制与安装建议
 

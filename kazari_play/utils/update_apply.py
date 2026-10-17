@@ -2,8 +2,9 @@
 
 - **助手模式**：`KazariPlay.exe --apply-update --pid <旧PID> --target <安装目录> --data-dir <数据目录>`
   等待旧进程退出（超时强杀并确认退出，无法确认即中止）→ 备份用户数据（失败即中止）→
-  备份程序文件 → 白名单替换（失败回滚）→ 拉起新版。拉起异常或新版在启动确认前退出时
-  立即回滚并拉起旧版；替换期间以安装目录锁保证同一安装目录至多一个替换任务。
+  备份程序文件（硬链接优先，失败回退复制；不移动目标文件）→ 白名单替换（失败回滚）→
+  拉起新版。拉起异常或新版在启动确认前退出时立即回滚并拉起旧版；替换期间以安装目录锁
+  保证同一安装目录至多一个替换任务。
 - **回滚助手模式**：`KazariPlay.exe --apply-rollback ...`，由启动自愈从更新解压缓存中拉起，
   等待当前进程退出后从程序备份恢复旧版并拉起（避免覆盖运行中 EXE/_internal 的文件锁失败）。
 - **启动自愈**：应用启动早期调用 `startup_self_heal()`：
@@ -230,15 +231,32 @@ def prune_backups(data_dir: str, keep: int = BACKUP_KEEP) -> None:
         shutil.rmtree(os.path.join(root, d), ignore_errors=True)
 
 
+def _link_or_copy(src: str, dst: str) -> None:
+    """优先硬链接（同卷、瞬间完成、不复制数据），不支持时回退复制"""
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
+
+
 def _backup_program(target: str, backup_root: str) -> None:
-    """把 target 中现有的白名单程序条目复制到 backup_root（回滚用；只读复制）"""
+    """把 target 中现有的白名单程序条目备份到 backup_root（硬链接优先，失败回退复制）
+
+    硬链接备份不复制数据、也不移动目标文件——任何时刻安装目录都保持可运行；
+    FAT/exFAT 等不支持硬链接的文件系统自动回退为复制。
+    """
     os.makedirs(backup_root, exist_ok=True)
     for name in PROGRAM_WHITELIST:
         src = os.path.join(target, name)
         if os.path.isfile(src):
-            shutil.copy2(src, os.path.join(backup_root, name))
+            _link_or_copy(src, os.path.join(backup_root, name))
         elif os.path.isdir(src):
-            shutil.copytree(src, os.path.join(backup_root, name))
+            for root, _dirs, files in os.walk(src):
+                rel = os.path.relpath(root, target)
+                dst_root = os.path.join(backup_root, rel)
+                os.makedirs(dst_root, exist_ok=True)
+                for f in files:
+                    _link_or_copy(os.path.join(root, f), os.path.join(dst_root, f))
 
 
 # ---------- 替换 / 回滚 ----------
@@ -269,7 +287,11 @@ def _remove_stale(target: str, plan: List[Tuple[str, str]]) -> None:
 
 
 def _restore(backup_root: str, target: str) -> None:
-    """从程序备份整目录恢复（镜像）：目录整体替换，文件复制覆盖"""
+    """从程序备份整目录恢复（镜像）：目录整体替换，文件复制覆盖
+
+    备份可能是硬链接：当目标文件与备份条目仍是同一个文件（替换尚未发生）时跳过，
+    避免 copy2 的 SameFileError，并保持重复恢复的幂等性。
+    """
     for name in os.listdir(backup_root):
         src = os.path.join(backup_root, name)
         dst = os.path.join(target, name)
@@ -277,6 +299,11 @@ def _restore(backup_root: str, target: str) -> None:
             shutil.rmtree(dst, ignore_errors=True)
             shutil.copytree(src, dst)
         else:
+            try:
+                if os.path.exists(dst) and os.path.samefile(src, dst):
+                    continue
+            except OSError:
+                pass
             shutil.copy2(src, dst)
 
 
@@ -457,18 +484,20 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
             t1 = time.monotonic()
             data_backup = backup_user_data(data_dir) or ""     # 备份失败即抛异常
             timings["backup_data"] = time.monotonic() - t1
-            t1 = time.monotonic()
             stamp = time.strftime("%Y%m%d-%H%M%S")
             old_dir = os.path.join(target, "_old", stamp)
-            _backup_program(target, old_dir)
-            timings["backup_program"] = time.monotonic() - t1
             marker = {
                 "phase": STATE_APPLYING, "target": target,
                 "new_version": _read_build_version(source), "old_version": _read_build_version(target),
                 "backup_program": old_dir, "backup_data": data_backup,
                 "attempts": 0, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
             }
+            # 先落盘状态（硬链接备份不移动目标文件）：中断后可由启动自愈恢复，
+            # 也避免"备份完成但状态未写"留下无人清理的 _old。
             _write_state(data_dir, marker)
+            t1 = time.monotonic()
+            _backup_program(target, old_dir)
+            timings["backup_program"] = time.monotonic() - t1
         except Exception as e:
             return abort(f"更新未执行（前置检查或备份失败）：{e}")
 

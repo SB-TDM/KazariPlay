@@ -35,7 +35,7 @@
 ## 唯一来源与书写
 
 - `kazari_play/version.py` 是运行时版本与产品线的唯一来源（`VERSION`、`PRODUCT_LINE`）；显示版本为 `v<VERSION>`，入口、窗口标题、关于页、启动日志与打包 spec 均从它派生。
-- 统一书写：机器、文档、包名、tag 一律规范写法 `1.0.0-beta.4`；展示层 `v1.0.0-beta.4`。不再使用 `V1.4.0 Beta 1` 式空格写法（历史发行说明原文除外）。
+- 统一书写：机器、文档、包名、tag 一律规范写法 `1.0.0-beta.5`；展示层 `v1.0.0-beta.5`。不再使用 `V1.4.0 Beta 1` 式空格写法（历史发行说明原文除外）。
 - 前端构建元数据 `kazari_play/ui/web_assets/package.json` 与 `package-lock.json` 同步同一版本串。
 
 ## 换版同步清单

@@ -1,6 +1,6 @@
 # KazariPlay 文档索引
 
-> 文档状态：2026-10-13 版本号体系重新定义（`0.x` = 初代世代、`1.0.0` = 新界面世代，当前开发线 `1.0.0-beta.4`，见 [版本策略](dev/VERSIONING.md) 与 [ADR-0001](adr/0001-version-renumbering.md)）；文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；试用三项反馈已修复（`36c17dc` 批次），待新自测包复验。2026-10-14：自动更新代码审查（UPD-REV-01～13）完成修复，纳入离线回归、冻结包受控演练与真实 GitHub 测试 Release 链路演练（含 fail-closed 拒绝）；更新提速与就绪复用已实施并入 `1.0.0-beta.4`（真实链路复测待执行），见 [审查报告](dev/AUTO_UPDATE_CODE_REVIEW_20261014.md) 与 [提速计划](dev/AUTO_UPDATE_SPEEDUP_PLAN.md)。
+> 文档状态：2026-10-13 版本号体系重新定义（`0.x` = 初代世代、`1.0.0` = 新界面世代，当前开发线 `1.0.0-beta.5`，见 [版本策略](dev/VERSIONING.md) 与 [ADR-0001](adr/0001-version-renumbering.md)）；文档目录已按 `dev/`、`ui/`、`archive/`、`plans/` 归类（本页同步重构）。主体状态沿用 2026-10-11 记录：主界面重构（含 FR-01～FR-12 修复与复评整改 R1–R16）、主页、评分半星制已并入 `develop` 并推送 GitHub（`154ea63`）；源码 GUI/DPI 验收待补；试用三项反馈已修复（`36c17dc` 批次），待新自测包复验。2026-10-14：自动更新代码审查（UPD-REV-01～13）完成修复，纳入离线回归、冻结包受控演练与真实 GitHub 测试 Release 链路演练（含 fail-closed 拒绝）；更新提速与就绪复用已实施并入 `1.0.0-beta.5`（真实链路复测待执行），见 [审查报告](dev/AUTO_UPDATE_CODE_REVIEW_20261014.md) 与 [提速计划](dev/AUTO_UPDATE_SPEEDUP_PLAN.md)。
 >
 > 目录约定：`dev/` 工程流程与记录 · `ui/` 界面线 · `backend/`、`frontend/` 架构模块 · `plans/` 未实施方案 · `archive/` 历史记录。
 >

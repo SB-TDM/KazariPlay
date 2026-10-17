@@ -147,6 +147,74 @@ def test_apply_success():
         d.close()
 
 
+def test_apply_links_program_backup():
+    """程序备份优先使用硬链接（不复制数据、不移动目标文件）"""
+    d = Drill()
+    real_link = os.link
+    calls = []
+
+    def counting(src, dst):
+        calls.append((src, dst))
+        return real_link(src, dst)
+
+    try:
+        with mock.patch.object(UA.os, "link", side_effect=counting):
+            rc = d.apply()
+        assert rc == 0
+        assert calls, "应使用硬链接备份"
+        st = d.state()
+        assert os.path.isdir(st["backup_program"])
+        assert os.path.isfile(os.path.join(st["backup_program"], "KazariPlay.exe"))
+        UA.mark_startup_success(d.data_dir)
+        assert not os.path.exists(os.path.join(d.target, "_old"))
+        print("[替换-硬链接备份] OK")
+    finally:
+        d.close()
+
+
+def test_apply_backup_copy_fallback():
+    """硬链接不可用（如 exFAT）时回退复制，回滚仍正常"""
+    d = Drill()
+    try:
+        with mock.patch.object(UA.os, "link", side_effect=OSError("no hardlink")):
+            rc = d.apply(patch_replace=RuntimeError("boom"))
+        assert rc == 1
+        assert read_bytes(d.exe()) == b"OLD-EXE"
+        assert read_bytes(os.path.join(d.target, "_internal", "old.dll")) == b"old-dll"
+        assert read_bytes(os.path.join(d.target, "_internal", "common.dll")) == b"common-v1"
+        print("[替换-硬链接回退复制+回滚] OK")
+    finally:
+        d.close()
+
+
+def test_rollback_retry_after_partial_restore():
+    """回滚恢复中断后保留状态与备份，重试可幂等完成"""
+    d = Drill()
+    try:
+        assert d.apply() == 0
+        real_copy2 = shutil.copy2
+        calls = {"n": 0}
+
+        def flaky(src, dst, *a, **k):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("interrupted")
+            return real_copy2(src, dst, *a, **k)
+
+        with mock.patch.object(UA.shutil, "copy2", side_effect=flaky), \
+             mock.patch.object(UA, "_launch_default"):
+            assert UA.rollback_update(0, d.target, d.data_dir) == 1
+        assert os.path.exists(os.path.join(d.data_dir, UA.STATE_FILE))
+        with mock.patch.object(UA, "_launch_default"):
+            assert UA.rollback_update(0, d.target, d.data_dir) == 0
+        assert read_bytes(d.exe()) == b"OLD-EXE"
+        assert read_bytes(os.path.join(d.target, "_internal", "common.dll")) == b"common-v1"
+        assert d.state()["phase"] == UA.STATE_ROLLED_BACK
+        print("[回滚-中断后重试成功] OK")
+    finally:
+        d.close()
+
+
 def test_apply_rollback_on_failure():
     d = Drill()
     try:
@@ -682,6 +750,9 @@ def test_cleanup_ready_cache_and_extract():
 
 if __name__ == "__main__":
     test_apply_success()
+    test_apply_links_program_backup()
+    test_apply_backup_copy_fallback()
+    test_rollback_retry_after_partial_restore()
     test_apply_rollback_on_failure()
     test_apply_refuses_data_in_package()
     test_apply_backup_failure_aborts()
