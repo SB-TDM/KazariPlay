@@ -6,6 +6,7 @@
 
 - **启动自动提示**：新增桥 `probeReadyUpdate`（本地探测 `ready.json`，不联网、无网络检查）；启动时静默检查若被禁用（预发布）或失败，则本地探测到就绪缓存时与"发现新版本"一致**自动弹层提示一次**（标题标注"基于上次检查"）；正式版静默检查命中就绪同样提示。解决"下载完成、关闭应用后重启，必须先手动检查更新才能看到就绪"的体验缺口。
 - 验证：`test_updater.py`（新增 `probe_ready`）、`test_update_ui.cjs`（启动自动弹层）、冻结自检（新增 `probeReadyUpdate` 桥断言）与 `verify_frozen_update.py` 回归。
+- 复测（2026-10-17）：重启后本地探测命中就绪并**自动弹层**（日志 `离线就绪命中（9.9.9）`，无下载行），用户确认步骤 1–4 全部通过；同轮 A1：直连 10.0s 失败 → gh-proxy 首字节 0.66s / 3.8s / 19.70MB/s，总下载 13.8s。
 - 换版同步：`version.py`、前端 package/lock、README、RELEASE_NOTES、VERSIONING 示例、docs/README、AGENTS、本文件。
 
 ## 1.0.0-beta.3 自测包：更新提速与就绪复用（2026-10-14）
