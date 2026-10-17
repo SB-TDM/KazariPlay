@@ -1512,12 +1512,22 @@ class WebBridge:
         if not os.path.isdir(covers_dir):
             return 0
         games = self.manager.repository.get_all()
-        # 数据目录搬迁/复制后 cover_path 可能仍指向旧目录：按文件名迁移回当前 covers/
+        covers_abs = os.path.abspath(covers_dir)
+        # 数据目录搬迁/复制后 cover_path 可能仍指向旧目录：迁移回当前 covers/
         for g in games:
             p = g.cover_path
-            if not p or os.path.isfile(p):
+            if not p:
+                continue
+            in_current = (os.path.normcase(os.path.abspath(os.path.dirname(p)))
+                          == os.path.normcase(covers_abs))
+            if in_current and os.path.isfile(p):
                 continue
             candidate = os.path.join(covers_dir, os.path.basename(p))
+            if not os.path.isfile(candidate) and not in_current and os.path.isfile(p):
+                try:
+                    shutil.copy2(p, candidate)
+                except Exception:
+                    candidate = ""
             if not os.path.isfile(candidate):
                 matches = [n for n in os.listdir(covers_dir)
                            if n.startswith(f"{g.id}_")
@@ -1526,7 +1536,7 @@ class WebBridge:
                     covers_dir,
                     max(matches, key=lambda n: os.path.getmtime(
                         os.path.join(covers_dir, n)))) if matches else "")
-            if candidate:
+            if candidate and os.path.isfile(candidate):
                 try:
                     self.manager.repository.update_cover_path(g.id, candidate)
                     g.cover_path = candidate
