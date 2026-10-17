@@ -1,6 +1,6 @@
 # KazariPlay 更新提速与就绪复用计划
 
-> 状态：**设计定稿，待实施**（2026-10-14 两轮问答定稿；同日追加**应用方式修订**：只保留手动「立即重启更新」，移除「退出时更新」；实施前不改代码）。实施完成后并入 [自动更新设计](AUTO_UPDATE_DESIGN.md)（v0.8）并记入 [CHANGELOG](CHANGELOG.md)。
+> 状态：**设计定稿，待实施**（2026-10-14 两轮问答定稿；同日追加应用方式修订（只保留手动「立即重启更新」，移除「退出时更新」）、安装残留清理、早期观察 8s、磁盘预检与验收断言 A6/A7；实施前不改代码）。实施完成后并入 [自动更新设计](AUTO_UPDATE_DESIGN.md)（v0.8）并记入 [CHANGELOG](CHANGELOG.md)。
 > 相关：[自动更新设计](AUTO_UPDATE_DESIGN.md)、[代码审查](AUTO_UPDATE_CODE_REVIEW_20261014.md)、[开发待办](DEVELOPMENT_BACKLOG.md)（DEV-UPD-01/02/03）、[术语表](../../GLOSSARY.md)。
 
 ## 1. 背景与实测事实（2026-10-14）
@@ -21,10 +21,12 @@
 | # | 断言 | 判定方式 |
 |---|---|---|
 | A1 | **死通道惩罚消除**：直连 10s 超时兜底（单次惩罚 ≤10s）；点"下载并更新"到出现非零进度 ≤12s | 真实链路日志（通道埋点） |
-| A2 | **就绪复用**：下载完成 → **不点安装、直接关闭应用** → 重启 → 检查更新直接进入"就绪"、**0 重下** | zip 文件 mtime 不变 + 日志无下载开始行 |
+| A2 | **就绪复用**：下载完成 → **不点安装、直接关闭应用** → 重启 → 检查更新直接进入"就绪"、**0 重下** | zip 文件 mtime 不变 + 日志无下载开始行（命中就绪会重新解压，判定只看 zip mtime 与下载日志） |
 | A3 | **应用窗口全程有数据**：等待退出 / 备份数据 / 备份程序 / 替换 / 拉起 / 新版冷启动到就绪 / 前端握手 | 下一轮实测日志 |
 | A4 | 全部离线套件 + 冻结自检/受控演练通过；真实链路 A1/A2 场景通过 | 门禁与演练记录 |
 | A5 | **安装残留清理**：成功确认后 `update_cache` 无 zip / extract / `ready.json`；中断现场遗留的 `*.new` 由启动自愈清除 | 演练与日志 |
+| A6 | **磁盘空间预检**：空间不足时在下载前/替换前给出明确提示，不进入对应阶段 | 离线用例 |
+| A7 | **离线就绪**：检查请求失败但本地 `ready.json` 有效 → 仍可进入就绪（标注"基于上次检查"） | 断网演练 |
 
 ## 3. 设计决策（已定稿）
 
@@ -37,7 +39,8 @@
 - 记忆通道同样受 10s 超时约束；失败自动回退默认顺序
 - 整体重试：**降为 1 轮**——候选链各尝试一次即结束；失败由弹层「重试」手动再来（去掉整体第 2 轮）
 - 记忆落点：config `update.last_good_lane`（值 `direct` 或镜像前缀）；只有完成过一次完整传输的通道才写入
-- 所有阈值集中为模块常量，按实测可调
+- 校验失败：SHA256 不符即终止（fail-closed），不把"换通道"当作绕过；同一通道本次会话降权，但**不清除** `last_good_lane` 记忆
+- 所有阈值集中为模块常量，按实测可调；测试通过 monkeypatch 缩短，避免真等 10–15s
 
 ### D2 默认镜像清单
 
@@ -48,22 +51,24 @@
 
 - 落盘：`data/update_cache/ready.json`，字段 `{tag, version, asset_name, digest, zip, ts}`
 - 命中：`check()` 确定 latest 后，若 `tag` 与 `digest` 均与发布元数据一致且 zip 存在 → 直接进入"就绪"（**不联网下载**）；解压目录缺失/无效时按需从 zip 重解压并做结构预检
-- 失效：tag/digest 变化、zip 丢失或 SHA256 不符、结构预检失败 → 丢弃 `ready.json`（digest 不符的旧 zip 删除）→ 回到"发现新版本"
+- 失效：tag/digest 变化、zip 丢失或 SHA256 不符、结构预检失败、**当前版本 ≥ ready.tag**（手动升级后的残留）→ 丢弃 `ready.json`（digest 不符的旧 zip 删除）→ 回到"发现新版本"
 - 启动清理：`cleanup_update_cache` **保留被 `ready.json` 引用的完整 zip**（解压目录仍不跨重启保留），其余照删
 - **清理顺序**：确认成功后**先删 `ready.json` 再执行清理**（否则"保留引用 zip"规则会留住 75MB）；失效（tag/digest 变化、zip 损坏、结构预检失败、跳过该版本）时删除 `ready.json` 与对应 zip
 - 提示行为：正式版启动静默检查命中"就绪"时与"发现新版本"一致提示一次；预发布维持仅手动检查；手动检查命中 → 弹层直接显示就绪
+- 离线就绪：检查请求失败但本地 `ready.json` 有效且 zip 完好 → 允许进入就绪，弹层标注"基于上次检查，未确认最新版本"
+- 重水化失败：解压/权限/磁盘错误 → 回"发现新版本"并提示，不误报就绪
 - 信任边界不变：命中条件绑定发布元数据摘要，镜像无法伪造（沿用 REV-07 的 fail-closed 模型）
 
 ### D4 埋点（只写日志，不加界面）
 
 - 下载：每通道 `开始` / `结束（结果=成功｜超时｜低速切换｜错误；耗时；均速；字节）`，汇总 `下载完成（通道、总耗时、均速）`
 - 助手（`update_apply`）：`wait_exit / backup_data / backup_program / replace / launch / 总计` 各耗时；失败时输出部分阶段
-- 新版：`进程启动→窗口就绪`、`进程启动→前端握手` 两个差值（进程内时间差）
+- 新版：**助手拉起时刻（日志）→ 窗口就绪（日志）** 的冷启动全程；应用内另测「入口→前端握手」。不要用应用内 t0 代替进程启动（会漏掉 PyInstaller bootloader）
 
 ### D5 快速退出（机制就位，开关等数据）
 
 - 机制：`立即重启更新` 拉起助手成功后 `win.destroy()`，最多 **1s 宽限**后 `os._exit(0)`（日志按行 flush；SQLite 崩溃安全）
-- 开关：**初始关闭**；当 D4 数据证明"等待旧进程退出"是应用窗口大头时启用（小改动，单独提交）
+- 开关：**初始关闭**；触发阈值：`wait_exit > 3s` 或占应用窗口 >30% 才启用（小改动，单独提交）
 - 若大头是新 exe 冷启动/杀软扫描：记录为环境成本，不硬治
 
 ### D6 更新完成提示
@@ -76,6 +81,7 @@
 - **移除「退出时更新」**：前后端与关闭钩子里的 pending/exit 路径一并删除——`applyUpdate` 不再有 `exit` 模式；删除 `apply_pending_update_on_exit` 与 `_update_on_exit`；`main.py` 关闭钩子只保留 overlay 退出
 - 就绪弹层只保留一个安装按钮「立即重启更新」；想稍后处理时关闭弹层或直接关应用即可（就绪缓存保证重启后 0 重下）
 - 原子占用（`_claim_update_apply`）保留，作为重复点击/重试的防护
+- 安装发起失败（`begin_apply` 返回 false，如解压目录缺失）：保持就绪弹层 + toast 错误、可再次点击；不转 failed、不重下
 - 测试调整：删除"立即更新 vs 退出更新"双入口并发用例，改为单入口重复触发用例；`tests/test_update_ui.cjs` 的就绪弹层断言保留
 - 文档：`AUTO_UPDATE_DESIGN.md` v0.8 同步删除退出时更新；审查报告 §8 的双入口描述作为历史记录保留
 
@@ -94,17 +100,23 @@
 - 助手拉起新版后的早期退出观察从 20s 缩短为 **8s**：只捕捉"拉起即崩"；运行中慢崩或慢加载由开机两振（启动自愈）兜底
 - 失败语义不变：观察期结束即视为拉起成功，后续确认仍由前端握手/两振负责
 
+### D11 磁盘空间预检（2026-10-14 追加）
+
+- 下载前检查可用空间（完整包 + 解压约需 260MB）；应用前检查峰值（含 `_old` 备份约 450MB）
+- 不足时给出明确提示（需要 X MB / 可用 Y MB），不进入下载或替换阶段
+
 ## 4. 实施步骤（文件级）
 
-1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序（10s 超时、15s 单次低速检查、1 轮重试）、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点
-2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`；D10 早期观察窗口 20s → 8s
+1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序（10s 超时、15s 单次低速检查、1 轮重试）、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点、D11 下载前空间预检
+2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`；D10 早期观察窗口 20s → 8s；D11 替换前空间预检
 3. **`kazari_play/main.py` / `ui/web_bridge.py` / `ui/web_assets/ts/*` / `partials/update.html`**：D4 新版计时；D6 握手文案与 toast；D5 快速退出机制（默认关闭）；**D7 移除退出时更新**（`applyUpdate` 去掉 exit 分支，删除 `apply_pending_update_on_exit`/`_update_on_exit`、关闭钩子调用、`updateApplyExit` 按钮与前端绑定）
 4. **测试**：
-   - `tests/test_updater.py`：死通道超时切换、低速切换、last-good 排序与降权、ready 命中/失效/清理保留、跳过版本优先于就绪
+   - `tests/test_updater.py`：死通道超时切换、低速切换、last-good 排序与降权、ready 命中/失效/清理保留、跳过版本优先于就绪、离线就绪、磁盘空间预检
+   - 时间常量（10s/15s）可注入：测试用 monkeypatch 缩短，避免真等超时
    - `tests/test_update_apply.py`：删除"立即更新 vs 退出更新"双入口并发用例，改为单入口重复触发用例（原子占用仍生效）；新增根级 `*.new` 自愈清理用例
-   - `scripts/frozen_smoke.py`：断言 `updateFrontendReady` 返回字符串；`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py`、`scripts/verify_frozen_update.py` 回归
+   - `scripts/frozen_smoke.py`：断言 `updateFrontendReady` 返回字符串；`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py` 回归；`scripts/verify_frozen_update.py` 新增就绪缓存场景（替换失败回滚 → 就绪命中 0 重下）
 5. **换版 beta.2 → beta.3**（八点同步：`version.py`、前端 `package.json`/`package-lock.json`、`README.md`、`RELEASE_NOTES.md`、`VERSIONING.md` 表、`docs/README.md` 状态行、`AGENTS.md`、`CHANGELOG.md`）
-6. **文档**：`AUTO_UPDATE_DESIGN.md` 并入 v0.8；`PACKAGING.md`/`testing.md` 同步；`DEVELOPMENT_BACKLOG` 的 DEV-UPD-01/02/03 标记实施并回链本计划
+6. **文档**：`AUTO_UPDATE_DESIGN.md` 并入 v0.8；`PACKAGING.md`/`testing.md` 同步；`DEVELOPMENT_BACKLOG` 的 DEV-UPD-01/02/03 标记实施并回链本计划；全仓检索「退出时更新」——只改现役文档（设计 v0.8、README/RELEASE_NOTES 现役段落、PACKAGING），CHANGELOG/审查报告的历史记录保留；验收结果记入 CHANGELOG 与审查报告
 
 ## 5. 验收演练（真实链路）
 
@@ -121,16 +133,17 @@
 
 - 下载完成进入就绪 → **不点安装、直接关闭应用** → 重启 → 检查更新 → 直接"就绪"（0 重下，zip mtime 不变）
 - 继续安装（就绪弹层唯一按钮「立即重启更新」）→ 新版首启 toast「已更新到 v…」→ `_old` 清理、状态清零；确认后检查 `data\update_cache` 为空（A5）
+- 离线变体（A7）：断网后打开应用 → 检查更新失败但就绪缓存命中 → 仍显示"就绪"（标注"基于上次检查"）
 
 场景 C（应用窗口数据，决定 D5）：
 
-- 从日志收集 A3 各阶段耗时；若 `wait_exit` 占比大 → 启用快速退出并复测；否则记录结论
+- 从日志收集 A3 各阶段耗时；若 `wait_exit > 3s` 或占应用窗口 >30% → 启用快速退出并复测；否则记录结论
 
 ## 6. 风险与回退
 
 - 替换测试 Release 资产会改变摘要：持有旧摘要缓存的客户端按 fail-closed 拒绝（预期行为，已实测过一次）
 - `ready.json` 与 zip 的一致性：命中前必验 SHA256 + 结构预检，失败即失效回退
-- 参数（10s / 15s / 30s / 0.5MB/s）先按常量落地，可按实测调整，不影响架构
+- 参数（10s socket 超时 / 15s 单次低速检查阈值 5MiB / 1 轮候选链）先按常量落地，可按实测调整，不影响架构
 - 快速退出默认关闭，独立开关，随时可退
 
 ## 7. 明确不做
