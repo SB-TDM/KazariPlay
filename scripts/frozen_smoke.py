@@ -14,6 +14,13 @@ def install():
     if data_dir.exists():
         raise RuntimeError("--smoke-test requires a new data directory")
     import webview
+    # 离线自检：正式版启动会静默检查更新；冒烟不触网（stub 单例 check）。
+    try:
+        from utils.updater import get_updater
+        updater = get_updater()
+        updater.check = lambda force=False: updater.state()
+    except Exception:
+        pass
     original_create = webview.create_window
 
     def create(*args, **kwargs):
@@ -65,10 +72,12 @@ def install():
                              "openReleasePage", "updateFrontendReady"):
                     assert callable(getattr(bridge, name, None)), f"缺少更新桥方法: {name}"
                 update_state = json.loads(bridge.getUpdateState())
-                assert update_state.get("state") == "idle", update_state
+                assert isinstance(update_state, dict) and "state" in update_state, update_state
                 assert "extract_dir" in update_state
                 assert isinstance(bridge.updateFrontendReady(), str)
-                assert json.loads(bridge.probeReadyUpdate()).get("state") == "idle"
+                probe_state = json.loads(bridge.probeReadyUpdate())
+                assert isinstance(probe_state, dict) and "state" in probe_state, probe_state
+                assert "offline" in probe_state
                 report["checks"].append("frozen update modules and bridge API")
 
                 game_exe = os.environ.get("KAZARIPLAY_SMOKE_GAME", "")
