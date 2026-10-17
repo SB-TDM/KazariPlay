@@ -113,3 +113,9 @@ develop 试用包已通过本地 PyInstaller onedir 构建与冻结包离线自�
 - `v1.0.0` 标签改名 `v0.1.0`（同提交、内容零变化）；GitHub 上附于旧标签的 V1.0 Release 已按明确授权删除，正文保留于 `RELEASE_NOTES.md`。
 - 文档目录归类为 `dev/`、`ui/`、`archive/`、`plans/`（全量链接修复）；新增 `GLOSSARY.md` 领域术语表。
 - 远端收口：GitHub 默认分支由 `master` 切换为 `main`；旧 `master` 改名 `archive/master-legacy` 留档（`b3a571e`）；`main` 更新为 UI 线 `b310740`（不含更新器），`develop` 保持领先（含更新器 `d257ebe`）。
+
+## 2026-10-17 更新（正式发布）
+
+- `1.0.0` 正式发布：`develop` 快进合入 `main`，tag `v1.0.0` + GitHub Release（`KazariPlay-win64.zip` + `SHA256SUMS.txt`）；旧 `v1.0.0` 标签与 "KazariPlay V1.0" Release 按版本策略清理（正文保留于 `RELEASE_NOTES.md`）。
+- `1.0.1` 应用内更新实证版本：tag `v1.0.1` + Release（`--latest`）；E2 `1.0.0 → 1.0.1` 真实更新已通过（检查步骤因匿名 API 限流使用预置缓存，下载/校验/替换为真实链路）。
+- 当前 `develop` = `main` = `71d32f4`，均已推送；`v9.9.9` 测试 Release 保留（可后续删除）。
