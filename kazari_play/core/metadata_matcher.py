@@ -629,19 +629,20 @@ def match_single(game: Game, force: bool = False, cancel_event=None, cover_cb=No
         game.length_minutes = merged["length_minutes"]
         updated_fields.append("length_minutes")
 
-    # 封面：优先交给 cover_cb 异步下载（不阻塞匹配）；无 cover_cb 时回退同步下载
+    # 封面：文件缺失时视为无封面（数据目录搬迁后旧路径可能失效）
     cover_queued = False
-    if not game.cover_path and merged["cover_url"]:
-        dest = _cover_dest_path(game.id, merged["cover_url"])
-        if cover_cb is not None:
-            cover_cb(game.id, merged["cover_url"], dest)
-            cover_queued = True
-        elif vndb_client.download_cover(merged["cover_url"], dest,
-                                        cancel_event=cancel_event):
-            game.cover_path = dest
-            updated_fields.append("cover_path")
-        else:
-            logger.warning("封面下载失败，跳过: %s", merged["cover_url"])
+    if not game.cover_path or not os.path.exists(game.cover_path):
+        if merged["cover_url"]:
+            dest = _cover_dest_path(game.id, merged["cover_url"])
+            if cover_cb is not None:
+                cover_cb(game.id, merged["cover_url"], dest)
+                cover_queued = True
+            elif vndb_client.download_cover(merged["cover_url"], dest,
+                                            cancel_event=cancel_event):
+                game.cover_path = dest
+                updated_fields.append("cover_path")
+            else:
+                logger.warning("封面下载失败，跳过: %s", merged["cover_url"])
 
     if not updated_fields and not cover_queued:
         return "skip", "所有字段已存在，未更新"

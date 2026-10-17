@@ -1,12 +1,12 @@
-# KazariPlay 1.1.0-beta.3 原版
+# KazariPlay 1.1.0-beta.4 原版
 
 本版本用于 `main` / `develop`：无翻译原版已发布 `1.0.0` / `1.0.1` 正式版，当前 `1.1.0` 开发线自测中（元数据多源自动匹配）；保留游戏库、扫描、重新定位、元数据与截图功能，不包含翻译前后端、Hook 注入或字幕。翻译实验版保留在 `feature/hook-translation`，分支和工作区使用见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
 
-当前开发线自测版为 `1.1.0-beta.3`（新增多源元数据匹配；稳定 `main` 为 `1.0.1`）；`-beta.N` 为自测包计数，不对外发布。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)。
+当前开发线自测版为 `1.1.0-beta.4`（新增多源元数据匹配；稳定 `main` 为 `1.0.1`）；`-beta.N` 为自测包计数，不对外发布。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)。
 
 视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
 
-原名 Minato Launcher，V1.0（现编号 `0.1.0`）起正式更名为 **KazariPlay**。当前正式版为 `1.0.1`，开发线自测版为 `1.1.0-beta.3`；保留初代以来的 TypeScript 前端、WGC 三级截图回退、扫描去重与进度取消，以及批量重新定位，不回退到旧版源码。
+原名 Minato Launcher，V1.0（现编号 `0.1.0`）起正式更名为 **KazariPlay**。当前正式版为 `1.0.1`，开发线自测版为 `1.1.0-beta.4`；保留初代以来的 TypeScript 前端、WGC 三级截图回退、扫描去重与进度取消，以及批量重新定位，不回退到旧版源码。
 
 ## 特性
 
@@ -46,7 +46,7 @@ python kazari_play/main.py     # 在对应工作区根目录下
 生成本地 develop 自测包（不会覆盖已有输出，也不读取真实用户库）：
 
 ```powershell
-python scripts/package_develop.py --output trial-build-1.1.0-beta.3
+python scripts/package_develop.py --output trial-build-1.1.0-beta.4
 ```
 
 打正式发布资产（干净包 `KazariPlay-win64.zip` + `SHA256SUMS.txt`，要求工作区干净）：

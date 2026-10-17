@@ -275,6 +275,12 @@ def main():
 
     manager = GameManager()
     bridge = WebBridge(manager)
+    # 后台清理未被引用的封面与过期缩略图（不阻塞启动）
+    try:
+        import threading as _threading
+        _threading.Thread(target=bridge.cleanup_unused_covers, daemon=True).start()
+    except Exception:
+        pass
     bridge._start_ts = _PROCESS_T0   # 供「入口→前端就绪」埋点
     if update_notice:
         try:
