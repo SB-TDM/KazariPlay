@@ -24,6 +24,7 @@
 | A2 | **就绪复用**：下载完成 → **不点安装、直接关闭应用** → 重启 → 检查更新直接进入"就绪"、**0 重下** | zip 文件 mtime 不变 + 日志无下载开始行 |
 | A3 | **应用窗口全程有数据**：等待退出 / 备份数据 / 备份程序 / 替换 / 拉起 / 新版冷启动到就绪 / 前端握手 | 下一轮实测日志 |
 | A4 | 全部离线套件 + 冻结自检/受控演练通过；真实链路 A1/A2 场景通过 | 门禁与演练记录 |
+| A5 | **安装残留清理**：成功确认后 `update_cache` 无 zip / extract / `ready.json`；中断现场遗留的 `*.new` 由启动自愈清除 | 演练与日志 |
 
 ## 3. 设计决策（已定稿）
 
@@ -49,6 +50,7 @@
 - 命中：`check()` 确定 latest 后，若 `tag` 与 `digest` 均与发布元数据一致且 zip 存在 → 直接进入"就绪"（**不联网下载**）；解压目录缺失/无效时按需从 zip 重解压并做结构预检
 - 失效：tag/digest 变化、zip 丢失或 SHA256 不符、结构预检失败 → 丢弃 `ready.json`（digest 不符的旧 zip 删除）→ 回到"发现新版本"
 - 启动清理：`cleanup_update_cache` **保留被 `ready.json` 引用的完整 zip**（解压目录仍不跨重启保留），其余照删
+- **清理顺序**：确认成功后**先删 `ready.json` 再执行清理**（否则"保留引用 zip"规则会留住 75MB）；失效（tag/digest 变化、zip 损坏、结构预检失败、跳过该版本）时删除 `ready.json` 与对应 zip
 - 提示行为：正式版启动静默检查命中"就绪"时与"发现新版本"一致提示一次；预发布维持仅手动检查；手动检查命中 → 弹层直接显示就绪
 - 信任边界不变：命中条件绑定发布元数据摘要，镜像无法伪造（沿用 REV-07 的 fail-closed 模型）
 
@@ -81,14 +83,20 @@
 
 下载通道 / 低速切换 / 就绪缓存 / 应用窗口。
 
+### D9 安装残留与缓存清理（2026-10-14 追加）
+
+- **`*.new` 临时文件**：助手在"写 .new → os.replace"之间被杀会留下残留（实例：`KazariPlay.exe.new`）。启动自愈时删除安装根目录下**白名单条目的 `.new`**（如 `KazariPlay.exe.new`、`LICENSE.new`；只处理根级白名单名 + `.new`，不递归、不碰用户数据区）
+- **`ready.json` 清理顺序**：确认成功后 → 先删 `ready.json` → 再 `cleanup_update_cache`（zip / extract / `.part` 全清）；失效时 → 删 `ready.json` + 对应 zip
+- 用户数据备份（`data/backup`，滚动 3 份）与 `latest.json`（API 缓存）不属于安装文件，不在此列
+
 ## 4. 实施步骤（文件级）
 
-1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点
-2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时
+1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点
+2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`
 3. **`kazari_play/main.py` / `ui/web_bridge.py` / `ui/web_assets/ts/*` / `partials/update.html`**：D4 新版计时；D6 握手文案与 toast；D5 快速退出机制（默认关闭）；**D7 移除退出时更新**（`applyUpdate` 去掉 exit 分支，删除 `apply_pending_update_on_exit`/`_update_on_exit`、关闭钩子调用、`updateApplyExit` 按钮与前端绑定）
 4. **测试**：
    - `tests/test_updater.py`：死通道超时切换、低速切换、last-good 排序与降权、ready 命中/失效/清理保留、跳过版本优先于就绪
-   - `tests/test_update_apply.py`：删除"立即更新 vs 退出更新"双入口并发用例，改为单入口重复触发用例（原子占用仍生效）
+   - `tests/test_update_apply.py`：删除"立即更新 vs 退出更新"双入口并发用例，改为单入口重复触发用例（原子占用仍生效）；新增根级 `*.new` 自愈清理用例
    - `scripts/frozen_smoke.py`：断言 `updateFrontendReady` 返回字符串；`tests/test_update_ui.cjs`、`tests/smoke_update_flow.py`、`scripts/verify_frozen_update.py` 回归
 5. **换版 beta.2 → beta.3**（八点同步：`version.py`、前端 `package.json`/`package-lock.json`、`README.md`、`RELEASE_NOTES.md`、`VERSIONING.md` 表、`docs/README.md` 状态行、`AGENTS.md`、`CHANGELOG.md`）
 6. **文档**：`AUTO_UPDATE_DESIGN.md` 并入 v0.8；`PACKAGING.md`/`testing.md` 同步；`DEVELOPMENT_BACKLOG` 的 DEV-UPD-01/02/03 标记实施并回链本计划
@@ -107,7 +115,7 @@
 场景 B（就绪复用）：
 
 - 下载完成进入就绪 → **不点安装、直接关闭应用** → 重启 → 检查更新 → 直接"就绪"（0 重下，zip mtime 不变）
-- 继续安装（就绪弹层唯一按钮「立即重启更新」）→ 新版首启 toast「已更新到 v…」→ `_old` 清理、状态清零
+- 继续安装（就绪弹层唯一按钮「立即重启更新」）→ 新版首启 toast「已更新到 v…」→ `_old` 清理、状态清零；确认后检查 `data\update_cache` 为空（A5）
 
 场景 C（应用窗口数据，决定 D5）：
 
