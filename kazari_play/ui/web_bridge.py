@@ -449,6 +449,8 @@ class WebBridge:
         归属经由 addGamesToCollection / removeGamesFromCollection 独立维护）。
         """
         data = json.loads(data_json)
+        if self._batch_ctx and self._batch_ctx.get("running"):
+            return json.dumps({"ok": False, "msg": "元数据匹配进行中，请完成后再保存"}, ensure_ascii=False)
         if game_id:
             g = self.manager.get_game(game_id)
             if g is None:
@@ -463,14 +465,19 @@ class WebBridge:
                 g.category_id = int(data["cat_id"] or 0)
             new_exe = (data.get("exe_path") or "").strip()
             if new_exe:
-                if not os.path.isfile(new_exe):
-                    return json.dumps({"ok": False, "msg": "启动文件不存在"}, ensure_ascii=False)
-                g.exe_path = os.path.normpath(new_exe)
-                g.folder = os.path.dirname(g.exe_path)
+                new_exe = os.path.normpath(new_exe)
+                if os.path.normcase(new_exe) != os.path.normcase(g.exe_path or ""):
+                    if not os.path.isfile(new_exe):
+                        return json.dumps({"ok": False, "msg": "启动文件不存在"}, ensure_ascii=False)
+                    g.exe_path = new_exe
+                    g.folder = os.path.dirname(new_exe)
+                else:
+                    g.exe_path = new_exe
             g.identity = self.manager.scanner._make_identity(
                 g.engine, os.path.basename(os.path.normpath(g.folder or "")))
             if not self.manager.update_game(g):
-                return json.dumps({"ok": False, "msg": "保存失败，请检查启动路径是否重复"}, ensure_ascii=False)
+                return json.dumps({"ok": False, "msg": "保存失败，请检查标题或路径是否重复"}, ensure_ascii=False)
+            logger.info("保存游戏: id=%s, title=%s", game_id, g.title)
             self.refresh_delta([game_id])
         else:
             # 手动添加单个 exe：exe 必填；标题自动推导（exe 所在文件夹名，兜底文件名），
@@ -1316,7 +1323,7 @@ class WebBridge:
             dest = os.path.join(covers_dir, f"{game_id}_manual{ext.lower()}")
             shutil.copy2(path, dest)
             g.cover_path = dest
-            self.manager.update_game(g)
+            self.manager.repository.update_cover_path(game_id, dest)
             self.reloadCover(game_id)   # 只失效该游戏封面缓存并重载该卡
         except Exception as e:
             logger.error("更换封面失败: %s", e)
@@ -1493,8 +1500,7 @@ class WebBridge:
             if vndb_client.download_cover(cover_url, dest, progress_cb=_pc):
                 game = self.manager.get_game(game_id)
                 if game and not game.cover_path:
-                    game.cover_path = dest
-                    self.manager.repository.update_game(game)
+                    self.manager.repository.update_cover_path(game_id, dest)
                     self.reloadCover(game_id)
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)

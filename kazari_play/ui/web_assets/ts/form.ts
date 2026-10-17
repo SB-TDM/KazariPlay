@@ -43,9 +43,7 @@ function ratingSliderEl(): StarSlider {
 }
 
 // 打开编辑表单（复用详情对象的数据）
-function openEdit(g: Game): void {
-  App.data.editingId = g.id;
-  document.getElementById('formTitle')!.textContent = '编辑游戏';
+function fillForm(g: Game): void {
   (document.getElementById('fTitle') as HTMLInputElement).value = g.title || '';
   (document.getElementById('fEngine') as HTMLInputElement).value = g.engine || '';
   (document.getElementById('fDev') as HTMLInputElement).value = g.dev || '';
@@ -55,6 +53,12 @@ function openEdit(g: Game): void {
   (document.getElementById('fCoverPrev') as HTMLImageElement).src = '';
   loadCoverTo(g.id, document.getElementById('fCoverPrev'), 'img');
   (document.getElementById('fSearchKw') as HTMLInputElement).value = g.title || '';
+}
+
+function openEdit(g: Game): void {
+  App.data.editingId = g.id;
+  document.getElementById('formTitle')!.textContent = '编辑游戏';
+  fillForm(g);
   document.getElementById('fCands')!.style.display = 'none';
   metaSearchRequest++;   // 作废上一编辑对象的在途候选搜索
   setFormRows(FORM_ROWS.concat(['fExeRow', 'fCoverRow', 'fMetaRow']), []);
@@ -119,13 +123,17 @@ function saveForm(): void {
   if (App.data.editingId && !data.title.trim()) { showFormError('fTitleRow', '标题不能为空'); return; }
   if (!App.data.editingId && !data.exe_path.trim()) { showFormError('fExeRow', '请先选择要添加的 exe 文件'); return; }
   bridge.saveGame(App.data.editingId || '', JSON.stringify(data), function (s: unknown, failed?: boolean) {
-    if (failed) { showFormError('fExeRow', '保存失败，请重试'); return; }
+    const errRow = App.data.editingId ? 'fTitleRow' : 'fExeRow';
+    if (failed) { showFormError(errRow, '保存失败，请重试'); toast('保存失败，请重试'); return; }
     let result: { ok?: boolean; msg?: string } = {};
     try { result = JSON.parse(String(s || '{}')); } catch (e) { }
     if (!result.ok) {
-      showFormError('fExeRow', result.msg || '保存失败，请重试');
+      const msg = result.msg || '保存失败，请重试';
+      showFormError(errRow, msg);
+      toast(msg);
       return;
     }
+    toast('已保存');
     closeSheet('formOverlay');
   });
 }
@@ -233,7 +241,7 @@ function openMetaApply(c: MetadataCandidate): void {
   }));
   if (metaApplyRows.length === 0) { toast('该候选没有可用字段'); return; }
   document.getElementById('metaApplyList')!.innerHTML = metaApplyRows.map((r, i) => {
-    const checked = r.cur ? '' : 'checked';   // 空白字段默认勾（添加）；已有值默认不勾（覆盖需手动）
+    const checked = 'checked';   // 候选字段默认全选，用户可按需取消
     const st = r.cur ? '将覆盖' : '将添加';
     return `<div class="relocate-row">
       <div class="rl-head">
@@ -262,7 +270,21 @@ document.getElementById('metaApplyOk')!.onclick = () => {
       if (failed) { toast('应用失败'); return; }
       let r: { ok?: boolean; msg?: string } = {};
       try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
-      if (r && r.ok === true) { toast(r.msg || '已应用所选字段'); return; }
+      if (r && r.ok === true) {
+        toast(r.msg || '已应用所选字段');
+        // 应用后立即用后端最新数据刷新编辑表单，避免随后“保存”把旧值写回
+        bridge.getGame(String(App.data.editingId), function (s2: unknown) {
+          try {
+            const fresh = JSON.parse(String(s2 || '{}')) as Game;
+            if (fresh && fresh.id) {
+              const idx = App.data.games.findIndex(x => x.id === fresh.id);
+              if (idx >= 0) App.data.games[idx] = fresh;
+              fillForm(fresh);
+            }
+          } catch (e) { }
+        });
+        return;
+      }
       toast(r.msg || '应用失败');
     });
   }

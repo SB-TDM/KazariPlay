@@ -167,6 +167,13 @@ class GameRepository:
              game.id)
         )
 
+    def update_cover_path(self, game_id: str, cover_path: str) -> bool:
+        """只更新封面路径（异步下载回调专用，避免整行覆盖用户编辑）"""
+        return self.db.execute(
+            "UPDATE games SET cover_path = ? WHERE id = ?",
+            (cover_path or "", game_id)
+        )
+
     def record_play(self, game_id: str):
         """记录游玩时间（更新 last_played，不再递增 play_count）
 

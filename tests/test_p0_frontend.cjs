@@ -17,6 +17,11 @@ const context = {
   bridge: { getGame(id, cb) { cb('{}'); } },
   document: { getElementById: element, querySelectorAll() { return []; }, createElement() { return element('new'); } },
   renderCards() {}, updateBatchBar() {}, showSheet() {},
+  updateHomeView() { return false; }, updateNavInfo() {}, syncCurrentGame() {},
+  filterGames(list) { return list; }, toast() {},
+  makeStarSlider() { return { get() { return 0; }, set() {} }; },
+  makeCheckAll() { return { boxes() { return []; } }; },
+  loadCoverTo() {}, esc(s) { return String(s == null ? '' : s); },
   closeSheet(id) { context.closed.push(id); }, closed: [], console,
 };
 vm.createContext(context);
