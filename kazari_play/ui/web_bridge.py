@@ -808,8 +808,9 @@ class WebBridge:
             # 通知前端启动批量进度条轮询（扫描后自动匹配同样可见）
             self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
+            # 批量重匹配：force=True 刷新旧数据；match_single 内部不覆盖用户评分
             matched, skipped, failed = self.manager.match_vndb_for_games(
-                games, force=False, progress_cb=self._vndb_progress,
+                games, force=True, progress_cb=self._vndb_progress,
                 cancel_event=cancel_event, cover_cb=self._queue_cover)
             # 只增量更新本次匹配的卡片（避免全量重建导致所有封面重新加载/淡入闪烁）；
             # 封面由异步下载完成后各自 reloadCover
