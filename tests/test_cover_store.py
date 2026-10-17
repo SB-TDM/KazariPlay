@@ -85,7 +85,7 @@ def main():
     assert migrated == 1
     assert g2.cover_path and g2.cover_path.endswith("g2.jpg")
     assert os.path.isfile(g2.cover_path)
-    assert not os.path.exists(old)
+    assert os.path.exists(old), "外部旧路径不应被删除（安全边界）"
     print("[migrate] OK")
 
     # 清理：未引用文件/过期缩略图删除，引用文件保留

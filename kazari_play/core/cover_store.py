@@ -283,11 +283,7 @@ class CoverStore:
                     dest = self.save_file(g.id, src)
                     if not dest:
                         continue
-                    if os.path.normcase(os.path.abspath(src)) != os.path.normcase(os.path.abspath(dest)):
-                        try:
-                            os.remove(src)
-                        except OSError:
-                            pass
+                    # 只清理由 CoverStore 管理的旧变体；旧目录/外部路径保留，避免误删用户文件
                 if os.path.normcase(os.path.abspath(g.cover_path or "")) != os.path.normcase(os.path.abspath(dest)):
                     repo.update_cover_path(g.id, dest)
                 migrated += 1

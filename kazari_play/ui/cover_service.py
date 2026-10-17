@@ -140,7 +140,8 @@ class CoverService:
                 logger.warning("封面服务配置保存失败: %s", e)
 
     def start(self) -> bool:
-        if not self._enabled:
+        data = self._cfg.get("cover_service") or {}
+        if not self._enabled or data.get("enabled") is False:
             return False
         self._load_config()
         server = None

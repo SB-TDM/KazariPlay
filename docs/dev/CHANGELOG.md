@@ -2,6 +2,12 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.1.0-beta.6 自测（2026-10-17）
+
+- 安全边界：封面迁移只清理由 CoverStore 管理的旧变体；外部路径/旧数据目录文件保留，避免误删。
+- `cover_service.enabled` 配置开关生效（默认 true）；关闭后整会话回退 base64。
+- 封面术语、ADR-0002 与 beta.6 版本同步。
+
 ## 1.1.0-beta.5 自测（2026-10-17）
 
 - 封面改为单文件模型：`covers/{game_id}.{ext}` + `thumbs/{game_id}_w512.jpg`；旧 `_vndb/_ms/_manual` 变体迁移后删除。

@@ -1,6 +1,6 @@
 # 本地 HTTP 封面服务与单文件封面模型
 
-> 状态：accepted（设计定稿 2026-10-17；待 beta.5 实施）
+> 状态：accepted（设计定稿 2026-10-17；beta.6 实施）
 
 封面展示目前走 pywebview JS 桥 base64：每张 512 缩略图 40–183KB，原图 61KB–1.14MB；封面文件按来源分成 `_vndb/_ms/_manual` 多套命名，缩略图按 `md5(path+mtime)` 命名，换封面/删游戏/跨目录复制都会留下孤儿文件，且数据目录搬迁后绝对路径失效。参考 PotatoVN（本地路径 + 原生 BitmapImage）与 ReinaManager（WebView 原生 `<img>` + 自定义协议/HTTP 缓存），决定把封面传输改为**仅监听 127.0.0.1 的本地 HTTP 服务**，同时把封面收敛为**每游戏一个确定性文件 + 一个确定性缩略图**。
 
