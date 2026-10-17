@@ -134,9 +134,42 @@ def _edition_tokens(title: str) -> List[str]:
 def _strip_edition(text: str) -> str:
     """去掉版本标记，用于补搜原版/重制版条目"""
     s = _split_camel(text)
-    s = re.sub(r"(?i)\s*(?:fhd|remake|sana(?:\s+edition)?)\b", "", s)
-    s = re.sub(r"(?i)\s*hd\b", "", s)
+    tokens = _edition_tokens(text) + _edition_tokens(s)
+    for token in tokens:
+        s = re.sub(r"(?i)\s*" + re.escape(token) + r"\b", "", s)
     return re.sub(r"\s+", " ", s).strip()
+
+
+def _prefix_variants(text: str) -> List[str]:
+    """生成无空格连字符/冒号副标题的系列前缀候选。"""
+    parts = [p.strip() for p in re.split(r"\s*[-–—:：]\s*", _split_camel(text)) if p.strip()]
+    out: List[str] = []
+    for i in range(1, len(parts)):
+        prefix = "-".join(parts[:i])
+        compact = re.sub(r"[-_]", "", prefix)
+        for value in (prefix, compact):
+            if len(value) >= 3 and value.lower() not in {x.lower() for x in out}:
+                out.append(value)
+    return out
+
+
+def _series_key(text: str) -> str:
+    """提取标题开头的 ASCII 系列键（9-nine / 9nine / Mashiro-iro）。"""
+    m = re.match(r"^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*", _split_camel(text or ""))
+    return re.sub(r"[-_]", "", m.group(0).lower()) if m else ""
+
+
+def _title_affinity(a: dict, b: dict, queries: List[str]) -> float:
+    """跨源标题亲和度：整标题相似度，或同系列 + 同年份。"""
+    sim = _title_sim(a, b)
+    if sim >= _CONSENSUS_RATIO:
+        return sim
+    ka, kb = _series_key(" / ".join(_candidate_titles(a))), _series_key(" / ".join(_candidate_titles(b)))
+    da = (a.get("released") or "").strip()
+    db = (b.get("released") or "").strip()
+    if ka and ka == kb and len(ka) >= 3 and da and db and da == db:
+        return 1.0
+    return sim
 
 
 def _year_hint(game: Game) -> str:
@@ -215,6 +248,10 @@ def _build_queries(title: str) -> List[str]:
             if q and key not in seen:
                 seen.add(key)
                 out.append(q)
+            for prefix in _prefix_variants(q):
+                if prefix.lower() not in seen:
+                    seen.add(prefix.lower())
+                    out.append(prefix)
     return out
 
 
@@ -442,7 +479,7 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str],
     for i, a in enumerate(sids):
         for b in sids[i + 1:]:
             if _year_compatible(candidates[a], candidates[b]):
-                sim = _title_sim(candidates[a], candidates[b])
+                sim = _title_affinity(candidates[a], candidates[b], queries)
                 # 两个源都带同一版本标记（如 Golden Time）→ 即使跨语言也视为同一版本
                 if _has_tokens(candidates[a]) and _has_tokens(candidates[b]):
                     sim = 1.0
@@ -483,7 +520,7 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str],
         for sid in sids:
             if sid in group:
                 continue
-            if any(_title_sim(candidates[sid], candidates[g]) >= _CONSENSUS_RATIO
+            if any(_title_affinity(candidates[sid], candidates[g], queries) >= _CONSENSUS_RATIO
                    and _year_compatible(candidates[sid], candidates[g])
                    for g in group):
                 group.add(sid)

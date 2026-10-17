@@ -338,7 +338,28 @@ def test_similarity():
     print("[similarity] OK")
 
 
+def test_title_variants_and_edition_strip():
+    q1 = [q.lower() for q in mm._build_queries("9nine-九次九日九重色")]
+    q2 = [q.lower() for q in mm._build_queries("9-nine-ここのつ")]
+    assert "9nine" in q1, q1
+    assert any("9-nine" in q for q in q2), q2
+    assert mm._strip_edition("Foo Reflection Blue HD") == "Foo"
+    assert mm._strip_edition("Foo Golden Time") == "Foo"
+    print("[title variants / edition strip] OK")
+
+
+def test_cross_source_series_affinity():
+    v = {"title": "9-nine-ここのつ", "released": "2019-04-26"}
+    b = {"title": "9-nine-九次九日九重色", "released": "2019-04-26"}
+    group, reason = mm._pick_group({"vndb": v, "ymgal": b}, ["9nine-九次九日九重色"])
+    assert group is not None, reason
+    assert set(group) == {"vndb", "ymgal"}
+    print("[cross-source series affinity] OK")
+
+
 def main():
+    test_title_variants_and_edition_strip()
+    test_cross_source_series_affinity()
     test_similarity()
     test_consensus_merge()
     test_bangumi_only_chinese_folder()
