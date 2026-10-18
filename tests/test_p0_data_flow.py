@@ -9,18 +9,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "kazari_play"))
-import utils.logger as logger_module
+sys.path.insert(0, str(ROOT / "src" / "kazari_play"))
+import utils.infra.logger as logger_module
 
 logger_module._initialized = True
 logger_module._logger = logging.getLogger("p0-data-flow")
 logger_module._logger.addHandler(logging.NullHandler())
 
-from core.game_manager import GameManager
-from core.game_model import Game
+from core.games.game_manager import GameManager
+from core.games.game_model import Game
 from database.db_manager import DatabaseManager
 from ui.web_bridge import WebBridge
-from utils.config import Config
+from utils.infra.config import Config
 
 
 class DataFlowTests(unittest.TestCase):
@@ -81,7 +81,7 @@ class DataFlowTests(unittest.TestCase):
     def test_batch_match_preserves_async_cover_path(self):
         game = self.fixture()
         self.manager.repository.update_cover_path(game.id, "fixture-cover.jpg")
-        from core import metadata_matcher
+        from core.metadata import metadata_matcher
         with patch.object(metadata_matcher, "match_batch", return_value=(0, 0, 0)):
             game.cover_path = ""
             self.manager.match_vndb_for_games([game])
@@ -103,6 +103,35 @@ class DataFlowTests(unittest.TestCase):
         self.assertEqual(self.manager.get_game(game.id).title, game.title)
         self.assertTrue(json.loads(self.bridge.saveGame(game.id, '{"title":"Partial"}'))["ok"])
         self.assertEqual(self.manager.get_game(game.id).developer, game.developer)
+
+    def test_apply_candidate_persists_source_record(self):
+        game = self.fixture()
+        candidate = {
+            "source": "vndb", "source_id": "v999", "title": "Applied",
+            "description": "Applied desc", "developer": "Dev",
+            "released": "2024-01-01", "rating": 4,
+        }
+        reply = json.loads(self.bridge.applyCandidate(
+            game.id, json.dumps(candidate), json.dumps(["title", "rating"])))
+        self.assertTrue(reply["ok"])
+        record = self.manager.source_repo.get(game.id, "vndb")
+        self.assertIsNotNone(record)
+        self.assertEqual(record["external_id"], "v999")
+        self.assertEqual(record["data"]["title"], "Applied")
+        self.assertEqual(self.manager.get_game(game.id).rating, 4.0)
+
+    def test_match_source_callback_persists_group(self):
+        game = self.fixture()
+        group = {
+            "vndb": {"source": "vndb", "source_id": "v777", "vndb_id": "v777",
+                     "title": "V"},
+            "kungal": {"source": "kungal", "source_id": "4", "title": "K"},
+        }
+        self.manager._persist_group_sources(game.id, group)
+        records = {r["source"]: r for r in self.manager.source_repo.list_for_game(game.id)}
+        self.assertEqual(records["vndb"]["external_id"], "v777")
+        self.assertEqual(records["kungal"]["external_id"], "4")
+        self.assertEqual(records["kungal"]["data"]["title"], "K")
 
     def test_add_empty_id_and_validate_file(self):
         folder = self.root / "New game"

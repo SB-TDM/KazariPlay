@@ -44,19 +44,19 @@ KazariPlay 是视觉小说/Galgame 本地库启动器：扫描与管理本地游
 
 | 对象 | 文件 | 职责 |
 |---|---|---|
-| `Game` | `core/game_model.py` | 游戏数据类（dataclass），字段含 `id/title/exe_path/folder/engine/identity/vndb_id/...`；与 DB 行互转 |
-| `GameScanner` | `core/game_scanner.py` | 目录扫描 + 引擎识别 + 主 exe 选择 + `identity` 生成 |
-| `GameLauncher` | `core/game_launcher.py` | 启动/关闭游戏进程、子进程树追踪、自定义启动路径 |
-| `GameMonitor` | `core/game_monitor.py` | 运行中游戏的生命周期监控（存活检测、退出回调、计时） |
-| `GameManager` | `core/game_manager.py` | **门面**：聚合上面各子模块，对桥暴露统一接口 |
-| `metadata_matcher` | `core/metadata_matcher.py` | VNDB 单/批量匹配（标题归一化、搜索回退、字段保守合并、封面回调） |
-| `multi_source` | `core/multi_source.py` | 多源（VNDB/Bangumi/YMGal）搜索、合并去重、整体超时 |
-| `screenshot_service` | `core/screenshot_service.py` | 截图内核（WGC → PrintWindow → 全屏回退）+ 原图/缩略图双保存 |
-| `OverlayClient` | `core/overlay_client.py` | C++ overlay 进程的单例客户端（命名管道长连接，懒启动） |
+| `Game` | `core/games/game_model.py` | 游戏数据类（dataclass），字段含 `id/title/exe_path/folder/engine/identity/vndb_id/...`；与 DB 行互转 |
+| `GameScanner` | `core/games/game_scanner.py` | 目录扫描 + 引擎识别 + 主 exe 选择 + `identity` 生成 |
+| `GameLauncher` | `core/games/game_launcher.py` | 启动/关闭游戏进程、子进程树追踪、自定义启动路径 |
+| `GameMonitor` | `core/games/game_monitor.py` | 运行中游戏的生命周期监控（存活检测、退出回调、计时） |
+| `GameManager` | `core/games/game_manager.py` | **门面**：聚合上面各子模块，对桥暴露统一接口 |
+| `metadata_matcher` | `core/metadata/metadata_matcher.py` | VNDB 单/批量匹配（标题归一化、搜索回退、字段保守合并、封面回调） |
+| `multi_source` | `core/metadata/multi_source.py` | 多源（VNDB/Bangumi/YMGal）搜索、合并去重、整体超时 |
+| `screenshot_service` | `core/media/screenshot_service.py` | 截图内核（WGC → PrintWindow → 全屏回退）+ 原图/缩略图双保存 |
+| `OverlayClient` | `core/platform/overlay_client.py` | C++ overlay 进程的单例客户端（命名管道长连接，懒启动） |
 | `WebBridge` | `ui/web_bridge.py` | pywebview `js_api`：前端可调用的全部方法 |
 | `UISync` | `ui/sync.py` | 事件域总线：后端变化 → 合并后推 `window.__app.*` |
 | `DatabaseManager` | `database/db_manager.py` | SQLite 单例：建表/迁移/连接/事务 |
-| `*Repository` | `database/*.py` | games / collections / tags 的数据访问 |
+| `*Repository` | `database/repositories/*.py` | games / collections / tags 的数据访问 |
 
 ## 3. 主要数据流
 

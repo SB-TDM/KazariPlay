@@ -8,7 +8,7 @@
 
 ## 特徴
 
-- **Kawaii Minimal ビジュアル**：UI は HTML/CSS（`kazari_play/ui/web_assets/`）。pywebview + システムの Edge WebView2 で描画
+- **Kawaii Minimal ビジュアル**：UI は HTML/CSS（`src/kazari_play/ui/web_assets/`）。pywebview + システムの Edge WebView2 で描画
 - **ゲーム内スクリーンショット通知（V1.02 新規）**：F12 で撮影後、**ゲーム画面右下**に Steam 式トースト（サムネイル + ゲーム名、下からスライド）を表示。独立した C++ プロセス `overlay.exe`（Direct2D + DirectWrite）で描画し、ゲームウィンドウのみに作用、名前付きパイプでメインプログラムと通信
 - **Steam 式スクリーンショット管理**：詳細ページのスクリーンショットカードを左クリックで拡大プレビュー、右クリックでメニュー（名前変更 / ファイルを開く / クリップボードにコピー / 削除）、プレビューはローディングアニメーション付き
 - **コレクションシステム（V1.01 新規）**：ツリー型グループ→カテゴリ、ゲームの多対多分類、アコーディオンサイドバー、ドラッグ並び替え、ゲーム管理ダイアログ
@@ -18,7 +18,7 @@
 - **設定ウィンドウ**：中央モーダル、一般/テーマ（ライブプレビュー）/ショートカット/偽装/アバウト
 - 検索 / 並び替え / お気に入り / 続きから遊ぶ ナビゲーション、フレームレスウィンドウ + HTML タイトルバーでドラッグ
 - ゲーム起動、プレイ時間の計測、VNDB/Bangumi メタデータマッチングとマルチソース検索
-- フロントエンドとバックエンドは **pywebview js_api**（`kazari_play/ui/web_bridge.py`）でブリッジ
+- フロントエンドとバックエンドは **pywebview js_api**（`src/kazari_play/ui/web_bridge.py`）でブリッジ
 
 ## 必要環境
 
@@ -32,7 +32,7 @@
 
 ```bash
 pip install -r requirements.txt
-python kazari_play/main.py     # KazariPlay_V1.0 ディレクトリ内で実行
+python src/kazari_play/main.py     # KazariPlay_V1.0 ディレクトリ内で実行
 ```
 
 ## C++ Overlay のビルド（任意）
@@ -50,7 +50,7 @@ overlay.exe が無い・ビルド失敗の場合、スクリーンショット�
 
 ```
 KazariPlay_V1.0/
-├── kazari_play/
+├── src/kazari_play/
 │   ├── main.py                # pywebview エントリ（フレームレスウィンドウ + js_api）
 │   ├── core/                  # バックエンド中核（スキャン/起動/監視/スクリーンショット/メタデータ/マルチソース/overlay クライアント）
 │   ├── database/              # データ層（ゲームライブラリ + コレクション関連テーブル）
@@ -65,6 +65,7 @@ KazariPlay_V1.0/
 │   ├── build.bat              # MSVC ビルドスクリプト
 │   └── bin/overlay.exe        # ビルド成果物（git 無視）
 ├── screenshots/               # スクリーンショット保存（ゲーム別フォルダ、git 無視）
+├── artifacts/                 # ビルド成果物/アーカイブ/過去のスクリーンショット（git 無視）
 └── tests/
 ```
 

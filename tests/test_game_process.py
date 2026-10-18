@@ -8,15 +8,15 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "kazari_play"))
-import utils.logger as logger_module
+sys.path.insert(0, str(ROOT / "src" / "kazari_play"))
+import utils.infra.logger as logger_module
 
 logger_module._initialized = True
 logger_module._logger = logging.getLogger("process-regression")
 logger_module._logger.addHandler(logging.NullHandler())
-from core import game_launcher as module
-from core.game_model import Game
-from utils.config import Config
+from core.games import game_launcher as module
+from core.games.game_model import Game
+from utils.infra.config import Config
 
 
 class ProcessTests(unittest.TestCase):

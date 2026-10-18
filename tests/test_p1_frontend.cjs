@@ -23,7 +23,7 @@ const ctx = {
   esc: x => x, showSheet() {}, closeSheet() {}, toast() {}, showConfirmDialog(x) { ctx.confirm = x.cb; },
 };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/screenshots.js'), 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/kazari_play/ui/web_assets/js/screenshots.js'), 'utf8'), ctx);
 const list = '[{"file":"same.png"}]';
 ctx.renderScreenshots();
 requests.shift().cb(list);
@@ -61,7 +61,7 @@ ctx.bridge.cancelScan = () => {};
 ctx.bridge.cancelMatch = () => {};
 // batch.js 载入时调用 core.makeCheckAll（仅建立全选绑定）；本测试不覆盖该控件，提供最小桩
 ctx.makeCheckAll = () => ({ boxes: () => [], update() {} });
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/batch.js'), 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/kazari_play/ui/web_assets/js/batch.js'), 'utf8'), ctx);
 ctx.trackBatchProgress('First task');
 timers[0]();
 ctx.trackBatchProgress('Next task');

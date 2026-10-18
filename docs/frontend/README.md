@@ -8,7 +8,7 @@
 ## 目录
 
 ```
-kazari_play/ui/web_assets/
+src/kazari_play/ui/web_assets/
 ├── ts/            # TypeScript 源（唯一真相，改这里）
 ├── js/            # tsc 编译产物（勿手改，gitignore）
 ├── css/           # style.css 为 @import 入口；启动时递归展开内联
@@ -21,7 +21,7 @@ kazari_play/ui/web_assets/
 ## 构建与内联
 
 ```bash
-cd kazari_play/ui/web_assets
+cd src/kazari_play/ui/web_assets
 npm ci                # 首次
 npm run build         # tsc: ts/ -> js/
 npm run typecheck     # 只类型检查

@@ -43,7 +43,7 @@ function makeEnv(bridgeImpl) {
     bridge: bridgeImpl,
   };
   vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/updater.js'), 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/kazari_play/ui/web_assets/js/updater.js'), 'utf8'), ctx);
   return { ctx, element, state };
 }
 

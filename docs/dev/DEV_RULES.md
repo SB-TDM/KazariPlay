@@ -55,7 +55,7 @@
 - **最小根因修复**：改在因果路径上，不顺手重构 / 格式化无关代码。
 - **前端唯一真相**：只改 `ts/` 源，`js/` 是编译产物不许手改；改完必须 `npm run build`；新增模块登记 `main.py` 的 `_JS_MANIFEST`。
 - **联动点同步**（改一处要同步另一处）：
-  - `identity` 判重 ↔ 标题归一化（`utils/title_utils.py`）
+  - `identity` 判重 ↔ 标题归一化（`utils/domain/title_utils.py`）
   - UISync 域（`ui/sync.py`）↔ 前端 `__app`（`ts/state.ts`）
   - DB schema 变更 ↔ `db_manager` 建表 + `_ensure_column` 迁移
 - **不留死代码**：功能删掉后，其专用代码 / 配置一并清理（除非明确保留）。

@@ -6,10 +6,10 @@ import tempfile
 import sqlite3
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
-from core.game_manager import GameManager
-from core.game_model import Game
+from core.games.game_manager import GameManager
+from core.games.game_model import Game
 from ui.web_bridge import WebBridge
 
 

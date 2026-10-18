@@ -236,7 +236,7 @@
 
 ```bash
 pip install -r requirements.txt
-python kazari_play/main.py
+python src/kazari_play/main.py
 ```
 
 ## 数据与升级

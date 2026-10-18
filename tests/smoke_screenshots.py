@@ -6,14 +6,14 @@ import shutil
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
 # 临时项目根：让 path_utils.get_screenshots_dir 指向临时目录
-import utils.path_utils as pu
+import utils.infra.path_utils as pu
 _tmp_root = tempfile.mkdtemp(prefix="kp_shot_test_")
 
 # 直接测试核心函数（绕过项目根定位）
-from core import screenshot_service
+from core.media import screenshot_service
 
 
 def test_core():

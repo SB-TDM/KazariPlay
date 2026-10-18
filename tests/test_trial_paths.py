@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "kazari_play"))
-from utils import path_utils
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src" / "kazari_play"))
+from utils.infra import path_utils
 
 
 class TrialPathTests(unittest.TestCase):

@@ -7,11 +7,11 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
 from PIL import Image  # noqa: E402
-from core.cover_store import CoverStore  # noqa: E402
-from ui.cover_service import CoverService  # noqa: E402
+from core.media.cover_store import CoverStore  # noqa: E402
+from ui.services.cover_service import CoverService  # noqa: E402
 
 
 class FakeCfg:

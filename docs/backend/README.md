@@ -13,7 +13,13 @@
 | `game_scanner.py` | 目录扫描、引擎识别、主 exe 选择、`identity` 生成、辅助程序黑名单 |
 | `game_launcher.py` | 启动/关闭游戏进程、子进程树追踪、自定义启动路径、热键 |
 | `game_monitor.py` | 运行中游戏的存活监控、退出回调、游玩计时 |
-| `metadata_matcher.py` | VNDB 标题归一化搜索、多关键词回退、字段保守合并、封面 `cover_cb` |
+| `metadata_matcher.py` | 编排单游戏/批量匹配、锚点、版本守卫、写回字段 |
+| `search.py` | 单源/多源搜索、Kungal 锚点、批量锚点预取 |
+| `queries.py` | 标题清洗、查询变体、部数/年份线索 |
+| `candidates.py` | 候选相似度、部数/副标题评分、跨源分组 |
+| `guard.py` | 自动采用前的同名/编号/ID 安全校验 |
+| `merge.py` | 跨源字段优先级合并 |
+| `title_policy.py` | 副标题、全半角符号、部数编号等纯标题策略 |
 | `multi_source.py` | 多源（VNDB/Bangumi/YMGal）搜索、合并去重、并发 + 整体超时 |
 | `screenshot_service.py` | 截图内核 WGC→PrintWindow→ImageGrab 三级回退；原图 + 留边缩略图双保存 |
 | `overlay_client.py` | C++ overlay 客户端单例：命名管道长连接、懒启动、退出 |
@@ -22,9 +28,10 @@
 | 模块 | 职责 |
 |---|---|
 | `db_manager.py` | SQLite 单例：建表、**旧库迁移**（`_ensure_column`/`DROP`）、连接与事务（`execute`/`query`/`execute_many`，锁保护） |
-| `game_repository.py` | `games` 表 CRUD、按 `exe_path`/`identity` 查询、`identity` 回填、删除（连带关联） |
-| `collection_repository.py` | 收藏夹树 + 游戏多对多关联 |
-| `tag_repository.py` | 标签与游戏-标签关联 |
+| `repositories/game_repository.py` | `games` 表 CRUD、按 `exe_path`/`identity` 查询、`identity` 回填、删除（连带关联） |
+| `repositories/collection_repository.py` | 收藏夹树 + 游戏多对多关联 |
+| `repositories/tag_repository.py` | 标签与游戏-标签关联 |
+| `repositories/source_repository.py` | `game_sources` 来源记录与旧 ID 镜像 |
 
 ### ui/（桥接层）
 | 模块 | 职责 |
@@ -50,12 +57,12 @@
 ## 依赖关系（谁依赖谁）
 
 ```
-ui/web_bridge ──▶ core/game_manager ──▶ scanner / launcher / monitor
-      │                    │             metadata_matcher ──▶ utils/vndb_client
-      │                    └────────────▶ multi_source ──▶ utils/{vndb,bangumi,ymgal}_client
+ui/web_bridge ──▶ core/games/game_manager ──▶ scanner / launcher / monitor
+      │                    │             metadata_matcher ──▶ utils/clients/vndb_client
+      │                    └────────────▶ multi_source ──▶ utils/clients/{vndb,bangumi,ymgal}_client
       ├──▶ ui/sync（被各层调用以推送前端）
-      └──▶ core/{screenshot_service, overlay_client}
-database/*_repository ──▶ database/db_manager（单例连接）
+      └──▶ core/{media/screenshot_service, platform/overlay_client}
+database/repositories/*_repository ──▶ database/db_manager（单例连接）
 utils/*（无业务依赖，最底层）
 ```
 

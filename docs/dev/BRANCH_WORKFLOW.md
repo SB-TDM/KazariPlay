@@ -12,7 +12,7 @@
 
 名称中的 `feature/` 不表示必须整分支合并：此分支是长期实验产品线，不整体合入原版。稳定主线的身份是无翻译版，不恢复到 `4c10c12` 历史源码。
 
-当前编号（规则见 [版本策略](VERSIONING.md)）：`develop` 为 `1.0.0-beta.N`（自测包计数，不对外发布），实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）；稳定 `main` 尚未接收本轮版本提交。两版运行时从 `kazari_play/version.py` 读取。版本改号不等于标签或 Release 发布。
+当前编号（规则见 [版本策略](VERSIONING.md)）：`develop` 为 `1.0.0-beta.N`（自测包计数，不对外发布），实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）；稳定 `main` 尚未接收本轮版本提交。两版运行时从 `src/kazari_play/version.py` 读取。版本改号不等于标签或 Release 发布。
 
 ## 工作区
 
@@ -49,9 +49,9 @@
 
 ```powershell
 pip install -r requirements.txt
-npm --prefix kazari_play/ui/web_assets ci
-npm --prefix kazari_play/ui/web_assets run typecheck
-npm --prefix kazari_play/ui/web_assets run build
+npm --prefix src/kazari_play/ui/web_assets ci
+npm --prefix src/kazari_play/ui/web_assets run typecheck
+npm --prefix src/kazari_play/ui/web_assets run build
 python tests/verify_frontend.py
 python tests/test_classic_boundary.py
 python tests/smoke_overlay.py

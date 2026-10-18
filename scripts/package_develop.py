@@ -20,7 +20,7 @@ from pathlib import Path
 from importlib.metadata import PackageNotFoundError, version
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "kazari_play" / "ui" / "web_assets"
+ASSETS = ROOT / "src" / "kazari_play" / "ui" / "web_assets"
 OVERLAY = ROOT / "overlay"
 
 
@@ -37,7 +37,7 @@ def installed_version(name):
 
 
 def platform_tag():
-    """运行时 → 资产平台标签（与 utils/updater.py 的接缝一致；当前发布仅 win64）"""
+    """运行时 → 资产平台标签（与 utils/update/updater.py 的接缝一致；当前发布仅 win64）"""
     system = platform.system().lower()
     machine = platform.machine().lower()
     if system == "windows":
@@ -117,7 +117,7 @@ def main():
          str(ROOT / "scripts" / "develop.spec")], cwd=ROOT)
 
     package = output / "dist" / "KazariPlay"
-    app_version = runpy.run_path(str(ROOT / "kazari_play/version.py"))["VERSION"]
+    app_version = runpy.run_path(str(ROOT / "src" / "kazari_play" / "version.py"))["VERSION"]
     tag = platform_tag()
     (package / "run_develop.cmd").write_text(
         "@echo off\r\n"

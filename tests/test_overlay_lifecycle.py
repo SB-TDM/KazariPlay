@@ -11,13 +11,13 @@ from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'kazari_play'))
-import utils.logger as logger_module
+sys.path.insert(0, str(ROOT / 'src' / 'kazari_play'))
+import utils.infra.logger as logger_module
 logger_module._initialized = True
 logger_module._logger = logging.getLogger('overlay-lifecycle')
 logger_module._logger.addHandler(logging.NullHandler())
-from utils.config import Config
-from core.overlay_client import OverlayClient
+from utils.infra.config import Config
+from core.platform.overlay_client import OverlayClient
 
 
 @unittest.skipUnless(os.name == 'nt', 'Windows pipe tests')

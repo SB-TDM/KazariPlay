@@ -8,21 +8,22 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "kazari_play"))
+sys.path.insert(0, str(ROOT / "src" / "kazari_play"))
 
-import utils.logger as logger_module
+import utils.infra.logger as logger_module
 
 logger_module._initialized = True
 logger_module._logger = logging.getLogger("classic-boundary-test")
 logger_module._logger.addHandler(logging.NullHandler())
 
-from core.game_model import Game
-from core.game_launcher import GameLauncher
-from core.overlay_client import OverlayClient
+from core.games.game_model import Game
+from core.games.game_launcher import GameLauncher
+from core.platform.overlay_client import OverlayClient
 from database.db_manager import DatabaseManager
-from database.game_repository import GameRepository
+from database.repositories.game_repository import GameRepository
 from ui.web_bridge import WebBridge
-from utils.config import Config, DEFAULT_CONFIG
+from ui.services.config_service import ConfigService
+from utils.infra.config import Config, DEFAULT_CONFIG
 
 
 class ClassicBoundaryTests(unittest.TestCase):
@@ -75,6 +76,7 @@ class ClassicBoundaryTests(unittest.TestCase):
         cfg = Config(str(config_path))
         bridge = WebBridge.__new__(WebBridge)
         bridge._cfg = cfg
+        bridge._config_service = ConfigService(cfg)
         exported = json.loads(bridge.getConfig())
         for key in ("translate", "textractor", "clean", "subtitle"):
             self.assertNotIn(key, exported)
@@ -102,8 +104,8 @@ class ClassicBoundaryTests(unittest.TestCase):
         exe.write_bytes(b"test")
         launcher = GameLauncher()
         game = Game(id="legacy", exe_path=str(exe), folder=str(self.root), translate_enabled=True)
-        with patch("core.game_launcher.subprocess.Popen") as popen, \
-             patch("core.game_launcher._process_creation_time", return_value=123), \
+        with patch("core.games.game_launcher.subprocess.Popen") as popen, \
+             patch("core.games.game_launcher._process_creation_time", return_value=123), \
              patch.object(launcher, "_start_trace"):
             self.assertTrue(launcher.launch(game))
             popen.assert_called_once()

@@ -1,7 +1,7 @@
 # database/ — 数据层
 
 > SQLite 单库（`%APPDATA%\KazariPlay\games.db`）。`DatabaseManager` 是全局单例连接管理器；
-> 三个 repository 封装各表 CRUD。所有写操作经 `_DB_LOCK` 串行化，每次短连接 + commit。
+> 四个 repository 封装各表 CRUD。所有写操作经 `_DB_LOCK` 串行化，每次短连接 + commit。
 
 ## db_manager.py — 连接与建表
 
@@ -37,7 +37,7 @@
 
 ---
 
-## game_repository.py — 游戏表
+## repositories/game_repository.py — 游戏表
 
 **对象**：`GameRepository(process_checker=None)`；`self.db = DatabaseManager()`（单例）。
 
@@ -55,11 +55,11 @@
 - `increment_play_time(game_id, minutes)`：`play_time += ?`。
 - `delete(game_id)` → `delete_many([id])`；`delete_many(ids)`：单事务依次 `DELETE game_tags` → `DELETE game_collection_link` → `DELETE games`（去重输入）。
 
-**依赖**：`core.game_model.Game`、`DatabaseManager`。
+**依赖**：`core.games.game_model.Game`、`DatabaseManager`。
 
 ---
 
-## tag_repository.py — 标签与扁平分类
+## repositories/tag_repository.py — 标签与扁平分类
 
 **对象**：`TagRepository`；`self.db = DatabaseManager()`。
 
@@ -73,7 +73,7 @@
 
 ---
 
-## collection_repository.py — 收藏夹（树 + 多对多）
+## repositories/collection_repository.py — 收藏夹（树 + 多对多）
 
 **对象**：`CollectionRepository`；`self.db = DatabaseManager()`。
 
@@ -92,6 +92,22 @@
 **辅助**：`_current_links()`（`(game_id, collection_id, id)`）、`_max_sort_order(collection_id)`。
 
 **注意**：删除收藏夹时因 self-referencing FK + SQLite 需 `PRAGMA foreign_keys=ON` 才级联，故**显式**清理子分类关联。
+
+---
+
+
+## repositories/source_repository.py — 来源记录
+
+**对象**：GameSourceRepository；self.db = DatabaseManager()。
+
+**职责**：持久化 game_sources，记录每个游戏在各元数据源的外部 ID 与来源原始数据。
+
+- upsert / upsert_many：按 (game_id, source) 写入；data 保存来源原始 JSON
+- get / list_for_game：读取单源或全部来源记录
+- get_id_map：返回 {source: external_id}，供跨源合并
+- `remove_missing=True`：整体替换时清理本次未出现的来源
+
+**说明**：来源记录与 games.vndb_id/bangumi_id 兼容字段并行存在；旧字段迁移时镜像到本表。
 
 ---
 

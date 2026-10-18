@@ -16,7 +16,7 @@ def install():
     import webview
     # 离线自检：正式版启动会静默检查更新；冒烟不触网（stub 单例 check）。
     try:
-        from utils.updater import get_updater
+        from utils.update.updater import get_updater
         updater = get_updater()
         updater.check = lambda force=False: updater.state()
     except Exception:
@@ -32,7 +32,7 @@ def install():
             report = {"ok": False, "checks": [], "bundle": str(getattr(sys, "_MEIPASS", ""))}
             try:
                 from version import VERSION, WINDOW_TITLE
-                from core import screenshot_service
+                from core.media import screenshot_service
                 report["version"] = VERSION
                 report["config"] = bridge._cfg.path
 
@@ -63,8 +63,8 @@ def install():
                 wait("App.data.games[0].title==='Frozen package edit'")
                 report["checks"].append("frozen UI add/edit and SQLite persistence")
 
-                from utils import update_apply as update_apply_mod
-                from utils import updater as updater_mod
+                from utils.update import update_apply as update_apply_mod
+                from utils.update import updater as updater_mod
                 assert updater_mod.platform_tag() == "win64"
                 assert update_apply_mod.current_install_dir(), "冻结包应能解析安装目录"
                 for name in ("getUpdateState", "checkUpdate", "probeReadyUpdate",

@@ -9,17 +9,17 @@ Python + pywebview 渲染 HTML UI；独立 C++ overlay 仅提供截图 toast。�
 
 ```bash
 pip install -r requirements.txt
-npm --prefix kazari_play/ui/web_assets ci
-npm --prefix kazari_play/ui/web_assets run build
-python kazari_play/main.py        # 在对应工作区根目录运行
+npm --prefix src/kazari_play/ui/web_assets ci
+npm --prefix src/kazari_play/ui/web_assets run build
+python src/kazari_play/main.py        # 在对应工作区根目录运行
 # develop 自测包（新目录；不写入现有用户数据，不对外发布）
-python scripts/package_develop.py --output trial-build-1.1.0-beta.7
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0-beta.7
 ```
 
 前端改动（改 `ts/` 后必须编译）：
 
 ```bash
-cd kazari_play/ui/web_assets
+cd src/kazari_play/ui/web_assets
 npm run build                     # tsc: ts/ -> js/（js/ 为编译产物，gitignore）
 npm run typecheck                 # 只做类型检查
 ```
@@ -50,8 +50,8 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 
 ## 目录与约定
 
-- `kazari_play/core|database|ui|utils`：后端；`ui/web_bridge.py` = js_api 桥，`ui/sync.py` = UISync 刷新总线
-- `kazari_play/ui/web_assets/`：`ts/` = TypeScript 源（唯一真相），`js/` = 编译产物（勿手改），`css/`、`partials/`、`index.html`
+- `src/kazari_play/{core/{games,metadata,media,platform},database/{db_manager,repositories},ui/{web_bridge,sync,services},utils/{clients,update,infra,domain,system}}`：后端；`ui/web_bridge.py` = js_api 桥，`ui/sync.py` = UISync 刷新总线
+- `src/kazari_play/ui/web_assets/`：`ts/` = TypeScript 源（唯一真相），`js/` = 编译产物（勿手改），`css/`、`partials/`、`index.html`
 - 新增前端模块：`ts/` 建文件 → 登记 `main.py` 的 `_JS_MANIFEST`（顺序即依赖顺序，两处同步）
 - `overlay/`：截图 toast 源码；`tests/`：原版回归与边界检查
 - 文档：`README.md`（怎么用）、`docs/README.md`（文档索引）、`docs/dev/DEV_RULES.md`（**工作约束，改代码/打包/提交前必读**）、`docs/dev/CHANGELOG.md`（改动历史）；`docs/` 按 `dev/`（流程与记录）、`ui/`（界面线）、`archive/`（历史）、`plans/`（未实施方案）归类
@@ -61,7 +61,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 
 - 最新改动见 `docs/dev/CHANGELOG.md`；P0/P1/P2 本地修复与未验收项以 `docs/dev/DEVELOPMENT_BACKLOG.md` 为准
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
-- 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
+- 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/domain/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
 - 当前开发线自测版 `1.1.0-beta.7`（当前正式版 `1.0.1`；核心号随 `main` 发布定稿）；版本规则与历史映射见 `docs/dev/VERSIONING.md`，历史版本见 `RELEASE_NOTES.md`
 - 元数据自动匹配（1.1.0 线）：VNDB/Bangumi/月幕多源并行 + 跨源一致性校验；中文标题/简介优先，`bangumi_id` 自动迁移；批量入口 force=True（用户评分不覆盖）。
 - 封面（1.1.0 线）：`covers/{id}.{ext}` + `thumbs/{id}_w512.jpg` 单文件模型；本地 HTTP 服务（127.0.0.1、持久 token/端口、immutable），失败回退 base64；启动迁移旧变体与清理。

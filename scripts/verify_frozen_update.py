@@ -185,8 +185,8 @@ def scenario_install_lock(package: Path, tmp: str):
 def scenario_ready_cache_retention(tmp):
     """就绪缓存：启动清理保留被 ready.json 引用的 zip；确认成功后全清（D3/D9）"""
     root = Path(__file__).resolve().parents[1]
-    sys.path.insert(0, str(root / "kazari_play"))
-    from utils import update_apply as UA
+    sys.path.insert(0, str(root / "src" / "kazari_play"))
+    from utils.update import update_apply as UA
 
     data = os.path.join(tmp, "cache", "KazariPlay", "data")
     cache = os.path.join(data, "update_cache")

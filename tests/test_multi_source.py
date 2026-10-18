@@ -11,16 +11,16 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
-from core import multi_source as ms  # noqa: E402
+from core.metadata import multi_source as ms  # noqa: E402
 
 
 class FakeCfg:
     """最小 Config 替身（get/set 支持点号嵌套）"""
 
     def __init__(self):
-        self.d = {"metadata_sources": {"mixed": ["vndb", "bangumi"]}}
+        self.d = {"metadata_sources": {"mixed": ["vndb", "bangumi", "kungal"]}}
 
     def get(self, key, default=None):
         cur = self.d
@@ -50,16 +50,16 @@ def test_registry():
         assert meta["status"] in ("ready", "experimental", "pending"), sid
     assert ms.SOURCES["vndb"]["client"] is not None
     assert ms.SOURCES["ymgal"]["client"] is not None
-    assert ms.SOURCES["kungal"]["client"] is None
+    assert ms.SOURCES["kungal"]["client"] is not None
     print("[registry] OK")
 
 
 def test_mixed_default():
     ms.Config = lambda: FakeCfg()
-    assert ms.get_mixed_sources() == ["vndb", "bangumi"], ms.get_mixed_sources()
+    assert ms.get_mixed_sources() == ["vndb", "bangumi", "kungal"], ms.get_mixed_sources()
     # 配置里混入 pending 源 → 读取时剔除
     fc = FakeCfg()
-    fc.d["metadata_sources"]["mixed"] = ["vndb", "ymgal", "kungal", "shionlib"]
+    fc.d["metadata_sources"]["mixed"] = ["vndb", "ymgal", "nosuch"]
     ms.Config = lambda: fc
     assert ms.get_mixed_sources() == ["vndb", "ymgal"], ms.get_mixed_sources()
     print("[mixed default/filter] OK")

@@ -13,7 +13,7 @@
 
 | 对比 | 结论 |
 |---|---|
-| 路线 A（后端全线重写 Rust） | 需把 `kazari_play/` 约 25+ 模块（元数据客户端/扫描/监控/截图/命名管道 IPC 等）全部用 Rust 重写，代价极高；维护人（个人、长期）不主打 Rust，风险比收益大。 |
+| 路线 A（后端全线重写 Rust） | 需把 `src/kazari_play/` 约 25+ 模块（元数据客户端/扫描/监控/截图/命名管道 IPC 等）全部用 Rust 重写，代价极高；维护人（个人、长期）不主打 Rust，风险比收益大。 |
 | **路线 B（Tauri 壳 + Python sidecar）** | 前端 ~100% 复用，Python 业务零改动，Rust 只做一个薄转发壳。拿到原生壳 + 标准打包，成本最低。 |
 | 不迁移，仅 PyInstaller | 解决「没人会装 Python」，但拿不到原生托盘/自启/通知等体验 —— 与本目标不符。 |
 
@@ -34,7 +34,7 @@ KazariPlay_V2.0/
 ├── docs/
 │   └── TAURI_MIGRATION_PLAN.md      # 本文档
 ├── src/
-│   └── web/                          # 前端：从原 KazariPlay_V1.0/kazari_play/ui/web_assets 拷贝
+│   └── web/                          # 前端：从原 KazariPlay_V1.0/src/kazari_play/ui/web_assets 拷贝
 │       ├── index.html
 │       ├── css/                      # 13 个 css
 │       ├── js/                       # 17 个 js（含 core.js 桥代理改造点）
@@ -53,7 +53,7 @@ KazariPlay_V2.0/
 │   ├── sidecar.spec                  # PyInstaller 打包脚本
 │   ├── server.py                     # 本地 HTTP + WebSocket 服务（新写）
 │   ├── fake_window.py                # 伪造 pywebview 窗口对象，代理 evaluate_js → WebSocket（新写）
-│   └── kazari_play/                  # 从原项目拷贝（业务层，零改动）或通过路径引用
+│   └── src/kazari_play/                  # 从原项目拷贝（业务层，零改动）或通过路径引用
 └── scripts/
     ├── build_sidecar.bat             # 打包 Python 后端为 exe
     └── dev.bat                       # 开发：先起 Python server，再 tauri dev
@@ -81,7 +81,7 @@ KazariPlay_V2.0/
 - **请求通路**：JS → Rust `invoke('api', ...)` → HTTP → Python。Python 仍以「同名方法 + JSON 字符串参数」被调用，`server.py` 用反射把 WebBridge 方法按名字分发，业务层不改。
 - **推送通路**：原来 UISync 调 `window.evaluate_js(cmd)`，改为 `fake_window.evaluate_js(cmd)` 内部经 WebSocket 发送 `{type:'eval', code:cmd}`，前端收到后 `eval` 执行（保持与 pywebview 一致的执行语义）。这样 `ui/sync.py` 等推送代码零改动。
 - **端口**：Python 启动时绑定 `127.0.0.1` 随机空闲端口，把端口通过 stdout 或文件告知 Rust sidecar；避免写死占用冲突。
-- **生命周期**：Rust 启动时拉起 sidecar 进程，窗口关闭时结束 sidecar + 退出 overlay.exe（对齐原 [main.py](../../kazari_play/main.py) 的清理逻辑）。
+- **生命周期**：Rust 启动时拉起 sidecar 进程，窗口关闭时结束 sidecar + 退出 overlay.exe（对齐原 [main.py](../../src/kazari_play/main.py) 的清理逻辑）。
 
 ---
 
@@ -106,7 +106,7 @@ KazariPlay_V2.0/
 ### 4.3 Rust 壳（薄）
 - 新建 `src-tauri`，`tauri init`+ 配置：
   - `frontendDist: "../src/web"`（无 bundler，静态目录直接服务）；
-  - `frameless: true`、`resizable`、大小/位置对齐原 [main.py](../../kazari_play/main.py#L250-L263)（0.82 屏幕宽、最小 900x620）。
+  - `frameless: true`、`resizable`、大小/位置对齐原 [main.py](../../src/kazari_play/main.py#L250-L263)（0.82 屏幕宽、最小 900x620）。
 - Rust 命令：
   - `spawn_backend`：拉起 Python sidecar 进程（开发期 `python server.py`；发布期跑打包的 exe）。
   - `api(method, args)`：HTTP 转发到 sidecar。

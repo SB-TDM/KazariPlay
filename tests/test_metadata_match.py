@@ -11,15 +11,15 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
-import utils.logger as logger_module  # noqa: E402
+import utils.infra.logger as logger_module  # noqa: E402
 
 logger_module._initialized = True
 
-from core.game_model import Game  # noqa: E402
-from core import multi_source as ms  # noqa: E402
-from core import metadata_matcher as mm  # noqa: E402
+from core.games.game_model import Game  # noqa: E402
+from core.metadata import multi_source as ms  # noqa: E402
+from core.metadata import metadata_matcher as mm  # noqa: E402
 
 
 class FakeClient:
@@ -168,7 +168,7 @@ def test_year_remake_selection():
     assert status == "match", msg
     assert g.vndb_id == "v2", g.vndb_id
     assert g.bangumi_id == "b2", g.bangumi_id
-    assert g.title == "Foo 中文", g.title
+    assert g.title == "Foo FHD", g.title
     assert g.released == "2023-06-23", g.released
     assert g.developer == "NewDev", g.developer
     assert "Foo" in mm._build_queries("Foo FHD"), mm._build_queries("Foo FHD")
@@ -229,9 +229,10 @@ def test_edition_without_year_rejected():
     _install([old, new], [bgm])
     g = _game("Foo FHD")
     status, msg = mm.match_single(g, cover_cb=lambda *a: None)
-    assert status == "fail", (status, msg)
-    assert "版本标记" in msg, msg
-    print("[edition without year rejected] OK")
+    assert status == "match", (status, msg)
+    assert g.vndb_id == "v1", g.vndb_id
+    assert g.title == "Foo FHD", g.title
+    print("[edition without year uses base VN] OK")
 
 
 def test_year_conflict_exact_vndb():
@@ -345,6 +346,42 @@ def test_title_variants_and_edition_strip():
     assert any("9-nine" in q for q in q2), q2
     assert mm._strip_edition("Foo Reflection Blue HD") == "Foo"
     assert mm._strip_edition("Foo Golden Time") == "Foo"
+    assert "eden" in mm._build_queries("eden＊")
+    assert mm.exact_title_match("eden＊", ["eden*"])
+    qs = mm._build_queries("大图书馆的牧羊人-Dreaming-Sheep")
+    picked = mm._pick_result([
+        {"source_id": "base", "title": "大图书馆的牧羊人"},
+        {"source_id": "fd", "title": "大图书馆的牧羊人 Dreaming Sheep"},
+    ], qs, None, False)
+    assert picked["source_id"] == "fd", picked
+    qs = mm._build_queries("千之刃涛-桃花染之皇姬_弥生月汉化组")
+    picked = mm._pick_result([
+        {"source_id": "base", "title": "千之刃涛、桃花染之皇姬"},
+        {"source_id": "extra", "title": "千之刃涛、桃花染之皇姬 -花あかり-"},
+    ], qs, None, False)
+    assert picked["source_id"] == "base", picked
+    qs = mm._build_queries("近月少女的礼仪")
+    picked = mm._pick_result([
+        {"source_id": "base", "title": "近月少女的礼仪"},
+        {"source_id": "sequel", "title": "近月少女的礼仪2"},
+    ], qs, None, False)
+    assert picked["source_id"] == "base", picked
+    qs = mm._build_queries("近月少女的礼仪1")
+    picked = mm._pick_result([
+        {"source_id": "base", "title": "近月少女的礼仪"},
+        {"source_id": "sequel", "title": "近月少女的礼仪2"},
+    ], qs, None, False)
+    assert picked["source_id"] == "base", picked
+    assert mm.trailing_part("近月少女的礼仪1") == "1"
+    assert mm.part_score("1", "2") < 0
+    assert mm.part_score("", "2") < 0
+    qs = mm._build_queries("CLANNAD HD")
+    picked = mm._pick_result([
+        {"source_id": "base", "title": "CLANNAD"},
+        {"source_id": "side", "title": "CLANNAD - 智代アフター"},
+    ], qs, ["hd"], False)
+    assert picked["source_id"] == "base", picked
+    assert mm._soft_edition(["hd"])
     print("[title variants / edition strip] OK")
 
 

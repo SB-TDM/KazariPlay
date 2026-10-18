@@ -17,7 +17,7 @@
 cmd /c build.bat
 cmd /c build32.bat
 # 以下在 worktree 根目录运行
-python scripts/package_develop.py --output trial-build-1.0.1
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.0.1
 ```
 
 新输出的父目录须已存在，输出本身必须不存在。脚本只操作全新目录，不使用 --clean、不清空旧输出，失败现场保留；重复构建用新目录，不覆盖自测数据。源码 js/node_modules、旧 Overlay、`KazariPlay_V1.0_build` 和用户库不清理。
@@ -31,7 +31,7 @@ python scripts/package_develop.py --output trial-build-1.0.1
 仅在打正式 Release 时使用，要求工作区干净（`git status` 为空）：
 
 ```powershell
-python scripts/package_develop.py --output trial-build-1.0.1 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.0.1 --release
 ```
 
 除自测包外，额外产出发布三件套中的两件：
@@ -50,7 +50,7 @@ python scripts/package_develop.py --output trial-build-1.0.1 --release
 冻结包的更新/回滚流程另用宿主侧脚本演练（真实进程、真实文件占用、不触网）：
 
 ```powershell
-python scripts/verify_frozen_update.py --package trial-build-1.0.1\dist\KazariPlay
+python scripts/verify_frozen_update.py --package artifacts/trial-builds/trial-build-1.0.1\dist\KazariPlay
 ```
 
 脚本以包内 `KazariPlay.exe` 作为替换/回滚助手，对临时安装目录完成：正常替换 → 拉起新版（真实 GUI）→ 前端就绪握手 → `_old` 清理（校验数据库哨兵数据保留、更新前备份生成）；真实占用目标 EXE 时 `--apply-rollback` 等待/强杀后恢复旧版；安装目录有活动更新任务时拒绝重复发起。演练结束自动结束测试进程并清理临时目录。

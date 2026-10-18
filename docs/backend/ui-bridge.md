@@ -87,7 +87,7 @@
 - `applyCandidate(game_id, candidate_json, fields_json="")`：`fields_json` 非空 → 只应用**勾选字段**；为空 → 旧行为（仅填空字段）。封面下载到 `covers/{id}_ms.ext`。变更则 `update_game` + `reloadCover` + `refresh_delta`
 
 ### 截图
-- `updateScreenshotHotkey(hotkey)`：写配置 + 立即重注册（`utils.hotkeys`）
+- `updateScreenshotHotkey(hotkey)`：写配置 + 立即重注册（`utils.system.hotkeys`）
 - `takeScreenshot(game_id)`（详情页手动）/ `takeScreenshotRunning()`（**热键**，无运行游戏存 `_unsorted`）
 - `_running_pid()`：`launcher.get_game_pid()`（真游戏 pid）；`_running_game_hwnd()`：按 pid 找主窗口
 - `_push_screenshot_toast`：全屏时先提示「建议窗口化」（独占全屏下 overlay 不可见）；否则 `OverlayClient.show(hwnd, path, title)`

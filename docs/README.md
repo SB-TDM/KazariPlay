@@ -10,7 +10,7 @@
 
 | 文档 | 用途 |
 |---|---|
-| [README.md](../README.md) | 用户安装、运行、功能和当前版本说明；当前版本以 `kazari_play/version.py` 为准 |
+| [README.md](../README.md) | 用户安装、运行、功能和当前版本说明；当前版本以 `src/kazari_play/version.py` 为准 |
 | [AGENTS.md](../AGENTS.md) | Agent/协作者工作入口、目录约定和验证命令 |
 | [GLOSSARY.md](../GLOSSARY.md) | 领域术语表（世代 / 核心号 / 预发布标识 / 自测包 / 正式发布等） |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 总体架构：分层、核心对象、主要数据流、生命周期、前端内联机制 |
@@ -56,7 +56,7 @@
 | [backend/utils.md](backend/utils.md) | 13 个工具模块（路径/配置/网络客户端/标题归一化/热键等） |
 | [frontend/README.md](frontend/README.md) | 前端架构：ts 源码、清单内联、全局模型、bridge、渲染约定 |
 | [frontend/modules.md](frontend/modules.md) | 16 个 ts 模块逐一：定位、依赖、定义 |
-| [web_assets/README.md](../kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
+| [web_assets/README.md](../src/kazari_play/ui/web_assets/README.md) | 前端 TypeScript、HTML、CSS 构建和加载约定 |
 | [overlay/README.md](../overlay/README.md) | C++ Overlay 构建、运行和命名管道协议 |
 
 ## plans/ — 未实施方案
@@ -65,7 +65,6 @@
 
 | 文档 | 状态 |
 |---|---|
-| [MIGRATION_PLAN.md](../MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 | [CPP_REWRITE_PLAN.md](plans/CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](plans/TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
 
@@ -83,6 +82,7 @@
 | [UI_REDESIGN_PLAN.md](archive/UI_REDESIGN_PLAN.md) | 已完成 UI 改造批次及历史计划 |
 | [HOOK_TRANSLATION_HANDOVER.md](archive/HOOK_TRANSLATION_HANDOVER.md) | 仅适用于历史和 feature/hook-translation，原版不提供对应源码/API |
 | [UI_REVIEW_CONTROL_PANEL_HANDOVER.md](archive/UI_REVIEW_CONTROL_PANEL_HANDOVER.md) | 2026-08 UI 审查和字幕控制面板交接记录；独立控制面板后来被合并进主设置页 |
+| [MIGRATION_PLAN.md](archive/MIGRATION_PLAN.md) | Python → C# + WebView2 方案，未实施 |
 
 ## 当前验证边界
 

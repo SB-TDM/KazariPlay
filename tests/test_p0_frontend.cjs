@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const js = path.join(__dirname, '../kazari_play/ui/web_assets/js');
+const js = path.join(__dirname, '../src/kazari_play/ui/web_assets/js');
 const elements = new Map();
 function element(id) {
   if (!elements.has(id)) elements.set(id, {

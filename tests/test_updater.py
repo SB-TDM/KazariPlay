@@ -16,9 +16,9 @@ import zipfile
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
-from utils import updater as U  # noqa: E402
+from utils.update import updater as U  # noqa: E402
 
 
 class FakeConfig:

@@ -123,7 +123,7 @@ G0 对每个“待复验决定”项记录：基线提交、复现步骤、结�
 
 ### 5.2 文件级清单
 
-路径以下以 `kazari_play/ui/web_assets/` 为前缀；仅在有实际必要时修改。
+路径以下以 `src/kazari_play/ui/web_assets/` 为前缀；仅在有实际必要时修改。
 
 | 文件/目录 | 允许的本轮改动 | 保护要求 |
 |---|---|---|
@@ -173,7 +173,7 @@ G0 对每个“待复验决定”项记录：基线提交、复现步骤、结�
 截至 2026-10-11，独立克隆 `E:\文件夹\Launcher\KazariPlay_main-ui` 已建立并用于本轮实施/审查。下面保留原工作区保护和隔离流程，不表示需要再次克隆、切换或处理原工作区的五份未提交文件。
 
 - 目标分支已存在，当前工作区 `E:\文件夹\Launcher\KazariPlay_main` 已检出它；不重复开分支，不改 `main/develop/feature/hook-translation` 等引用。
-- 五个原有未提交文件：`css/form.css`、`partials/common.html`、`ts/app.ts`、`ts/ui.ts`、`kazari_play/utils/config.py`（前四项位于 `kazari_play/ui/web_assets/`）。本轮只读 diff 显示它们主要是扫描前提示和可选确认复选框，不等于旧计划的通用焦点/表单问题已修。
+- 五个原有未提交文件：`css/form.css`、`partials/common.html`、`ts/app.ts`、`ts/ui.ts`、`src/kazari_play/utils/infra/config.py`（前四项位于 `src/kazari_play/ui/web_assets/`）。本轮只读 diff 显示它们主要是扫描前提示和可选确认复选框，不等于旧计划的通用焦点/表单问题已修。
 - 这些改动保留原路径、内容和暂存状态，不自动提交、stash、丢弃、覆盖，也不要求用户先清理才能继续计划。当前文档修订不混入它们。
 - 已推分支继承 `0074c34/ee5f4e6` 是既成基线；不回写远端 develop，也不为“干净历史”重置特性分支。
 
@@ -226,8 +226,8 @@ G0 对每个“待复验决定”项记录：基线提交、复现步骤、结�
 从**隔离实施工作区根目录**运行，已有依赖未就绪先记录，不为验证随意改锁文件：
 
 ```powershell
-npm --prefix kazari_play/ui/web_assets run typecheck
-npm --prefix kazari_play/ui/web_assets run build
+npm --prefix src/kazari_play/ui/web_assets run typecheck
+npm --prefix src/kazari_play/ui/web_assets run build
 python tests/verify_frontend.py
 node tests/test_p1_frontend.cjs
 python tests/test_classic_boundary.py

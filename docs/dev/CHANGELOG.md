@@ -1,4 +1,5 @@
 # 变更日志（CHANGELOG）
+> 注：本文是历史记录；文中路径可能反映当时的目录布局。当前源码位于 src/kazari_play/。
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
@@ -237,7 +238,7 @@
 
 ## 1.4.0-beta.1 版本标识统一（2026-10-06）
 
-- 原版开发线使用 `1.4.0-beta.1`，实验线使用 `1.4.0-experimental.1`；新版本来源 `kazari_play/version.py` 统一包版本、入口、日志、窗口标题、标题栏和关于页，Win32 句柄查找共享标题。
+- 原版开发线使用 `1.4.0-beta.1`，实验线使用 `1.4.0-experimental.1`；新版本来源 `src/kazari_play/version.py` 统一包版本、入口、日志、窗口标题、标题栏和关于页，Win32 句柄查找共享标题。
 - 前端 package/lock 元数据同步，前端组装门禁检查版本占位符、标题/关于页与构建元数据一致。
 - 发行说明补齐 V1.2～1.2.4 历史开发批次，保留已有历史编号；开发日期不当作已核实发布日期，不补建标签。现行规则见 [版本策略](VERSIONING.md)。
 - 原版公共 P1 的 20 个文件更改已在本地 `develop` 集成，实验专属修复不整分支合入原版；本轮不推送、不更新稳定 `main`。
@@ -308,7 +309,7 @@
 ### 前端 TypeScript 渐进迁移（全量完成）
 - 17 个前端模块 JS → TypeScript：源在 `ui/web_assets/ts/`，`tsc` 编译到 `js/`（编译产物 gitignore）；`_JS_MANIFEST` 与 `main.py` 零改动
 - 新增类型契约：`pywebview.d.ts`（bridge 全 API）、`globals.d.ts`（跨文件全局类型）
-- 构建：`cd kazari_play/ui/web_assets && npm run build`
+- 构建：`cd src/kazari_play/ui/web_assets && npm run build`
 
 ### 截图内核 WGC + 双保存 + 全屏预览
 - 三级捕获回退：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底
@@ -626,7 +627,7 @@
 
 ### 打包
 
-- 同步 overlay/（含 bin/bin32 + texthook.dll）与 kazari_play/ 到构建目录 `KazariPlay_V1.0_build`
+- 同步 overlay/（含 bin/bin32 + texthook.dll）与 src/kazari_play/ 到构建目录 `KazariPlay_V1.0_build`
 - `KazariPlay.spec` datas 修正：同时打包 x64（bin）与 x86（bin32）两个 overlay.exe + texthook.dll，匹配 `_resolve_exe` 查找路径（`sys._MEIPASS/overlay/bin|bin32`）
 - PyInstaller 打包完成，产出 `dist/KazariPlay/KazariPlay.exe`
 

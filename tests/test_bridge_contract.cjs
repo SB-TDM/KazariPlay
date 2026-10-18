@@ -21,7 +21,7 @@ const ctx = {
   console, setImmediate, setTimeout, clearTimeout,
 };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../kazari_play/ui/web_assets/js/core.js'), 'utf8'), ctx);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/kazari_play/ui/web_assets/js/core.js'), 'utf8'), ctx);
 const seen = () => { ctx.__seen = []; return ctx.__seen; };
 
 (async () => {

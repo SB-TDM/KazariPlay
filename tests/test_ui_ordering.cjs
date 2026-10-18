@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
-const js = name => fs.readFileSync(path.join(__dirname, `../kazari_play/ui/web_assets/js/${name}`), 'utf8');
+const js = name => fs.readFileSync(path.join(__dirname, `../src/kazari_play/ui/web_assets/js/${name}`), 'utf8');
 
 function makeContext() {
   const pending = [];

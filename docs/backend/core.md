@@ -54,7 +54,7 @@
 - `_make_identity(engine, folder_name) -> str`：`f"{engine.lower()}|{normalize_title(folder_name, for_identity=True).lower()}"`。**identity 的规范来源**。
 - `_generate_id(exe_path)`：`md5(exe_path)[:16]`。
 
-**依赖**：`core.game_model.Game`、`utils.title_utils.normalize_title(for_identity=True)`。
+**依赖**：`core.games.game_model.Game`、`utils.domain.title_utils.normalize_title(for_identity=True)`。
 
 **注意**：identity 用文件夹名（稳定），不能用 title（会被 VNDB 覆盖导致重扫对不上）。改归一化须同步 `_backfill_identity`。
 

@@ -109,7 +109,7 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 
 ## 8. 实现位置
 
-- 后端：`kazari_play/utils/updater.py`（检查/通道切换/可信 SHA256/包结构预检/就绪缓存/磁盘预检/状态机）；`utils/update_apply.py`（`--apply-update` 替换助手、`--apply-rollback` 回滚助手、启动自愈、安装锁、阶段埋点、残留清理）；`ui/web_bridge.py` 暴露 `checkUpdate` / `downloadUpdate` / `applyUpdate`（单入口）/ `getUpdateState` / `updateFrontendReady`（就绪握手，返回完成文案）；`main.py` 入口与启动自愈。
+- 后端：`src/kazari_play/utils/update/updater.py`（检查/通道切换/可信 SHA256/包结构预检/就绪缓存/磁盘预检/状态机）；`utils/update/update_apply.py`（`--apply-update` 替换助手、`--apply-rollback` 回滚助手、启动自愈、安装锁、阶段埋点、残留清理）；`ui/web_bridge.py` 暴露 `checkUpdate` / `downloadUpdate` / `applyUpdate`（单入口）/ `getUpdateState` / `updateFrontendReady`（就绪握手，返回完成文案）；`main.py` 入口与启动自愈。
 - 前端：`ts/settings.ts` 关于页接线；`ts/updater.ts`（登记 `main.py::_JS_MANIFEST`，串行轮询 + 代际校验）；`ts/app.ts` 首屏数据加载成功后发送就绪握手并 toast 完成提示；进度复用批量进度条组件。
 - 配置：`update.enabled`（预留）、`update.last_check`、`update.skipped_version`、`update.mirror_prefixes`（镜像候选）、`update.last_good_lane`（记忆通道）。
 - **快速退出**（`ui/web_bridge.py::UPDATE_FAST_EXIT`，默认关闭）：助手拉起成功后 `win.destroy()`，最多 1s 宽限即 `os._exit(0)`；等埋点数据证实 `wait_exit` 为大头后启用。
@@ -140,7 +140,7 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 > 前置约束：自动更新必须随 `1.0.0` 发布（第一个正式版内置更新器）。在 `feature/auto-update` 分支按阶段实施、按阶段提交（验收后合入 `develop`）；**不新增第三方依赖**（网络用现有 urllib + proxy opener 体系，测试用 stdlib `unittest` + mock）。
 
 ### 阶段 A — 更新核心（平台无关，后端）｜规模：中
-文件：`kazari_play/utils/updater.py`（新增）、`tests/test_updater.py`（新增）
+文件：`src/kazari_play/utils/update/updater.py`（新增）、`tests/test_updater.py`（新增）
 
 - A1 版本比较（三元组；预发布规则）与平台标签映射（运行时 → `win64`，接缝函数）
 - A2 GitHub API 检查（proxy opener、超时、按平台匹配资产、说明摘要；24h 缓存读写）
@@ -163,7 +163,7 @@ Applying ─替换失败─> 自动回滚旧文件 → 启动旧版 + 明确提�
 验收：离线 harness 断言全过；关于页手动检查可用（mock）。
 
 ### 阶段 C — 助手与数据保护（Windows 替换器）｜规模：大（最难）
-文件：`kazari_play/main.py`（`--apply-update` 入口）、`utils/updater.py`（apply 部分，或拆 `utils/update_apply.py`）、`tests/test_update_apply.py`（新增，临时目录两版本演练）
+文件：`src/kazari_play/main.py`（`--apply-update` 入口）、`utils/update/updater.py`（apply 部分，或拆 `utils/update/update_apply.py`）、`tests/test_update_apply.py`（新增，临时目录两版本演练）
 
 - C1 `--apply-update --pid --target` 入口（无窗口；不进入常规启动流程）
 - C2 替换器：等待进程树退出（超时强杀）→ **数据备份（滚动 3）** → 白名单 + 路径断言（data/screenshots/logs 命中即中止）→ `_old\<时间戳>\` 移入 → 复制新程序文件 → 失败回滚 → 拉起（成功新版 / 失败旧版）

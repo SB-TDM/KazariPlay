@@ -9,8 +9,8 @@ from unittest.mock import patch
 import unittest
 
 import test_p0_data_flow as base
-from core import screenshot_service as shots
-from utils.title_utils import normalize_title
+from core.media import screenshot_service as shots
+from utils.domain.title_utils import normalize_title
 
 
 class ReliabilityTests(base.DataFlowTests):

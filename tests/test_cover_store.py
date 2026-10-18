@@ -7,10 +7,10 @@ import time
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
 from PIL import Image  # noqa: E402
-from core.cover_store import CoverStore, detect_extension  # noqa: E402
+from core.media.cover_store import CoverStore, detect_extension  # noqa: E402
 
 
 def jpeg_bytes(size=(800, 600), color=(200, 100, 50)):
@@ -54,7 +54,7 @@ def main():
     assert detect_extension(b"RIFF1234WEBP....") == ".webp"
     assert detect_extension(b"GIF89a....") == ".gif"
     assert detect_extension(b"not an image") == ""
-    from core import cover_store as cs
+    from core.media import cover_store as cs
     old_max = cs._MAX_COVER_BYTES
     try:
         cs._MAX_COVER_BYTES = 10

@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-KAZARI = ROOT / "kazari_play"
+KAZARI = ROOT / "src" / "kazari_play"
 PY = sys.executable
 OVERLAY = ROOT / "overlay" / "bin" / "overlay.exe"
 
@@ -122,7 +122,7 @@ def scenario_apply(tmp):
     # 模拟前端就绪握手（桥 updateFrontendReady 调用的同一函数）
     handshake = subprocess.run(
         [PY, "-c", ("import sys; sys.path.insert(0, r'%s'); "
-                    "from utils.update_apply import mark_startup_success; "
+                    "from utils.update.update_apply import mark_startup_success; "
                     "mark_startup_success(r'%s')") % (KAZARI, data)],
         env=helper_env(), capture_output=True, timeout=60)
     assert handshake.returncode == 0, handshake.stderr

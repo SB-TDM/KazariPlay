@@ -71,7 +71,7 @@ overlay.exe <管道名>
 - 动画状态机 `AnimState`：`Hidden → SlideIn → Shown →（TIMER_HIDE 到期）SlideOut → Hidden`；滑动 250ms，帧 16ms；进入 `EaseOutCubic`、退出 `EaseInQuad`。
 - 生命周期：`show` 重置计时器与位置并启动 SlideIn；`requestQuit` 停计时器 + `DestroyWindow`（`WM_DESTROY` → `PostQuitMessage`）。
 
-## Python 侧对接（`core/overlay_client.py`）
+## Python 侧对接（`core/platform/overlay_client.py`）
 
 - 单例；管道名 `KazariPlayOverlay_{os.getpid()}`；懒启动 `_resolve_exe`（x64 `overlay/bin/`，x86 `bin32/`，支持 `overlay.exe_path` 覆盖 + 打包 `_MEIPASS`）。
 - `show(hwnd, path, title)` 读取 `overlay.toast_duration` → JSON → 长连接写入。

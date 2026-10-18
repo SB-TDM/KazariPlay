@@ -15,7 +15,7 @@ import sys
 from html import escape
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
 import main  # noqa: E402
 from version import DISPLAY_VERSION, VERSION, WINDOW_TITLE
@@ -37,7 +37,7 @@ def run():
     if f'版本 {escape(DISPLAY_VERSION)}' not in html:
         errors.append("关于页与版本来源不一致")
     assets = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "kazari_play", "ui", "web_assets")
+                          "src", "kazari_play", "ui", "web_assets")
     with open(os.path.join(assets, "package.json"), encoding="utf-8") as stream:
         package = json.load(stream)
     with open(os.path.join(assets, "package-lock.json"), encoding="utf-8") as stream:
@@ -66,7 +66,7 @@ def run():
     id_set = set(ids)
 
     js_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                          "kazari_play", "ui", "web_assets", "js")
+                          "src", "kazari_play", "ui", "web_assets", "js")
     refs = set()
     for name in main._JS_MANIFEST:
         src = open(os.path.join(js_dir, name), encoding="utf-8").read()

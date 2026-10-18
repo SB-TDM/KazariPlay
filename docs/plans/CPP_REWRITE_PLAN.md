@@ -99,7 +99,7 @@ C++/  (新目录，独立于 KazariPlay_V1.0)
 │   │   ├── hotkeys.h/cpp         # RegisterHotKey / 低层钩子
 │   │   ├── path.h/cpp time.h/cpp log.h/cpp singletons
 │   └── engine_policy.h/cpp
-├── frontend/                     # 从原 KazariPlay_V1.0/kazari_play/ui/web_assets 拷贝
+├── frontend/                     # 从原 KazariPlay_V1.0/src/kazari_play/ui/web_assets 拷贝
 │   └── (index.html + css/ + js/ + partials/)
 ├── third_party/
 │   ├── json.hpp                  # 已有（overlay 带）

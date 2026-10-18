@@ -4,24 +4,24 @@
 
 ---
 
-## path_utils.py — 路径与数据目录
+## infra/path_utils.py — 路径与数据目录
 
 **定位**：应用数据目录、DB、配置、日志、截图目录；含不可写降级与旧数据迁移。
 
 - `get_app_data_dir(app)`：优先 `%APPDATA%\KazariPlay`（非 Windows `~/.kazariplay`）；**写测试**（`_is_writable`：建+写+删）失败则降级项目 `data/`。结果缓存 `_writable_cache`。
 - 环境变量 **`KAZARIPLAY_DATA_DIR`** 覆盖数据根（试用包隔离用）：设置了则强制用该目录（不可写直接抛错，不降级）。
 - `get_default_db_path` → `<data>/games.db`；`get_default_config_path` → `<data>/config.json`；`get_default_log_dir` → `<data>/logs`。
-- `get_screenshots_dir()`：`KAZARIPLAY_DATA_DIR` 下 `screenshots/`，否则**项目根** `screenshots/`（`utils/path_utils.py` 上三级）。
+- `get_screenshots_dir()`：`KAZARIPLAY_DATA_DIR` 下 `screenshots/`，否则**项目根** `screenshots/`（`utils/infra/path_utils.py` 上三级）。
 - `get_game_screenshots_dir(game_id)`：`screenshots/{game_id}/`。
 - `migrate_data_if_needed()`：仅当降级到项目目录时，把旧 `%APPDATA%\MinatoLauncher` 数据拷入（不覆盖）。
 
 ---
 
-## config.py — 配置
+## infra/config.py — 配置
 
 **对象**：`Config`（`@singleton`）；`self._path`、`self._data`。
 
-- `DEFAULT_CONFIG`：`theme`(light)、`hotkeys{screenshot=f12,...}`、`disguise_scene`、`show_console`、`cover_size`、`language`、`log_level`、`overlay{enabled,exe_path,toast_duration=3.0,position}`、`metadata_sources{single,mixed[vndb,bangumi]}`、`cover_download{timeout=90,max_concurrent=4}`。
+- `DEFAULT_CONFIG`：`theme`(light)、`hotkeys{screenshot=f12,...}`、`disguise_scene`、`show_console`、`cover_size`、`language`、`log_level`、`overlay{enabled,exe_path,toast_duration=3.0,position}`、`metadata_sources{single,mixed[vndb,bangumi,kungal]}`、`cover_download{timeout=90,max_concurrent=4}`。
 - `load()`：存在则读，**深合并默认值**（`_deep_merge`，旧配置缺的新嵌套字段自动补默认）；不存在则写默认。损坏（JSON 错）回退默认。
 - `get(key, default)` / `set(key, value)`：**支持点号嵌套键**（如 `hotkeys.screenshot`）。
 - `get_all()`（浅拷贝）/ `save()` / `reset()`（保留实验版遗留段）/ `path`。
@@ -30,32 +30,32 @@
 
 ---
 
-## logger.py — 日志
+## infra/logger.py — 日志
 
 `get_logger(name="KazariPlay", level="INFO")` → 文件 + 控制台 handler（`_setup_handlers`，日志目录 `get_default_log_dir()`）；`set_level(level)` 全局调级（读 `log_level` 配置）。各模块顶部 `logger = get_logger()` 复用。
 
 ---
 
-## singleton.py — 单例装饰器
+## infra/singleton.py — 单例装饰器
 
 `@singleton` → `get_instance(*args, **kwargs)`：按类缓存实例，`__new__` 复用。用于 `Config`。
 
 ---
 
-## proxy_utils.py — 网络 opener
+## infra/proxy_utils.py — 网络 opener
 
 `get_system_proxies()`：读系统代理；`get_opener()`：构建 `urllib` opener（各网络客户端统一走它，支持代理）。
 
 ---
 
-## time_utils.py — 时间
+## domain/time_utils.py — 时间
 
 - `format_play_time(minutes)`：分钟 → 可读文本。
 - `format_relative_time(iso_str, now=None)`：ISO → 「刚刚/N 分钟前/N 小时前/N 天前/日期」。（`_game_dict` 用它生成 `last_text`。）
 
 ---
 
-## rating_utils.py — 评分规范化
+## domain/rating_utils.py — 评分规范化
 
 **定位**：全链路统一 0-5 半星制（0.5 步进；0 表示未评分）。
 
@@ -64,7 +64,7 @@
 
 ---
 
-## title_utils.py — 标题归一化（联动核心）
+## domain/title_utils.py — 标题归一化（联动核心）
 
 `normalize_title(title, *, for_identity=False) -> str`
 
@@ -80,7 +80,7 @@
 
 ---
 
-## hotkeys.py — 全局热键
+## system/hotkeys.py — 全局热键
 
 **仅截图热键**（默认 `f12`，`keyboard` 库；缺失/失败静默降级，截图仍可由前端按钮触发）。
 - `register_screenshot_hotkey(callback)`：可重复调用（先 `remove_hotkey` 旧的再注册）；`_normalize`（小写去空格，兼容 `Ctrl + Shift + P`）。
@@ -88,7 +88,7 @@
 
 ---
 
-## vndb_client.py — VNDB 客户端
+## clients/vndb_client.py — VNDB 客户端
 
 **端点**：`POST https://api.vndb.org/kana/vn`（搜索）、`https://t.vndb.org`（封面 CDN）。`User-Agent: KazariPlay/1.0`。
 
@@ -107,13 +107,13 @@
 
 ---
 
-## bangumi_client.py — Bangumi 客户端
+## clients/bangumi_client.py — Bangumi 客户端
 
 `BangumiError`；`search(keyword, count=5)` / `search_subjects(keyword, limit=5)` → 统一候选（`_parse_subject`）；`download_cover(url, dest) -> bool`；`_http_get_json`/`_http_get`。状态 `ready`。
 
 ---
 
-## ymgal_client.py — 月幕客户端
+## clients/ymgal_client.py — 月幕客户端
 
 `YmgalError`；`search(keyword, count=5)` → 统一候选（`_parse_game`，评分经 `rating_from_100` 转 0-5 半星）；`download_cover`；`_request` / `_get_token` / `_auth_headers`（需 token）。状态 `experimental`（受地区/IP 影响）。
 

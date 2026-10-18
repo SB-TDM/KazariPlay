@@ -4,10 +4,12 @@ __pycache__/
 *.log
 *.db
 .DS_Store
-kazari_play/data/
+src/kazari_play/data/
+data/
 
 # 测试缓存
 .pytest_cache/
+artifacts/
 trial-build-*/
 trial-build-*.zip
 
@@ -23,11 +25,11 @@ overlay/build/
 .dsh/
 
 # UI 审查临时图片与面板测试截图（未使用，不上传）
-kazari_play/ui/web_assets/images/
+src/kazari_play/ui/web_assets/images/
 tests/shot_*.png
 
 # 前端 TS 工具链依赖
-kazari_play/ui/web_assets/node_modules/
+src/kazari_play/ui/web_assets/node_modules/
 
 # 前端 JS 编译产物（由 ts/ 源经 npm run build 生成，不入库）
-kazari_play/ui/web_assets/js/
+src/kazari_play/ui/web_assets/js/

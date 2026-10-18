@@ -10,7 +10,7 @@
 
 ## 特性
 
-- **Kawaii Minimal 视觉**：UI 为 HTML/CSS/TypeScript（源 `kazari_play/ui/web_assets/ts/`，tsc 编译到 `js/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
+- **Kawaii Minimal 视觉**：UI 为 HTML/CSS/TypeScript（源 `src/kazari_play/ui/web_assets/ts/`，tsc 编译到 `js/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
 - **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
 - **截图内核（三级回退）**：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底；每次截图保存**原图 + 统一尺寸缩略图**（等比留边、随原图存放），删除/重命名联动
 - **Steam 式截图管理**：详情页截图卡片左键**全屏预览原图**、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），缩略图懒加载
@@ -23,7 +23,7 @@
 - **应用内自动更新**：启动静默检查 / 关于页手动检查；下载进度与 SHA256 校验；一键立即重启更新，更新前自动备份数据库与配置、失败自动回滚
 - 搜索 / 排序 / 收藏 / 继续游玩 导航、无边框窗口 + HTML 标题栏拖拽
 - 启动游戏、游玩时长统计、VNDB/Bangumi/月幕多源自动匹配（跨源一致性校验、中文标题/简介优先）与多源搜索
-- 前后端经 **pywebview js_api**（`kazari_play/ui/web_bridge.py`）桥接
+- 前后端经 **pywebview js_api**（`src/kazari_play/ui/web_bridge.py`）桥接
 
 ## 前置要求
 
@@ -38,24 +38,24 @@
 
 ```bash
 pip install -r requirements.txt
-npm --prefix kazari_play/ui/web_assets ci
-npm --prefix kazari_play/ui/web_assets run build
-python kazari_play/main.py     # 在对应工作区根目录下
+npm --prefix src/kazari_play/ui/web_assets ci
+npm --prefix src/kazari_play/ui/web_assets run build
+python src/kazari_play/main.py     # 在对应工作区根目录下
 ```
 
 生成本地 develop 自测包（不会覆盖已有输出，也不读取真实用户库）：
 
 ```powershell
-python scripts/package_develop.py --output trial-build-1.1.0-beta.7
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0-beta.7
 ```
 
 打正式发布资产（干净包 `KazariPlay-win64.zip` + `SHA256SUMS.txt`，要求工作区干净）：
 
 ```powershell
-python scripts/package_develop.py --output trial-build-1.0.1 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.0.1 --release
 ```
 
-完成后运行 `trial-build-1.0.1/dist/KazariPlay/run_develop.cmd`，自测包的数据库、配置、日志和截图均隔离在包旁 `data/`。解压运行请放在非系统盘的用户可写目录（不要在 `Program Files` 等需要管理员权限的位置）。
+完成后运行 `artifacts/trial-builds/trial-build-1.0.1/dist/KazariPlay/run_develop.cmd`，自测包的数据库、配置、日志和截图均隔离在包旁 `data/`。解压运行请放在非系统盘的用户可写目录（不要在 `Program Files` 等需要管理员权限的位置）。
 
 ## 构建 C++ Overlay（可选）
 
@@ -74,7 +74,7 @@ overlay.exe 缺失或编译失败时，截图提示自动降级（不影响截�
 
 ```
 KazariPlay_main/
-├── kazari_play/
+├── src/kazari_play/
 │   ├── main.py                # pywebview 入口（无边框窗口 + js_api；html/js/css 启动时内联）
 │   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
 │   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
@@ -95,8 +95,11 @@ KazariPlay_main/
 │   ├── build.bat              # MSVC 编译脚本
 │   └── bin/overlay.exe        # 编译产物（git 忽略）
 ├── screenshots/               # 截图存放（按游戏分文件夹，git 忽略）
+├── artifacts/                 # 构建包/归档/历史截图（git 忽略）
 └── tests/
 ```
+
+后端目录按职责细分：core/{games,metadata,media,platform}、database/repositories、ui/services、utils/{clients,update,infra,domain,system}。
 
 ## 数据
 

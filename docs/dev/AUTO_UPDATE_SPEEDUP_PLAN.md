@@ -107,9 +107,9 @@
 
 ## 4. 实施步骤（文件级）
 
-1. **`kazari_play/utils/updater.py`**：D1 通道切换与排序（10s 超时、15s 单次低速检查、1 轮重试）、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点、D11 下载前空间预检
-2. **`kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`；D10 早期观察窗口 20s → 8s；D11 替换前空间预检
-3. **`kazari_play/main.py` / `ui/web_bridge.py` / `ui/web_assets/ts/*` / `partials/update.html`**：D4 新版计时；D6 握手文案与 toast；D5 快速退出机制（默认关闭）；**D7 移除退出时更新**（`applyUpdate` 去掉 exit 分支，删除 `apply_pending_update_on_exit`/`_update_on_exit`、关闭钩子调用、`updateApplyExit` 按钮与前端绑定）
+1. **`src/kazari_play/utils/updater.py`**：D1 通道切换与排序（10s 超时、15s 单次低速检查、1 轮重试）、D2 默认清单、`update.last_good_lane` 读写、D3 `ready.json` 写入/命中/失效删除与 `check()` 重水化、`cleanup_update_cache` 保留规则、D4 下载埋点、D11 下载前空间预检
+2. **`src/kazari_play/utils/update_apply.py`**：D4 助手阶段计时；D9 确认成功时先删 `ready.json` 再清理缓存、启动自愈清理根级白名单 `*.new`；D10 早期观察窗口 20s → 8s；D11 替换前空间预检
+3. **`src/kazari_play/main.py` / `ui/web_bridge.py` / `ui/web_assets/ts/*` / `partials/update.html`**：D4 新版计时；D6 握手文案与 toast；D5 快速退出机制（默认关闭）；**D7 移除退出时更新**（`applyUpdate` 去掉 exit 分支，删除 `apply_pending_update_on_exit`/`_update_on_exit`、关闭钩子调用、`updateApplyExit` 按钮与前端绑定）
 4. **测试**：
    - `tests/test_updater.py`：死通道超时切换、低速切换、last-good 排序与降权、ready 命中/失效/清理保留、跳过版本优先于就绪、离线就绪、磁盘空间预检
    - 时间常量（10s/15s）可注入：测试用 monkeypatch 缩短，避免真等超时

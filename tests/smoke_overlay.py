@@ -9,7 +9,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "kazari_play"))
+sys.path.insert(0, str(ROOT / "src" / "kazari_play"))
 
 
 def wait_for(check, timeout=3):
@@ -25,8 +25,8 @@ def wait_for(check, timeout=3):
 def run(arch):
     if os.name != "nt":
         raise RuntimeError("Windows desktop required")
-    from utils.config import Config
-    from core.overlay_client import OverlayClient
+    from utils.infra.config import Config
+    from core.platform.overlay_client import OverlayClient
     from PIL import Image, ImageGrab
 
     exe = ROOT / "overlay" / ("bin32" if arch == "x86" else "bin") / "overlay.exe"

@@ -8,7 +8,7 @@
 
 ## 特色
 
-- **Kawaii Minimal 視覺**：UI 為 HTML/CSS（`kazari_play/ui/web_assets/`），由 pywebview + 系統 Edge WebView2 渲染
+- **Kawaii Minimal 視覺**：UI 為 HTML/CSS（`src/kazari_play/ui/web_assets/`），由 pywebview + 系統 Edge WebView2 渲染
 - **遊戲內截圖提示（V1.02 新增）**：F12 截圖後在**遊戲畫面右下角**彈出 Steam 式 toast（縮圖 + 遊戲名，從底部上滑），由獨立 C++ 程序 `overlay.exe`（Direct2D + DirectWrite）渲染，僅作用於遊戲視窗，與主程序經命名管道通訊
 - **Steam 式截圖管理**：詳情頁截圖卡片左鍵放大預覽、右鍵選單（重新命名 / 定位到檔案 / 複製到剪貼簿 / 刪除），預覽視窗附載入動畫
 - **收藏夾系統（V1.01 新增）**：樹狀分組→分類、遊戲多對多歸類、手風琴側邊欄、拖曳排序、管理遊戲對話框
@@ -18,7 +18,7 @@
 - **設定視窗**：置中模態，一般/主題（即時預覽）/快捷鍵/偽裝/關於
 - 搜尋 / 排序 / 收藏 / 繼續遊玩 導覽、無邊框視窗 + HTML 標題列拖曳
 - 啟動遊戲、遊玩時長統計、VNDB/Bangumi 元資料比對與多源搜尋
-- 前後端經 **pywebview js_api**（`kazari_play/ui/web_bridge.py`）橋接
+- 前後端經 **pywebview js_api**（`src/kazari_play/ui/web_bridge.py`）橋接
 
 ## 前置需求
 
@@ -32,7 +32,7 @@
 
 ```bash
 pip install -r requirements.txt
-python kazari_play/main.py     # 在 KazariPlay_V1.0 目錄下
+python src/kazari_play/main.py     # 在 KazariPlay_V1.0 目錄下
 ```
 
 ## 建置 C++ Overlay（選用）
@@ -50,7 +50,7 @@ overlay.exe 缺失或編譯失敗時，截圖提示會自動降級（不影響�
 
 ```
 KazariPlay_V1.0/
-├── kazari_play/
+├── src/kazari_play/
 │   ├── main.py                # pywebview 入口（無邊框視窗 + js_api）
 │   ├── core/                  # 後端核心（掃描/啟動/監控/截圖/元資料/多源搜尋/overlay 客戶端）
 │   ├── database/              # 資料層（遊戲庫 + 收藏夾關聯表）
@@ -65,6 +65,7 @@ KazariPlay_V1.0/
 │   ├── build.bat              # MSVC 編譯腳本
 │   └── bin/overlay.exe        # 編譯產物（git 忽略）
 ├── screenshots/               # 截圖存放（按遊戲分資料夾，git 忽略）
+├── artifacts/                 # 建置包/封存/歷史截圖（git 忽略）
 └── tests/
 ```
 

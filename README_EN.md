@@ -8,7 +8,7 @@ Formerly known as Minato Launcher, officially renamed to **KazariPlay** starting
 
 ## Features
 
-- **Kawaii Minimal visual style**: UI is HTML/CSS (`kazari_play/ui/web_assets/`), rendered by pywebview + system Edge WebView2
+- **Kawaii Minimal visual style**: UI is HTML/CSS (`src/kazari_play/ui/web_assets/`), rendered by pywebview + system Edge WebView2
 - **In-game screenshot toast (new in V1.02)**: after an F12 screenshot, a Steam-style toast (thumbnail + game name, sliding up from the bottom) pops up at the bottom-right of the **game window**, rendered by a standalone C++ process `overlay.exe` (Direct2D + DirectWrite), acting only on the game window and communicating with the main program via named pipe
 - **Steam-style screenshot management**: left-click a screenshot card to zoom preview, right-click for a context menu (rename / locate file / copy to clipboard / delete); preview window with loading animation
 - **Collection system (new in V1.01)**: tree groups→categories, game many-to-many grouping, accordion sidebar, drag sorting, manage-games dialog
@@ -18,7 +18,7 @@ Formerly known as Minato Launcher, officially renamed to **KazariPlay** starting
 - **Settings window**: centered modal, general/theme (live preview)/shortcuts/disguise/about
 - Search / sort / favorites / continue playing navigation, frameless window + HTML title bar drag
 - Launch games, play-time tracking, VNDB/Bangumi metadata matching & multi-source search
-- Frontend/backend bridged via **pywebview js_api** (`kazari_play/ui/web_bridge.py`)
+- Frontend/backend bridged via **pywebview js_api** (`src/kazari_play/ui/web_bridge.py`)
 
 ## Requirements
 
@@ -32,7 +32,7 @@ Formerly known as Minato Launcher, officially renamed to **KazariPlay** starting
 
 ```bash
 pip install -r requirements.txt
-python kazari_play/main.py     # run inside the KazariPlay_V1.0 directory
+python src/kazari_play/main.py     # run inside the KazariPlay_V1.0 directory
 ```
 
 ## Build C++ Overlay (optional)
@@ -50,7 +50,7 @@ If overlay.exe is missing or fails to build, the screenshot toast silently degra
 
 ```
 KazariPlay_V1.0/
-├── kazari_play/
+├── src/kazari_play/
 │   ├── main.py                # pywebview entry (frameless window + js_api)
 │   ├── core/                  # backend core (scan/launch/monitor/screenshot/metadata/multi-source/overlay client)
 │   ├── database/              # data layer (game library + collection relations)
@@ -65,6 +65,7 @@ KazariPlay_V1.0/
 │   ├── build.bat              # MSVC build script
 │   └── bin/overlay.exe        # build output (git-ignored)
 ├── screenshots/               # screenshot storage (per-game folders, git-ignored)
+├── artifacts/                 # build packages, archives, historical screenshots (git-ignored)
 └── tests/
 ```
 

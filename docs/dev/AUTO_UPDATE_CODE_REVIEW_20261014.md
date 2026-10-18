@@ -1,4 +1,5 @@
 # 自动更新功能代码审查报告
+> 注：本文是历史记录；文中路径可能反映当时的目录布局。当前源码位于 src/kazari_play/。
 
 > 审查日期：2026-10-14
 > 审查基线：`develop@5282737`
@@ -40,7 +41,7 @@
 
 ### UPD-REV-01：Windows 启动回滚失败，仍误报成功并删除状态
 
-**位置：** [utils/update_apply.py](../../kazari_play/utils/update_apply.py):188–197、390–402；`_restore()`、`startup_self_heal()`。
+**位置：** [utils/update_apply.py](../../src/kazari_play/utils/update_apply.py):188–197、390–402；`_restore()`、`startup_self_heal()`。
 
 - **触发条件：** 新版未完成启动确认，后续启动达到回滚条件；目标 EXE 已处于运行状态。
 - **根因：** 启动中的应用直接调用 `_restore()`，试图复制覆盖自身 EXE。Windows 文件占用使恢复失败；异常被记录后，流程仍删除更新状态、返回“已回滚”及重启路径。
@@ -51,7 +52,7 @@
 
 ### UPD-REV-02：启动成功确认不等待界面就绪
 
-**位置：** [main.py](../../kazari_play/main.py):212–231、326；`_apply_window_extras()`。
+**位置：** [main.py](../../src/kazari_play/main.py):212–231、326；`_apply_window_extras()`。
 
 - **触发条件：** 更新后主程序已进入 WebView 启动流程，但页面、JS 或桥接尚未就绪。
 - **根因：** `threading.Timer(1.0, ...)` 的回调直接调用 `mark_startup_success()`，随后才查询窗口句柄；确认条件不是实际界面加载或业务初始化成功。
@@ -62,7 +63,7 @@
 
 ### UPD-REV-03：新版拉起失败仍返回更新成功
 
-**位置：** [utils/update_apply.py](../../kazari_play/utils/update_apply.py):302–308；`apply_update()`。
+**位置：** [utils/update_apply.py](../../src/kazari_play/utils/update_apply.py):302–308；`apply_update()`。
 
 - **触发条件：** 替换完成，但拉起新版 EXE 时发生异常。
 - **根因：** 启动异常只写日志，函数随后返回 `0`；没有立即恢复旧版并再次启动。健康恢复主要依赖目标程序后续自己启动，不能覆盖目标程序根本起不来的情况。
@@ -73,7 +74,7 @@
 
 ### UPD-REV-04：两个并发入口仍可能启动两个更新助手
 
-**位置：** [ui/web_bridge.py](../../kazari_play/ui/web_bridge.py):959–977、988–1003；`applyUpdate()`、`apply_pending_update_on_exit()`。
+**位置：** [ui/web_bridge.py](../../src/kazari_play/ui/web_bridge.py):959–977、988–1003；`applyUpdate()`、`apply_pending_update_on_exit()`。
 
 - **触发条件：** 已设置退出时更新，同时触发立即更新与窗口关闭事件。
 - **根因：** 两个入口都先读取 `_update_applied`，在 `begin_apply()` 返回后才置位；检查与置位之间没有锁保护。
@@ -84,7 +85,7 @@
 
 ### UPD-REV-05：状态文件写入失败后仍继续替换
 
-**位置：** [utils/update_apply.py](../../kazari_play/utils/update_apply.py):57–63、280–303；`_write_state()`、`apply_update()`。
+**位置：** [utils/update_apply.py](../../src/kazari_play/utils/update_apply.py):57–63、280–303；`_write_state()`、`apply_update()`。
 
 - **触发条件：** 权限、磁盘空间或 I/O 故障导致更新状态无法写入。
 - **根因：** `_write_state()` 吞掉异常，调用方无法判断持久化是否成功；状态直接覆盖写入，也未采用原子发布方式。
@@ -95,7 +96,7 @@
 
 ### UPD-REV-06：用户数据备份失败不阻止更新
 
-**位置：** [utils/update_apply.py](../../kazari_play/utils/update_apply.py):123–136、275；`backup_user_data()`、`apply_update()`。
+**位置：** [utils/update_apply.py](../../src/kazari_play/utils/update_apply.py):123–136、275；`backup_user_data()`、`apply_update()`。
 
 - **触发条件：** 已有数据库或配置，但备份复制失败。
 - **根因：** 备份失败返回 `None`，与“没有文件需要备份”使用相同结果；调用方通过 `or ""` 继续替换。
@@ -106,7 +107,7 @@
 
 ### UPD-REV-07：镜像同时控制程序包与校验值
 
-**位置：** [utils/updater.py](../../kazari_play/utils/updater.py):399–418、431–449；`_download_worker()`、`_download_bytes()`、`_download_to_file()`。
+**位置：** [utils/updater.py](../../src/kazari_play/utils/updater.py):399–418、431–449；`_download_worker()`、`_download_bytes()`、`_download_to_file()`。
 
 - **触发条件：** 官方源不可达，校验文件与 ZIP 均从第三方镜像获取。
 - **根因：** 校验值没有独立可信来源或签名。镜像可替换 ZIP，再返回与替换内容匹配的 SHA256，客户端只能证明两者相符。
@@ -119,7 +120,7 @@
 
 ### UPD-REV-08：就绪弹层关闭后无法重新打开
 
-**位置：** [ts/updater.ts](../../kazari_play/ui/web_assets/ts/updater.ts):212–232；`updaterCheck()`。
+**位置：** [ts/updater.ts](../../src/kazari_play/ui/web_assets/ts/updater.ts):212–232；`updaterCheck()`。
 
 - **触发条件：** 下载进入 `ready`，用户关闭弹层，再点击关于页的检查更新。
 - **根因：** 后端保留 `ready` 并返回当前状态，但前端仅在 `available` 时打开弹层。
@@ -129,7 +130,7 @@
 
 ### UPD-REV-09：桥失败后永久停在锁定的下载界面
 
-**位置：** [ts/updater.ts](../../kazari_play/ui/web_assets/ts/updater.ts):165–193；`updaterStartDownload()`。
+**位置：** [ts/updater.ts](../../src/kazari_play/ui/web_assets/ts/updater.ts):165–193；`updaterStartDownload()`。
 
 - **触发条件：** 下载发起失败，随后用于纠正状态的 `getUpdateState()` 也失败或返回无法解析的结果。
 - **根因：** 补查失败直接返回，没有撤销乐观设置的下载态与弹层锁，也没有安排后续恢复。
@@ -139,7 +140,7 @@
 
 ### UPD-REV-10：迟到轮询覆盖完成状态
 
-**位置：** [ts/updater.ts](../../kazari_play/ui/web_assets/ts/updater.ts):110–130；`updateStartPolling()`。
+**位置：** [ts/updater.ts](../../src/kazari_play/ui/web_assets/ts/updater.ts):110–130；`updateStartPolling()`。
 
 - **触发条件：** 多个轮询请求同时在途，后发请求先返回 `ready`，早发请求随后返回旧的 `downloading`。
 - **根因：** 固定间隔允许请求重叠；回调缺少请求序号或任务代际校验。停止计时器不能使已发出的回调失效。
@@ -149,7 +150,7 @@
 
 ### UPD-REV-11：一次性回滚提示被丢弃
 
-**位置：** [ui/web_bridge.py](../../kazari_play/ui/web_bridge.py):909–915；[ts/updater.ts](../../kazari_play/ui/web_assets/ts/updater.ts):215–224。
+**位置：** [ui/web_bridge.py](../../src/kazari_play/ui/web_bridge.py):909–915；[ts/updater.ts](../../src/kazari_play/ui/web_assets/ts/updater.ts):215–224。
 
 - **触发条件：** 启动自愈写入一次性 `notice`，首次更新状态响应带出提示。
 - **根因：** 后端在响应时清除提示，但前端没有消费和展示 `notice` 的逻辑。
@@ -159,7 +160,7 @@
 
 ### UPD-REV-12：结构无效的包仍被标记为就绪
 
-**位置：** [utils/updater.py](../../kazari_play/utils/updater.py):420–425；`_download_worker()`。
+**位置：** [utils/updater.py](../../src/kazari_play/utils/updater.py):420–425；`_download_worker()`。
 
 - **触发条件：** ZIP 和 SHA256 匹配，但程序放在嵌套目录，未满足替换器的包根目录契约。
 - **根因：** 下载完成只验证校验值和可解压性，未在进入 `ready` 前检查安装结构。
@@ -170,7 +171,7 @@
 
 ### UPD-REV-13：强杀失败后仍结束等待
 
-**位置：** [utils/update_apply.py](../../kazari_play/utils/update_apply.py):215–230；`wait_process_exit()`。
+**位置：** [utils/update_apply.py](../../src/kazari_play/utils/update_apply.py):215–230；`wait_process_exit()`。
 
 - **触发条件：** 等待超时，`taskkill` 失败，旧进程仍存活。
 - **根因：** 未检查强杀返回结果，也未再次确认退出；等待函数正常返回，调用方继续备份和替换。
@@ -184,8 +185,8 @@
 ### 5.1 既有门禁：全部通过
 
 ```text
-npm --prefix kazari_play/ui/web_assets run typecheck
-npm --prefix kazari_play/ui/web_assets run build
+npm --prefix src/kazari_play/ui/web_assets run typecheck
+npm --prefix src/kazari_play/ui/web_assets run build
 python -B tests/test_updater.py
 python -B tests/test_update_apply.py
 python -B tests/verify_frontend.py

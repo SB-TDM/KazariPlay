@@ -7,9 +7,9 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))), "kazari_play"))
+    os.path.abspath(__file__))), "src", "kazari_play"))
 
-from utils.rating_utils import normalize_rating, rating_from_100
+from utils.domain.rating_utils import normalize_rating, rating_from_100
 
 
 def test_normalize_valid():

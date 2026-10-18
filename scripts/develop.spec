@@ -8,7 +8,7 @@ from PyInstaller.utils.win32.versioninfo import (
 )
 
 ROOT = Path(SPECPATH).parent
-APP = ROOT / "kazari_play"
+APP = ROOT / "src" / "kazari_play"
 ASSETS = APP / "ui" / "web_assets"
 identity = runpy.run_path(str(APP / "version.py"))
 numeric_version = tuple(map(int, identity["VERSION"].split("-", 1)[0].split("."))) + (0,)

@@ -1,0 +1,289 @@
+from typing import List, Optional, Callable
+from core.games.game_model import Game
+from database.db_manager import DatabaseManager
+
+class GameRepository:
+    """游戏数据仓库 - 负责数据库 CRUD"""
+    
+    def __init__(
+        self,
+        process_checker: Optional[Callable[[], bool]] = None,
+    ):
+        self.db = DatabaseManager()
+        # 进程存活检测回调（一般由 GameManager 注入 launcher.is_running），
+        # 用于 record_play 判断游戏是否仍在运行。
+        self._process_checker = process_checker
+
+    def set_process_checker(self, process_checker: Callable[[], bool]) -> None:
+        """注入进程存活检测回调"""
+        self._process_checker = process_checker
+    
+    def add(self, game: Game) -> bool:
+        """添加或更新游戏
+
+        时间字段统一由 Python 端填 ISO 格式，不再依赖数据库 CURRENT_TIMESTAMP，
+        保证全库时间格式一致，便于读取/序列化/跨平台。
+        标签不写入 games.tags 列（由 GameManager 联动 TagRepository 写关联表）。
+        """
+        # 保险：若调用方没填 date_added，这里补上当前 ISO 时间
+        if not game.date_added:
+            from datetime import datetime
+            game.date_added = datetime.now().isoformat()
+
+        data = game.to_dict()
+        existing = self.get_by_path(game.exe_path) or self.get_by_id(game.id)
+        if existing:
+            for key in ("hook_code", "hook_code_custom", "translate_enabled", "clean_filter_override"):
+                data[key] = existing.to_dict()[key]
+        sql = """
+            INSERT OR REPLACE INTO games
+            (id, title, exe_path, folder, cover_path, engine, identity, tags,
+             is_favorite, play_count, play_time, last_played, date_added, rating,
+             logo_path, description, launch_exe_path,
+             vndb_id, released, developer, length_minutes, category_id,
+             hook_code, hook_code_custom, translate_enabled, clean_filter_override,
+             bangumi_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        return self.db.execute(sql, (
+            data["id"], data["title"], data["exe_path"], data["folder"],
+            data["cover_path"], data["engine"], data["identity"], "",   # tags 列保持空（关联表唯一源）
+            data["is_favorite"], data["play_count"], data["play_time"],
+            data["last_played"], data["date_added"], data["rating"],
+            data["logo_path"], data["description"], data["launch_exe_path"],
+            data["vndb_id"], data["released"], data["developer"], data["length_minutes"],
+            data["category_id"],
+            data["hook_code"], data["hook_code_custom"], data["translate_enabled"],
+            data["clean_filter_override"], data["bangumi_id"]
+        ))
+
+    def get_by_id(self, game_id: str) -> Optional[Game]:
+        """根据 ID 获取"""
+        rows = self.db.query("SELECT * FROM games WHERE id = ?", (game_id,))
+        row = rows[0] if rows else None
+        return self._row_to_game(row) if row else None
+    
+    def get_by_path(self, exe_path: str) -> Optional[Game]:
+        """根据 exe 路径获取"""
+        rows = self.db.query("SELECT * FROM games WHERE exe_path = ?", (exe_path,))
+        row = rows[0] if rows else None
+        return self._row_to_game(row) if row else None
+
+    def get_by_identity(self, identity: str) -> Optional[Game]:
+        """根据身份键获取（引擎|归一化标题，跨文件夹判重用）"""
+        if not identity:
+            return None
+        rows = self.db.query("SELECT * FROM games WHERE identity = ?", (identity,))
+        row = rows[0] if rows else None
+        return self._row_to_game(row) if row else None
+
+    def set_identity(self, game_id: str, identity: str) -> bool:
+        """仅更新身份键（迁移回填用）"""
+        return self.db.execute("UPDATE games SET identity = ? WHERE id = ?", (identity, game_id))
+
+    def get_all(self) -> List[Game]:
+        """获取所有游戏"""
+        rows = self.db.query("SELECT * FROM games ORDER BY title")
+        if not rows:
+            return []
+        return [self._row_to_game(row) for row in rows]
+    
+    def get_favorites(self) -> List[Game]:
+        """获取收藏的游戏"""
+        rows = self.db.query("SELECT * FROM games WHERE is_favorite = 1 ORDER BY title")
+        if not rows:
+            return []
+        return [self._row_to_game(row) for row in rows]
+    
+    def search(self, keyword: str) -> List[Game]:
+        """搜索游戏"""
+        rows = self.db.query(
+            "SELECT * FROM games WHERE title LIKE ? OR engine LIKE ? OR tags LIKE ?",
+            (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%")
+        )
+        if not rows:
+            return []
+        return [self._row_to_game(row) for row in rows]
+    
+    def delete(self, game_id: str) -> bool:
+        """移除游戏（与批量删除使用同一事务）。"""
+        return self.delete_many([game_id])
+
+    def delete_many(self, game_ids: List[str]) -> bool:
+        statements = []
+        for game_id in dict.fromkeys(game_ids):
+            statements.extend([
+                ("DELETE FROM game_tags WHERE game_id = ?", (game_id,)),
+                ("DELETE FROM game_collection_link WHERE game_id = ?", (game_id,)),
+                ("DELETE FROM games WHERE id = ?", (game_id,)),
+            ])
+        return self.db.execute_many(statements)
+
+    def update_favorite(self, game_id: str, is_favorite: bool) -> bool:
+        """更新收藏状态"""
+        return self.db.execute(
+            "UPDATE games SET is_favorite = ? WHERE id = ?",
+            (1 if is_favorite else 0, game_id)
+        )
+    
+    def update_rating(self, game_id: str, rating: float) -> bool:
+        """更新评分"""
+        return self.db.execute(
+            "UPDATE games SET rating = ? WHERE id = ?",
+            (rating, game_id)
+        )
+
+    def update_title(self, game_id: str, new_title: str) -> bool:
+        """更新游戏标题（支持用户手动改名）"""
+        if not new_title or not new_title.strip():
+            return False
+        return self.db.execute(
+            "UPDATE games SET title = ? WHERE id = ?",
+            (new_title.strip(), game_id)
+        )
+
+    def update_game(self, game: Game) -> bool:
+        """更新游戏的可编辑字段（标题/引擎/评分/标签/Logo/描述/启动路径/元数据/分类）
+
+        封面路径由 update_cover_path / CoverStore 单独维护，避免批量写回覆盖异步换图。
+        play_count/play_time/last_played/date_added/is_favorite 不变。
+        标签不写 games.tags 列（由 GameManager 联动 TagRepository 写关联表）。
+        """
+        return self.db.execute(
+            """UPDATE games SET
+               title = ?, engine = ?, tags = ?,
+               logo_path = ?, description = ?,
+               launch_exe_path = ?, exe_path = ?, folder = ?,
+               vndb_id = ?, released = ?, developer = ?, length_minutes = ?,
+               category_id = ?, rating = ?, identity = ?, bangumi_id = ?
+               WHERE id = ?""",
+            (game.title, game.engine or "", "",
+             game.logo_path or "",
+             game.description or "", game.launch_exe_path or "",
+             game.exe_path or "", game.folder or "",
+             game.vndb_id or "", game.released or "",
+             game.developer or "", game.length_minutes or 0,
+             game.category_id or 0, game.rating or 0, game.identity or "",
+             game.bangumi_id or "",
+             game.id)
+        )
+
+    def update_game_metadata_if_unchanged(self, game: Game, original: Game) -> bool:
+        """条件写回元数据：仅当当前库中字段仍等于 original 时才更新。
+
+        这样批量匹配期间用户修改的标题/简介/评分等不会被旧快照覆盖。
+        """
+        return self.db.execute(
+            """UPDATE games SET
+               title = CASE WHEN COALESCE(title,'') = ? THEN ? ELSE title END,
+               engine = CASE WHEN COALESCE(engine,'') = ? THEN ? ELSE engine END,
+               description = CASE WHEN COALESCE(description,'') = ? THEN ? ELSE description END,
+               vndb_id = CASE WHEN COALESCE(vndb_id,'') = ? THEN ? ELSE vndb_id END,
+               released = CASE WHEN COALESCE(released,'') = ? THEN ? ELSE released END,
+               developer = CASE WHEN COALESCE(developer,'') = ? THEN ? ELSE developer END,
+               length_minutes = CASE WHEN COALESCE(length_minutes,0) = ? THEN ? ELSE length_minutes END,
+               rating = CASE WHEN COALESCE(rating,0) = ? THEN ? ELSE rating END,
+               bangumi_id = CASE WHEN COALESCE(bangumi_id,'') = ? THEN ? ELSE bangumi_id END
+               WHERE id = ?""",
+            (original.title or "", game.title or "",
+             original.engine or "", game.engine or "",
+             original.description or "", game.description or "",
+             original.vndb_id or "", game.vndb_id or "",
+             original.released or "", game.released or "",
+             original.developer or "", game.developer or "",
+             int(original.length_minutes or 0), int(game.length_minutes or 0),
+             float(original.rating or 0), float(game.rating or 0),
+             original.bangumi_id or "", game.bangumi_id or "",
+             game.id)
+        )
+
+    def update_cover_path(self, game_id: str, cover_path: str) -> bool:
+        """只更新封面路径（异步下载回调专用，避免整行覆盖用户编辑）"""
+        return self.db.execute(
+            "UPDATE games SET cover_path = ? WHERE id = ?",
+            (cover_path or "", game_id)
+        )
+
+    def record_play(self, game_id: str):
+        """记录游玩时间（更新 last_played，不再递增 play_count）
+
+        若已注入进程检测回调，且检测到游戏进程仍在运行，则跳过更新，
+        避免在游玩尚未结束时就误刷新"最后游玩时间"；进程不存在时正常执行。
+        """
+        if self._process_checker and self._process_checker():
+            return
+        from datetime import datetime
+        self.db.execute(
+            "UPDATE games SET last_played = ? WHERE id = ?",
+            (datetime.now().isoformat(), game_id)
+        )
+    
+    def increment_play_time(self, game_id: str, minutes: int = 1):
+        """增加游玩时长"""
+        self.db.execute(
+            "UPDATE games SET play_time = play_time + ? WHERE id = ?",
+            (minutes, game_id)
+        )
+    
+    def get_count(self) -> int:
+        """获取游戏总数"""
+        rows = self.db.query("SELECT COUNT(*) FROM games")
+        return rows[0][0] if rows else 0
+    
+    def _row_to_game(self, row) -> Game:
+        """将数据库行转换为 Game 对象（标签从关联表加载）
+
+        row 为 sqlite3.Row：支持列名访问。category_id 与 Hook 翻译字段
+        必须用列名（ALTER 追加列在不同库版本的列序不同，索引会错位）。
+        """
+        return Game(
+            id=row[0],
+            title=row[1],
+            exe_path=row[2],
+            folder=row[3],
+            cover_path=row[4],
+            engine=row[5] or "",
+            identity=row["identity"] if "identity" in row.keys() else "",
+            tags=self._load_tags(row[0]),
+            collections=self._load_collections(row[0]),
+            is_favorite=bool(row[7]),
+            play_count=row[8],
+            play_time=row[9],
+            last_played=row[10],
+            date_added=row[11] or "",
+            rating=row[12] or 0,
+            logo_path=row["logo_path"] if "logo_path" in row.keys() else "",
+            description=row["description"] if "description" in row.keys() else "",
+            launch_exe_path=row["launch_exe_path"] if "launch_exe_path" in row.keys() else "",
+            vndb_id=row["vndb_id"] if "vndb_id" in row.keys() else "",
+            bangumi_id=row["bangumi_id"] if "bangumi_id" in row.keys() else "",
+            released=row["released"] if "released" in row.keys() else "",
+            developer=row["developer"] if "developer" in row.keys() else "",
+            length_minutes=row["length_minutes"] if "length_minutes" in row.keys() else 0,
+            category_id=row["category_id"] if "category_id" in row.keys() else 0,
+            hook_code=row["hook_code"] if "hook_code" in row.keys() else "",
+            hook_code_custom=row["hook_code_custom"] if "hook_code_custom" in row.keys() else "",
+            translate_enabled=bool(row["translate_enabled"]) if "translate_enabled" in row.keys() else False,
+            clean_filter_override=row["clean_filter_override"] if "clean_filter_override" in row.keys() else "",
+        )
+
+    def _load_tags(self, game_id: str) -> List[str]:
+        """从 game_tags 关联表加载标签名（唯一数据源）"""
+        rows = self.db.query(
+            """SELECT t.name FROM tags t
+               JOIN game_tags gt ON t.id = gt.tag_id
+               WHERE gt.game_id = ? ORDER BY t.sort_order, t.name""",
+            (game_id,)
+        )
+        return [r[0] for r in rows] if rows else []
+
+    def _load_collections(self, game_id: str) -> list:
+        """从 game_collection_link 加载游戏所属的收藏夹列表"""
+        rows = self.db.query(
+            """SELECT c.id, c.name, c.color, c.icon FROM collections c
+               JOIN game_collection_link l ON c.id = l.collection_id
+               WHERE l.game_id = ? ORDER BY l.sort_order""",
+            (game_id,)
+        )
+        return [{"id": r[0], "name": r[1], "color": r[2] or "", "icon": r[3] or ""}
+                for r in rows] if rows else []

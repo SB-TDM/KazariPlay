@@ -105,29 +105,29 @@
 
 ### P0：必须先修
 
-| 状态 | 问题 | 证据 | 位置（相对 `kazari_play/`） | 修复方向 | 验收 |
+| 状态 | 问题 | 证据 | 位置（相对 `src/kazari_play/`） | 修复方向 | 验收 |
 |---|---|---|---|---|---|
-| fixed (两版) | 编辑游戏会清空 VNDB、Hook 和翻译配置 | 临时数据库复现 | `ui/web_bridge.py:561`、`database/game_repository.py:166` | 基于旧 `Game` 只更新可编辑字段，保留元数据、自定义启动路径及翻译状态 | 编辑标题/简介后，VNDB、Hook、翻译开关和清洗配置不变 |
+| fixed (两版) | 编辑游戏会清空 VNDB、Hook 和翻译配置 | 临时数据库复现 | `ui/web_bridge.py:561`、`database/repositories/game_repository.py:166` | 基于旧 `Game` 只更新可编辑字段，保留元数据、自定义启动路径及翻译状态 | 编辑标题/简介后，VNDB、Hook、翻译开关和清洗配置不变 |
 | fixed (两版) | 手动添加传递字符串 `"null"`，后端误判为编辑模式 | 静态调用链及临时数据库复现 | `ui/web_assets/ts/form.ts:102`、`ui/web_bridge.py:576` | 统一新增协议：前端新增模式传空字符串，编辑模式传真实 ID | 从 UI 手动添加一个 exe，数据库新增一条游戏 |
-| fixed (实验版；原版不适用) | 启动器拉起子进程时，Hook 使用父进程 PID | 受控延迟子进程与注入替身；真实游戏待验证 | `core/game_launcher.py:304` | Hook 和位数检测使用确认后的真实游戏 PID；只替换 getter 仍不解决进程尚未出现的时序问题 | 启动器→真实游戏链路中，Hook 注入真实游戏进程 |
-| fixed (两版) | 关闭游戏只终止父启动器，真实游戏可能残留 | 真实受控父子进程；真实游戏待验证 | `core/game_launcher.py:253` | 统一游戏进程生命周期，终止确认属于该游戏的进程并等待退出后清理状态 | 关闭启动器型游戏后，父进程和真实子进程都退出 |
+| fixed (实验版；原版不适用) | 启动器拉起子进程时，Hook 使用父进程 PID | 受控延迟子进程与注入替身；真实游戏待验证 | `core/games/game_launcher.py:304` | Hook 和位数检测使用确认后的真实游戏 PID；只替换 getter 仍不解决进程尚未出现的时序问题 | 启动器→真实游戏链路中，Hook 注入真实游戏进程 |
+| fixed (两版) | 关闭游戏只终止父启动器，真实游戏可能残留 | 真实受控父子进程；真实游戏待验证 | `core/games/game_launcher.py:253` | 统一游戏进程生命周期，终止确认属于该游戏的进程并等待退出后清理状态 | 关闭启动器型游戏后，父进程和真实子进程都退出 |
 | fixed (两版) | 增量删除使用 `+idStr`，字符串 ID 无法从前端列表移除 | Node 隔离运行复现 | `ui/web_assets/ts/games.ts:80` | 游戏 ID 全链路统一为字符串；收藏夹数字 ID 保持独立类型 | 删除单卡后无需全量刷新，卡片立即消失 |
-| fixed (两版) | 批量删除没有写入 `ignored_games`，重扫会复活 | 临时数据库复现 | `core/game_manager.py:260` | 批量与单个删除共用忽略清单逻辑，并处理正在运行的游戏 | 批量移除后再次扫描不会重新加入 |
+| fixed (两版) | 批量删除没有写入 `ignored_games`，重扫会复活 | 临时数据库复现 | `core/games/game_manager.py:260` | 批量与单个删除共用忽略清单逻辑，并处理正在运行的游戏 | 批量移除后再次扫描不会重新加入 |
 | fixed (两版) | 手动批量 VNDB 匹配没有传入取消事件 | 替身验证事件为 `None` | `ui/web_bridge.py:944` | 初始化并传递对应任务的取消事件；中断规则与扫描后匹配一致 | 点击取消后不再开始下一项；当前请求是否可中断需明确 |
 
 ### P1：已本地修复
 
 | 状态 | 问题 | 证据 | 位置 | 修复方向 | 验收 |
 |---|---|---|---|---|---|
-| fixed (两版) | 同一秒内截图文件名相同，后一次覆盖前一次 | 固定时间/并发回归与截图冒烟 | `kazari_play/core/screenshot_service.py:326` | 微秒文件名与原子创建，兼容新旧时间解析 | 连续快速截图全部保留，列表时间仍正确 |
-| fixed (两版) | 身份归一化删除章节或副标题，不同作品被判为同一游戏 | 临时目录、旧游戏/忽略清单回填回归 | `kazari_play/utils/title_utils.py:72` | 搜索清洗与身份键规则分开，身份保留区分信息 | 章节和副标题可区分，重复副本仍判重 |
-| fixed (两版) | 重新定位遇到多个相同 identity 时直接选第一个 | 多候选回归 | `kazari_play/ui/web_bridge.py:684` | 多候选标冲突，拒绝自动应用 | 两个候选 identity 相同则不能自动应用 |
-| fixed (两版) | 重新定位不更新自定义启动路径 | 临时数据库与源码 GUI 回归 | `kazari_play/ui/web_bridge.py:722`、`kazari_play/core/game_launcher.py:211` | 迁移目录内 override，保留目录外路径，检查目标仍存在 | 迁移可用且收藏/时长保留，缺失目标不写入 |
-| fixed (两版) | 重新定位写库失败仍提示成功 | 写库失败回归 | `kazari_play/ui/web_bridge.py:724` | 只统计成功项，返回失败明细 | 数据库失败时用户收到失败结果 |
-| fixed (两版) | 截图卡片按文件名复用，切换游戏可能显示旧图 | Node 迟到响应回归与源码 GUI | `kazari_play/ui/web_assets/ts/screenshots.ts:37` | 节点按游戏隔离，回调验证请求序号/目标 | 同名截图不串图，确认操作固定原目标 |
+| fixed (两版) | 同一秒内截图文件名相同，后一次覆盖前一次 | 固定时间/并发回归与截图冒烟 | `src/kazari_play/core/media/screenshot_service.py:326` | 微秒文件名与原子创建，兼容新旧时间解析 | 连续快速截图全部保留，列表时间仍正确 |
+| fixed (两版) | 身份归一化删除章节或副标题，不同作品被判为同一游戏 | 临时目录、旧游戏/忽略清单回填回归 | `src/kazari_play/utils/domain/title_utils.py:72` | 搜索清洗与身份键规则分开，身份保留区分信息 | 章节和副标题可区分，重复副本仍判重 |
+| fixed (两版) | 重新定位遇到多个相同 identity 时直接选第一个 | 多候选回归 | `src/kazari_play/ui/web_bridge.py:684` | 多候选标冲突，拒绝自动应用 | 两个候选 identity 相同则不能自动应用 |
+| fixed (两版) | 重新定位不更新自定义启动路径 | 临时数据库与源码 GUI 回归 | `src/kazari_play/ui/web_bridge.py:722`、`src/kazari_play/core/games/game_launcher.py:211` | 迁移目录内 override，保留目录外路径，检查目标仍存在 | 迁移可用且收藏/时长保留，缺失目标不写入 |
+| fixed (两版) | 重新定位写库失败仍提示成功 | 写库失败回归 | `src/kazari_play/ui/web_bridge.py:724` | 只统计成功项，返回失败明细 | 数据库失败时用户收到失败结果 |
+| fixed (两版) | 截图卡片按文件名复用，切换游戏可能显示旧图 | Node 迟到响应回归与源码 GUI | `src/kazari_play/ui/web_assets/ts/screenshots.ts:37` | 节点按游戏隔离，回调验证请求序号/目标 | 同名截图不串图，确认操作固定原目标 |
 | fixed (实验版；原版不适用) | 翻译异步返回不校验句子，译文可能覆盖到下一句 | 真实 worker 受控阻塞及序号回归；真实网络待验证 | `overlay/src/main.cpp:586`、`overlay/src/subtitle_window.cpp:306` | 每句/会话序号，worker 与 UI 拒绝旧结果 | 旧译文/清洗与停止后的结果被丢弃 |
-| fixed (两版) | 多次扫描/批量任务共用取消事件和进度上下文 | 任务拒绝/取消/异常回归与 Node 迟到进度回归 | `kazari_play/ui/web_bridge.py:809`、`kazari_play/ui/web_bridge.py:869` | 单任务门禁与每任务取消事件，前端进度代际校验 | 重复启动不清旧取消状态，旧响应不隐藏新任务 |
-| fixed (两版) | Overlay 停止时存在挂起 I/O 与线程生命周期风险 | 真实管道/进程/句柄及 C++ 挂起 I/O 回归 | `overlay/src/pipe_server.cpp:49`、`kazari_play/core/overlay_client.py:112` | 取消并等待 I/O/线程完成，所属连接单独释放 | 未连接停止、重连、位数切换、杀死恢复均通过 |
+| fixed (两版) | 多次扫描/批量任务共用取消事件和进度上下文 | 任务拒绝/取消/异常回归与 Node 迟到进度回归 | `src/kazari_play/ui/web_bridge.py:809`、`src/kazari_play/ui/web_bridge.py:869` | 单任务门禁与每任务取消事件，前端进度代际校验 | 重复启动不清旧取消状态，旧响应不隐藏新任务 |
+| fixed (两版) | Overlay 停止时存在挂起 I/O 与线程生命周期风险 | 真实管道/进程/句柄及 C++ 挂起 I/O 回归 | `overlay/src/pipe_server.cpp:49`、`src/kazari_play/core/platform/overlay_client.py:112` | 取消并等待 I/O/线程完成，所属连接单独释放 | 未连接停止、重连、位数切换、杀死恢复均通过 |
 
 ### P2：稳定性与安全
 
