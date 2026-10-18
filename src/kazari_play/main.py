@@ -97,7 +97,7 @@ _PARTIAL_MANIFEST = [
 ]
 
 
-def _load_html() -> str:
+def _load_html(initial_theme: str = "light") -> str:
     """读取 index.html 并把 css / js 模块 / 分块 html 内联，避免外部相对资源加载问题"""
     assets = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "ui", "web_assets")
@@ -107,6 +107,8 @@ def _load_html() -> str:
             return f.read()
 
     html = read("index.html")
+    theme = initial_theme if initial_theme in ("light", "dark") else "light"
+    html = html.replace("{{THEME}}", theme)
 
     # 1) 注入分块 HTML（各窗口/对话框独立文件，便于维护）
     partials = "\n".join(
@@ -305,7 +307,7 @@ def main():
     w, h = int(sw * 0.82), int(sh * 0.82)
     win = webview.create_window(
         WINDOW_TITLE,
-        html=_load_html(),
+        html=_load_html(str(cfg.get("theme", "light") or "light")),
         js_api=bridge,
         frameless=True,
         easy_drag=False,

@@ -27,9 +27,14 @@ def run():
 
     # ---------- 1. 占位符 / 外链残留 ----------
     for marker in ("<!-- PARTIALS -->", "<!-- SCRIPTS -->", 'src="js/', 'href="css/',
-                   "{{APP_VERSION}}", "{{PRODUCT_LINE}}", "{{APP_TITLE}}"):
+                   "{{APP_VERSION}}", "{{PRODUCT_LINE}}", "{{APP_TITLE}}", "{{THEME}}"):
         if marker in html:
             errors.append(f"残留标记: {marker}")
+    if '<html lang="zh-CN" data-theme="light">' not in html:
+        errors.append("首帧浅色主题未注入")
+    dark_html = main._load_html("dark")
+    if '<html lang="zh-CN" data-theme="dark">' not in dark_html:
+        errors.append("首帧深色主题未注入")
     if '<link rel="stylesheet"' in html:
         errors.append("css 未内联")
     if "@import url(" in html:

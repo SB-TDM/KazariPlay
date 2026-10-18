@@ -7,6 +7,8 @@
 - 修复手动多源搜索结果缺少简介/开发商：去重后对带 `detail` 的非 VNDB 源按 ID 并发补详情，Kungal/Hikarinagi/Shionlib 候选可正确填入“应用元数据”弹层。
 - 新增应用内网络代理：`network.proxy_mode` 支持跟随系统/直连/自定义 HTTP 代理，所有元数据、封面与更新请求统一走该配置；设置页可测试 VNDB/Bangumi/Kungal 连通性，保存时校验代理地址。
 - 重构 CSS 为全局分层：`style.css` 声明 `tokens → reset → base → layout → components → features → utilities`，文件迁入 `global/` 与 `features/`；抽出共享 `pill-btn`/`close-btn`/`chip`/`navbtn`，并将下拉菜单、空状态下沉到 `global/components/`；`main.py` 的 `@import` 展开支持 `layer(name)`。规则集与重构前逐条一致。
+- 调整视觉效果：移除 `--glow-strong` 强光晕与 `--shadow-dlg`/`.dialog` 深投影；卡片常态无光晕，active/selected 使用弱光晕。
+- 修复深色主题首帧闪浅色：`main.py` 将配置主题注入 `<html data-theme>`；主题切换改为新主题绘制一帧后再恢复 transition，并跳过重复主题应用。
 
 ## 1.1.0 正式发布（2026-10-18）
 - 源码迁移到 `src/kazari_play/`，按 `core/games|metadata|media|platform`、`database/repositories`、`ui/services`、`utils/clients|update|infra|domain|system` 分层；同步测试、脚本、文档与 PyInstaller 路径。

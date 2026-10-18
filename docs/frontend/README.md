@@ -31,7 +31,8 @@ npm run typecheck     # 只类型检查
 1. **partials**：`_PARTIAL_MANIFEST` 顺序读 `partials/*.html` 注入 `<!-- PARTIALS -->`（**顺序即 DOM 层叠顺序**，`common.html` 放最后盖在最上）
 2. **js**：`_JS_MANIFEST` 顺序把 `js/*.js` 各包一个 `<script>` 注入 `<!-- SCRIPTS -->`（**顺序即依赖顺序**）
 3. **css**：递归展开 `@import`（`style.css` 入口）内联为单个 `<style>`（html= 模式无 base URL，浏览器无法解析 `@import` 相对路径）；`@import ... layer(name)` 会展开为 `@layer name { ... }`
-4. 图标占位符 → data URI；`{{APP_VERSION}}/{{PRODUCT_LINE}}/{{APP_TITLE}}` 替换
+4. 图标占位符 → data URI；`{{APP_VERSION}}/{{PRODUCT_LINE}}/{{APP_TITLE}}/{{THEME}}` 替换
+5. `{{THEME}}` 写入 `<html data-theme>`，保证深色模式首帧就是深色，不先绘制浅色再重绘
 
 ### CSS 全局分层
 

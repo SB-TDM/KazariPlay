@@ -11,13 +11,19 @@
   let configRequest = 0;          // 配置加载代际：只接受最新请求的回包
   let settingsSession = 0;        // 打开会话代际：关闭/重开使旧保存回包失效
   let saveSeq = 0;                // 保存请求代际：重复提交时只有最新一次生效
+  let themeSwitchFrame = 0;       // 主题切换代际：防止连续切换时提前恢复 transition
 
   function applyTheme(t: string): void {
     const root = document.documentElement;
+    if (root.dataset.theme === t) return;
     root.classList.add('theme-switch');   // 全局禁 transition，避免重排痕迹
     root.dataset.theme = t;
-    void root.offsetHeight;               // 强制同步重排：主题立即生效
-    requestAnimationFrame(() => root.classList.remove('theme-switch'));  // 布局稳定后恢复
+    void root.offsetHeight;               // 强制同步样式与布局提交
+    const frame = ++themeSwitchFrame;
+    // 等新主题真正绘制一帧后再恢复 transition；单 rAF 会在首帧绘制前移除
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (frame === themeSwitchFrame) root.classList.remove('theme-switch');
+    }));
   }
 
   // 启动时的初始主题：用户已自行选择（或初始化期间点击过主题）则不再覆盖
