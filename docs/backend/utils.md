@@ -21,7 +21,7 @@
 
 **对象**：`Config`（`@singleton`）；`self._path`、`self._data`。
 
-- `DEFAULT_CONFIG`：`theme`(light)、`hotkeys{screenshot=f12,...}`、`disguise_scene`、`show_console`、`cover_size`、`language`、`log_level`、`overlay{enabled,exe_path,toast_duration=3.0,position}`、`metadata_sources{single,mixed[vndb,bangumi,kungal]}`、`cover_download{timeout=90,max_concurrent=4}`。
+- `DEFAULT_CONFIG`：`theme`(light)、`hotkeys{screenshot=f12,...}`、`disguise_scene`、`show_console`、`cover_size`、`language`、`log_level`、`network{proxy_mode=system,proxy_url=""}`、`overlay{enabled,exe_path,toast_duration=3.0,position}`、`metadata_sources{single,mixed[vndb,bangumi,kungal]}`、`cover_download{timeout=90,max_concurrent=4}`。
 - `load()`：存在则读，**深合并默认值**（`_deep_merge`，旧配置缺的新嵌套字段自动补默认）；不存在则写默认。损坏（JSON 错）回退默认。
 - `get(key, default)` / `set(key, value)`：**支持点号嵌套键**（如 `hotkeys.screenshot`）。
 - `get_all()`（浅拷贝）/ `save()` / `reset()`（保留实验版遗留段）/ `path`。
@@ -44,7 +44,10 @@
 
 ## infra/proxy_utils.py — 网络 opener
 
-`get_system_proxies()`：读系统代理；`get_opener()`：构建 `urllib` opener（各网络客户端统一走它，支持代理）。
+- `get_opener()`：按 `network.proxy_mode` 构建 `urllib` opener，各网络客户端统一走它。
+- `proxy_mode`：`system` 跟随 Windows 系统代理、`direct` 明确直连、`custom` 使用 `network.proxy_url`。
+- `custom` 只接受 HTTP/HTTPS 代理；SOCKS5 需用代理软件的混合/HTTP 端口。
+- `infra/connectivity.py`：设置页「测试连接」并发探测 VNDB / Bangumi / Kungal，返回逐源状态与耗时。
 
 ---
 

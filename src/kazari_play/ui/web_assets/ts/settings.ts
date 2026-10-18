@@ -88,6 +88,10 @@
       const ms = (cfg.metadata_sources || {}) as { shionlib_api_key?: string; kungal_concurrency?: number };
       ($('setShionlibKey') as HTMLInputElement).value = String(ms.shionlib_api_key || '');
       ($('setKungalConcurrent') as HTMLSelectElement).value = String(ms.kungal_concurrency ?? 4);
+      const net = (cfg.network || {}) as { proxy_mode?: string; proxy_url?: string };
+      ($('setProxyMode') as HTMLSelectElement).value = String(net.proxy_mode || 'system');
+      ($('setProxyUrl') as HTMLInputElement).value = String(net.proxy_url || '');
+      updateProxyMode();
       const hk = cfg.hotkeys || {};
       ($('setHkHide') as HTMLInputElement).value = fmtKey(hk.emergency_hide) || 'Ctrl + F12';      ($('setHkFull') as HTMLInputElement).value = fmtKey(hk.fullscreen_toggle) || 'F11';
       ($('setHkMute') as HTMLInputElement).value = fmtKey(hk.mute_toggle) || 'Ctrl + M';
@@ -128,6 +132,43 @@
     });
   }
 
+  function updateProxyMode(): void {
+    const mode = ($('setProxyMode') as HTMLSelectElement).value;
+    const input = $('setProxyUrl') as HTMLInputElement;
+    input.disabled = mode !== 'custom';
+  }
+
+  function testProxy(): void {
+    if (!bridge) return;
+    const btn = $('setProxyTest') as HTMLButtonElement;
+    const out = $('setProxyTestResult');
+    const mode = ($('setProxyMode') as HTMLSelectElement).value;
+    const url = ($('setProxyUrl') as HTMLInputElement).value.trim();
+    if (mode === 'custom' && !url) {
+      out.textContent = '请填写代理地址';
+      return;
+    }
+    btn.disabled = true;
+    out.textContent = '测试中...';
+    bridge.testMetadataConnection(JSON.stringify({ mode: mode, proxy_url: url }), function (s: unknown, failed?: boolean) {
+      btn.disabled = false;
+      if (failed) {
+        out.textContent = '测试失败：后端无响应';
+        return;
+      }
+      let r: { ok?: boolean; msg?: string; results?: Array<{ name?: string; ok?: boolean; ms?: number; msg?: string }> } = {};
+      try { r = JSON.parse(String(s || '{}')); } catch (e) { }
+      const results = r.results || [];
+      if (r.msg && results.length === 0) {
+        out.textContent = '代理配置错误：' + r.msg;
+        return;
+      }
+      out.textContent = results.length
+        ? results.map(x => `${x.name || ''} ${x.ok ? '可用' : '失败'}${x.ok ? ` (${x.ms || 0}ms)` : `：${x.msg || ''}`}`).join('  ·  ')
+        : '没有测试结果';
+    });
+  }
+
   function pickTheme(t: string): void {
     themePicked = true;   // 显式选择后，迟到的配置回包不再改写主题
     pendingTheme = t;
@@ -156,6 +197,10 @@
       metadata_sources: {
         shionlib_api_key: ($('setShionlibKey') as HTMLInputElement).value.trim(),
         kungal_concurrency: parseInt(($('setKungalConcurrent') as HTMLSelectElement).value, 10) || 4,
+      },
+      network: {
+        proxy_mode: ($('setProxyMode') as HTMLSelectElement).value,
+        proxy_url: ($('setProxyUrl') as HTMLInputElement).value.trim(),
       },
       theme: pendingTheme || savedTheme,
       hotkeys: {
@@ -309,6 +354,8 @@
     $('setClose').onclick = close;
     $('setCancel').onclick = close;
     $('setSave').onclick = save;
+    ($('setProxyMode') as HTMLSelectElement).addEventListener('change', updateProxyMode);
+    ($('setProxyTest') as HTMLButtonElement).onclick = testProxy;
     ($('setReset')).onclick = function () {
       if (!bridge) return;
       showConfirmDialog({

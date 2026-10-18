@@ -75,6 +75,24 @@
         </div>
         <div class="page" id="set-metadata" style="display:none">
           <div class="group">
+            <div class="g-title">网络代理</div>
+            <div class="form-row">
+              <label class="label" for="setProxyMode">代理模式</label>
+              <div class="field"><select id="setProxyMode">
+                <option value="system" selected>跟随系统</option>
+                <option value="direct">直连</option>
+                <option value="custom">自定义 HTTP 代理</option>
+              </select><span class="desc">VNDB 在部分地区需要代理</span></div>
+            </div>
+            <div class="form-row">
+              <label class="label" for="setProxyUrl">代理地址</label>
+              <div class="field"><input id="setProxyUrl" type="text" autocomplete="off" placeholder="http://127.0.0.1:7897">
+                <button class="pill-btn" id="setProxyTest" type="button" style="flex:none;height:30px;padding:0 14px">测试连接</button>
+              </div>
+            </div>
+            <div class="form-row"><div class="desc" id="setProxyTestResult" aria-live="polite" style="padding-left:96px">只支持 HTTP/HTTPS 代理；SOCKS5 请使用代理软件的混合端口</div></div>
+          </div>
+          <div class="group">
             <div class="g-title">混合检索数据源</div>
             <div class="form-row"><div class="desc" style="padding-left:0">勾选参与「混合」元数据搜索的源；「未接入」的源为占位，暂不可用。</div></div>
             <div id="setSrcList"></div>

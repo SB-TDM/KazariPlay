@@ -84,6 +84,7 @@
 
 ### 多源搜索 / 手动应用
 - `searchMetadata(keyword, sources_json="")`（→ `multi_source.search_metadata`）/ `getMetadataSources()` / `saveMetadataSources(sources_json)`（写 config 即时生效）
+- `testMetadataConnection(payload_json)`：按 `{mode, proxy_url}` 临时构建 opener，测试 VNDB / Bangumi / Kungal 连通性，不写配置
 - `applyCandidate(game_id, candidate_json, fields_json="")`：`fields_json` 非空 → 只应用**勾选字段**；为空 → 旧行为（仅填空字段）。封面下载到 `covers/{id}_ms.ext`。变更则 `update_game` + `reloadCover` + `refresh_delta`
 
 ### 截图

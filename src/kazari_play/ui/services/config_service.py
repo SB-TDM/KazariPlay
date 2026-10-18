@@ -2,6 +2,7 @@
 from typing import Any, Dict, Optional
 
 from utils.infra.config import Config
+from utils.infra.proxy_utils import ProxyConfigError, normalize_proxy_url
 
 
 class ConfigService:
@@ -20,6 +21,22 @@ class ConfigService:
         return data
 
     def save(self, data: dict) -> Dict[str, Any]:
+        net = data.get("network")
+        if isinstance(net, dict):
+            mode = str(net.get("proxy_mode") or "system").strip().lower()
+            if mode not in ("system", "direct", "custom"):
+                return {"ok": False, "msg": "代理模式无效"}
+            if mode == "custom":
+                try:
+                    net["proxy_url"] = normalize_proxy_url(
+                        net.get("proxy_url") or "")
+                except ProxyConfigError as e:
+                    return {"ok": False, "msg": str(e)}
+                if not net["proxy_url"]:
+                    return {"ok": False, "msg": "自定义代理模式需要填写代理地址"}
+            else:
+                net["proxy_url"] = str(net.get("proxy_url") or "").strip()
+            net["proxy_mode"] = mode
         for key, value in data.items():
             if isinstance(value, dict):
                 old = self.cfg.get(key)

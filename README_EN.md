@@ -32,6 +32,7 @@ KazariPlay manages a local visual novel (Galgame) library without tying it to a 
 
 - **Local library**: folder scanning, executable detection, deduplication, search, sorting, ratings, and favorites.
 - **Multi-source metadata**: parallel VNDB / Bangumi / Kungal / Ymgal search with Chinese titles, Japanese original titles, and external ID bridging.
+- **Network proxy**: follow the system proxy, connect directly, or set a custom HTTP proxy, with a built-in VNDB / Bangumi / Kungal connectivity test.
 - **Screenshots**: F12 capture with WGC / PrintWindow / fullscreen fallback and an in-game Steam-style toast.
 - **Collections and batch actions**: tree collections, batch assignment, removal, and relocation.
 - **Auto updates**: GitHub Releases checks, downloads, SHA256 verification, data backup, and rollback on failure.

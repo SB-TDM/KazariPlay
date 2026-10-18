@@ -115,6 +115,8 @@ interface PyWebViewApi {
   searchMetadata(keyword: string, sources_json?: string): Promise<string>;
   getMetadataSources(): Promise<string>;
   saveMetadataSources(sources_json: string): Promise<unknown>;
+  /** 测试 VNDB/Bangumi/Kungal 连通性；payload={mode:"system|direct|custom",proxy_url} */
+  testMetadataConnection(payload_json?: string): Promise<string>;
   applyCandidate(game_id: string, candidate_json: string, fields_json?: string): Promise<unknown>;
 
   // ---- 通用后端事件 ----

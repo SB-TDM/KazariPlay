@@ -1213,6 +1213,19 @@ class WebBridge:
         """返回全部元数据源（id/名称/favicon/状态/是否启用），供设置页与工具栏展示"""
         return json.dumps(self._metadata_source_service.list_sources(), ensure_ascii=False)
 
+    def testMetadataConnection(self, payload_json: str = "") -> str:
+        """测试 VNDB/Bangumi/Kungal 在当前代理配置下是否可访问。"""
+        try:
+            payload = json.loads(payload_json) if payload_json else {}
+        except Exception:
+            payload = {}
+        if not isinstance(payload, dict):
+            payload = {}
+        mode = str(payload.get("mode") or "system").strip().lower()
+        proxy_url = str(payload.get("proxy_url") or "").strip()
+        result = self._metadata_source_service.test_connection(mode, proxy_url)
+        return json.dumps(result, ensure_ascii=False)
+
     def saveMetadataSources(self, sources_json: str):
         """保存用户勾选的混合检索源（写 config，即时生效）。
         保存提示统一由前端 settings.save() 弹出（“设置已保存”），避免双 toast 互相覆盖。

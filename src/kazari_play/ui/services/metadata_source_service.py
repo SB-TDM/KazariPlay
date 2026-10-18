@@ -10,3 +10,8 @@ class MetadataSourceService:
 
     def save_mixed(self, source_ids: List[str]) -> None:
         multi_source.set_mixed_sources(source_ids)
+
+    def test_connection(self, mode: str = "system",
+                        proxy_url: str = "") -> dict:
+        from utils.infra.connectivity import check_metadata_sources
+        return check_metadata_sources(mode, proxy_url)

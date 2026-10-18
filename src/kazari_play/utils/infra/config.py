@@ -35,6 +35,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "cover_size": "medium",
     "language": "zh-CN",
     "log_level": "INFO",
+    # 网络代理：system=跟随 Windows / direct=直连 / custom=使用 proxy_url
+    "network": {
+        "proxy_mode": "system",
+        "proxy_url": "",
+    },
     "overlay": {
         "enabled": True,
         "exe_path": "",

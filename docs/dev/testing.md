@@ -14,6 +14,7 @@ python tests/test_classic_boundary.py  # 无翻译边界 + 旧数据兼容
 python tests/test_rating.py            # 评分规范化（0-5 半星）
 python tests/test_ui_sync.py
 python tests/test_multi_source.py
+python tests/test_proxy_utils.py
 python tests/test_cover_cache.py
 python tests/test_cover_thumb.py
 python tests/test_game_process.py
@@ -53,6 +54,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 | `test_rating.py` | 评分规范化与换算：0-5 半星对齐、非法拒绝、0-100 来源换算边界、低于 1 星归 0 |
 | `test_ui_sync.py` | UISync：域→JS 语句、合并、payload 转义、未绑窗口降级、多线程 |
 | `test_multi_source.py` | 多源注册表完整性、默认混合源、pending 剔除、`_wrap`/`_dedupe`、`set_mixed_sources`、候选详情补全 |
+| `test_proxy_utils.py` | 代理地址规范化、HTTP/SOCKS 校验、system/direct/custom 代理选择、连通性探测成功路径 |
 | `test_cover_cache.py` | 封面 base64 LRU：`move_to_end`、条目/字节双上限、clear |
 | `test_cover_thumb.py` | 封面缩略图：首次生成、磁盘缓存命中、mtime 变化重建、data URI |
 | `test_game_process.py` | 启动目标与关闭：模拟竞态 + Windows 真实父子进程 |
