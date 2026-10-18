@@ -75,10 +75,10 @@ python src/kazari_play/main.py
 <summary>Build a local test package</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.1
 ```
 
-Output: `artifacts/trial-builds/trial-build-1.1.0/dist/KazariPlay/`. Use `run_develop.cmd`; data stays isolated under the package's `data/`.
+Output: `artifacts/trial-builds/trial-build-1.1.1/dist/KazariPlay/`. Use `run_develop.cmd`; data stays isolated under the package's `data/`.
 
 </details>
 
@@ -86,7 +86,7 @@ Output: `artifacts/trial-builds/trial-build-1.1.0/dist/KazariPlay/`. Use `run_de
 <summary>Build release assets</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.1 --release
 ```
 
 This produces `KazariPlay-win64.zip` and `SHA256SUMS.txt` and requires a clean worktree.
