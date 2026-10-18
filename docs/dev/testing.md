@@ -39,7 +39,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 ### 前端组装 / 单测
 | 文件 | 覆盖 |
 |---|---|
-| `verify_frontend.py` | `main.py::_load_html` 组装链路：`PARTIALS/SCRIPTS` 占位符全替换、script 块数 = `_JS_MANIFEST`、JS 引用的元素 id 全部存在于组装 HTML 且不重复。**新增模块漏登记清单会立刻报错**。 |
+| `verify_frontend.py` | `main.py::_load_html` 组装链路：`PARTIALS/SCRIPTS` 占位符全替换、script 块数 = `_JS_MANIFEST`、JS 引用的元素 id 全部存在于组装 HTML 且不重复、CSS `@import` 已展开且全局 `@layer` 顺序完整。**新增模块漏登记清单会立刻报错**。 |
 | `test_p0_frontend.cjs` | 前端 P0（node + vm 沙箱） |
 | `test_p1_frontend.cjs` | 前端 P1（截图区 DOM 行为） |
 | `test_update_ui.cjs` | 更新弹层状态与轮询：就绪重开、双失败解锁、串行轮询与迟到响应丢弃、notice 展示 |

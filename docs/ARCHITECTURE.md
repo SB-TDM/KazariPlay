@@ -114,7 +114,7 @@ main.py
 
 - `ts/` 是**唯一真相**，`tsc` 编译到 `js/`（gitignore）；`main.py` 的 `_JS_MANIFEST` 按依赖顺序把 `js/*.js` 内联为多个 `<script>`。
 - `partials/*.html` 由 `_PARTIAL_MANIFEST` 注入到 `index.html` 的 `<!-- PARTIALS -->`（顺序即 DOM 层叠顺序，设置窗口最后）。
-- `css/style.css` 是 `@import` 入口；`main.py` 启动时**递归展开 @import** 内联为单个 `<style>`。
+- `css/style.css` 是 `@import` 入口；`main.py` 启动时**递归展开 @import** 内联为单个 `<style>`。CSS 按 `tokens → reset → base → layout → components → features → utilities` 原生 `@layer` 分层，`global/` 只放全局来源，`features/` 只放业务页面。
 - 桥调用统一走 `core.ts` 的 `bridge` Proxy（`window.pywebview.api.*`，支持 `bridge.xxx(args, cb)` 回调风格）。
 
 ## 5. 数据与文件位置

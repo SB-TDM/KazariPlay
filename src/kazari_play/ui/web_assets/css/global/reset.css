@@ -1,0 +1,16 @@
+/* ============================================================
+   global/reset.css — 文档 reset / body / app 壳 / 滚动条
+   ============================================================ */
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--font);background:linear-gradient(160deg,var(--bg),var(--bg-soft));
+     color:var(--text);height:100vh;overflow:hidden;-webkit-user-select:none;user-select:none;}
+.app{display:flex;flex-direction:column;height:100vh;
+     background:linear-gradient(160deg,var(--bg),var(--bg-soft));}
+
+/* 全局统一滚动带 */
+*::-webkit-scrollbar{width:8px;height:8px;}
+*::-webkit-scrollbar-track{background:transparent;}
+*::-webkit-scrollbar-thumb{background:var(--scroll-thumb,#f0cfd9);border-radius:4px;}
+*::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover,#ffb3c1);}
+*::-webkit-scrollbar-corner{background:transparent;}

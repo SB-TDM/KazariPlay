@@ -11,7 +11,7 @@
 src/kazari_play/ui/web_assets/
 ├── ts/            # TypeScript 源（唯一真相，改这里）
 ├── js/            # tsc 编译产物（勿手改，gitignore）
-├── css/           # style.css 为 @import 入口；启动时递归展开内联
+├── css/           # style.css 入口；global/ 全局层 + features/ 业务层
 ├── partials/      # 各窗口/对话框独立 HTML 片段
 ├── index.html     # 骨架（含 <!-- PARTIALS --> 与 <!-- SCRIPTS --> 标记）
 ├── package.json   # script: build(tsc) / typecheck
@@ -30,8 +30,23 @@ npm run typecheck     # 只类型检查
 `main.py::_load_html()` 在启动时组装最终 HTML：
 1. **partials**：`_PARTIAL_MANIFEST` 顺序读 `partials/*.html` 注入 `<!-- PARTIALS -->`（**顺序即 DOM 层叠顺序**，`common.html` 放最后盖在最上）
 2. **js**：`_JS_MANIFEST` 顺序把 `js/*.js` 各包一个 `<script>` 注入 `<!-- SCRIPTS -->`（**顺序即依赖顺序**）
-3. **css**：递归展开 `@import`（`style.css` 入口）内联为单个 `<style>`（html= 模式无 base URL，浏览器无法解析 `@import` 相对路径）
+3. **css**：递归展开 `@import`（`style.css` 入口）内联为单个 `<style>`（html= 模式无 base URL，浏览器无法解析 `@import` 相对路径）；`@import ... layer(name)` 会展开为 `@layer name { ... }`
 4. 图标占位符 → data URI；`{{APP_VERSION}}/{{PRODUCT_LINE}}/{{APP_TITLE}}` 替换
+
+### CSS 全局分层
+
+```css
+@layer tokens, reset, base, layout, components, features, utilities;
+```
+
+- `global/tokens.css`：颜色、字体、圆角、阴影、动画、亮暗主题
+- `global/reset.css` / `global/base.css`：文档 reset、滚动条、焦点、可访问性、基础元素
+- `global/layout.css` + `titlebar.css`：应用壳、标题栏、侧栏、导航、网格、窗口缩放手柄
+- `global/components/`：跨页面控件（pill 按钮、关闭按钮、基础 chip、overlay/dialog、toast、批量工具）
+- `features/`：主页、卡片、收藏夹、详情、表单、设置、截图、来源、更新等业务样式
+- `utilities` 预留给真正无业务语义的工具类
+
+规则：`features/` 只能消费全局 token/组件，不反向定义全局组件；暗色主题优先只改 tokens。`style.css` 是唯一的 CSS 入口，新增文件需在清单中登记并归入对应层。
 
 > **新增前端模块**：`ts/` 建文件 → 登记 `main.py::_JS_MANIFEST`（位置即依赖顺序）。
 

@@ -1,0 +1,24 @@
+/* ============================================================
+   global/components/controls.css — 跨页面共享控件：
+   关闭按钮 / pill 按钮 / 基础 chip
+   ============================================================ */
+
+.close-btn{flex:none;width:30px;height:30px;border-radius:50%;border:none;background:var(--bg-hover);
+           color:var(--text-sub);font-size:15px;cursor:pointer;font-family:var(--font);
+           transition:transform .2s var(--bounce),background .2s,color .2s;}
+.close-btn:hover{background:#ffb3bd;color:#fff;transform:rotate(90deg);}
+
+.pill-btn{height:34px;padding:0 18px;border-radius:50px;border:1.5px solid var(--border-soft);background:var(--bg-panel);
+          color:var(--text-sub);font-size:13px;font-family:var(--font);cursor:pointer;
+          transition:transform .22s var(--bounce),color .22s,border-color .22s,box-shadow .22s;}
+.pill-btn:hover{transform:translateY(-2px);color:var(--pink-deep);border-color:var(--pink);
+                box-shadow:0 4px 10px var(--glow-soft);}
+.pill-btn.primary{border:none;color:#fff;background:var(--grad-pink);box-shadow:0 4px 12px var(--glow-strong);}
+.pill-btn.primary:hover{color:#fff;}
+.pill-btn.fav.on{color:var(--star);border-color:var(--star);}
+.pill-btn:disabled{opacity:.6;cursor:default;}
+.pill-btn.danger{color:#ff6f81;border-color:#ffb3bd;}
+.pill-btn.danger:hover{background:#fff0f2;border-color:#ff6f81;}
+
+.chip{height:24px;padding:0 12px;border-radius:50px;font-size:12px;display:inline-flex;
+      align-items:center;gap:5px;}

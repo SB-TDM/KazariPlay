@@ -32,6 +32,14 @@ def run():
             errors.append(f"残留标记: {marker}")
     if '<link rel="stylesheet"' in html:
         errors.append("css 未内联")
+    if "@import url(" in html:
+        errors.append("css @import 未展开")
+    if ("@layer tokens, reset, base, layout, components, features, utilities;"
+            not in html):
+        errors.append("css 全局层级声明缺失或顺序错误")
+    for layer in ("tokens", "reset", "base", "layout", "components", "features"):
+        if f"@layer {layer}{{" not in html:
+            errors.append(f"css layer 缺块: {layer}")
     if f"<title>{escape(WINDOW_TITLE)}</title>" not in html:
         errors.append("窗口标题与版本来源不一致")
     if f'版本 {escape(DISPLAY_VERSION)}' not in html:

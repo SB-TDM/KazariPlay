@@ -1,21 +1,31 @@
 /* ============================================================
-   style.css — CSS 入口（连接端）
-   样式按功能职责拆分到 css/ 下各模块文件，经 @import 引入；
-   main.py _load_html() 会递归展开 @import 后整体内联，
-   因此新增 / 拆分 CSS 模块时只需在此登记并保持相对顺序。
+   style.css — CSS 入口与全局层级契约
+
+   层级顺序（低 → 高）：
+   tokens → reset → base → layout → components → features → utilities
+
+   - global/：所有页面可依赖的唯一全局来源
+   - features/：业务页面，只消费全局层，不反向定义全局组件
+   - main.py 递归展开 @import，并保留 layer(...) 为 @layer 块
    ============================================================ */
-@import url("variables.css");
-@import url("base.css");
-@import url("titlebar.css");
-@import url("layout.css");
-@import url("collections.css");
-@import url("cards.css");
-@import url("widgets.css");
-@import url("sheets.css");
-@import url("detail.css");
-@import url("screenshots.css");
-@import url("form.css");
-@import url("settings.css");
-@import url("sources.css");
-@import url("home.css");
-@import url("update.css");
+
+@layer tokens, reset, base, layout, components, features, utilities;
+
+@import url("global/tokens.css") layer(tokens);
+@import url("global/reset.css") layer(reset);
+@import url("global/base.css") layer(base);
+@import url("global/titlebar.css") layer(layout);
+@import url("global/layout.css") layer(layout);
+@import url("global/components/controls.css") layer(components);
+@import url("global/components/widgets.css") layer(components);
+@import url("global/components/sheets.css") layer(components);
+
+@import url("features/collections.css") layer(features);
+@import url("features/cards.css") layer(features);
+@import url("features/detail.css") layer(features);
+@import url("features/screenshots.css") layer(features);
+@import url("features/form.css") layer(features);
+@import url("features/settings.css") layer(features);
+@import url("features/sources.css") layer(features);
+@import url("features/home.css") layer(features);
+@import url("features/update.css") layer(features);

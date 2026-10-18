@@ -122,14 +122,19 @@ def _load_html() -> str:
     # 3) css 内联（递归展开 @import：style.css 作为 @import 入口时，
     #    pywebview html= 模式无 base URL，浏览器无法解析 @import 相对路径，
     #    故在此把所有 @import 替换为对应文件内容，最终单 <style> 内联）
+    #    支持 @import url("x.css") layer(name)，展开为 @layer name { ... }
     def _expand_imports(css_text: str) -> str:
-        pat = re.compile(r'@import\s+url\(\s*["\']?([^"\')]+)["\']?\s*\)\s*;')
+        pat = re.compile(
+            r'@import\s+url\(\s*["\']?([^"\')]+)["\']?\s*\)\s*'
+            r'(?:layer\(\s*([^)]+?)\s*\))?\s*;')
         def repl(m):
             rel = m.group(1)
             try:
-                return _expand_imports(read(os.path.join("css", rel)))
+                expanded = _expand_imports(read(os.path.join("css", rel)))
             except FileNotFoundError:
                 return m.group(0)  # 找不到则保留原 @import，让浏览器报错便于排查
+            layer = (m.group(2) or "").strip()
+            return f"@layer {layer}{{\n{expanded}\n}}" if layer else expanded
         return pat.sub(repl, css_text)
     css = _expand_imports(read(os.path.join("css", "style.css")))
     html = html.replace('<link rel="stylesheet" href="css/style.css">',
