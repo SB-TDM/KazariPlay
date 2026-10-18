@@ -179,12 +179,56 @@ def _dedupe(candidates: List[dict]) -> List[dict]:
     return out
 
 
+def _fetch_detail(detail_fn, external_id: str) -> dict:
+    try:
+        data = detail_fn(external_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("元数据详情补全失败: id=%s, %s", external_id, e)
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _enrich_details(candidates: List[dict]) -> List[dict]:
+    """按来源 ID 补全手动搜索候选的简介/开发商等详情字段。"""
+    jobs = []
+    for cand in candidates:
+        source_id = str(cand.get("source") or "")
+        if source_id == "vndb":
+            continue
+        client = (SOURCES.get(source_id) or {}).get("client")
+        detail_fn = getattr(client, "detail", None)
+        external_id = str(cand.get("source_id") or "").strip()
+        if not detail_fn or not external_id:
+            continue
+        if cand.get("description") and cand.get("developer"):
+            continue
+        jobs.append((cand, detail_fn, external_id))
+
+    if not jobs:
+        return candidates
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(8, len(jobs))
+    ) as ex:
+        futs = {
+            ex.submit(_fetch_detail, detail_fn, external_id): cand
+            for cand, detail_fn, external_id in jobs
+        }
+        for fut in concurrent.futures.as_completed(futs):
+            cand = futs[fut]
+            detail = fut.result()
+            for key, value in detail.items():
+                if value not in (None, "", [], {}):
+                    cand[key] = value
+    return candidates
+
+
 def search_metadata(
     keyword: str,
     sources: Optional[List[str]] = None,
     limit_per_source: int = 5,
 ) -> List[dict]:
-    """多源搜索元数据，返回统一候选列表（合并 + 去重 + 带 favicon）
+    """多源搜索元数据，返回统一候选列表（合并 + 去重 + 补详情 + 带 favicon）
 
     Args:
         keyword: 搜索关键词
@@ -232,4 +276,4 @@ def search_metadata(
             ex.shutdown(wait=False)
         # 并发完成顺序不定，按源配置顺序还原
         all_candidates.sort(key=lambda c: order.get(c.get("source"), len(order)))
-    return _dedupe(all_candidates)
+    return _enrich_details(_dedupe(all_candidates))

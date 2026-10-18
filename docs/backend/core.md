@@ -157,6 +157,7 @@
 - 单源：顺序调用
 - 多源：`ThreadPoolExecutor` 并发发起；`as_completed(timeout=_SEARCH_DEADLINE=30s)`，超时返回已完成部分；`shutdown(wait=False)` 不等慢源；完成后按源配置顺序还原
 - 去重 `_dedupe`：先 `(source, source_id)` 精确，再标题归一化模糊；保留先到源顺序
+- 去重后 `_enrich_details`：对带 `detail` 的非 VNDB 源按 ID 并发补全简介/开发商等字段；已有简介与开发商的候选跳过
 
 **配置读取**：`Config().get("metadata_sources")`。
 

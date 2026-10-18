@@ -3,6 +3,9 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 未发布
+- 修复手动多源搜索结果缺少简介/开发商：去重后对带 `detail` 的非 VNDB 源按 ID 并发补详情，Kungal/Hikarinagi/Shionlib 候选可正确填入“应用元数据”弹层。
+
 ## 1.1.0 正式发布（2026-10-18）
 - 源码迁移到 `src/kazari_play/`，按 `core/games|metadata|media|platform`、`database/repositories`、`ui/services`、`utils/clients|update|infra|domain|system` 分层；同步测试、脚本、文档与 PyInstaller 路径。
 - 新增 Kungal 中文锚点：读取 Kungal 详情的 `vndb_id` 直接补 VNDB 详情，支持批量锚点预取与 VNDB 批量详情。

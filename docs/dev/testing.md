@@ -52,7 +52,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 | `test_classic_boundary.py` | 原版分离回归：无翻译能力、旧库与旧配置可读写兼容 |
 | `test_rating.py` | 评分规范化与换算：0-5 半星对齐、非法拒绝、0-100 来源换算边界、低于 1 星归 0 |
 | `test_ui_sync.py` | UISync：域→JS 语句、合并、payload 转义、未绑窗口降级、多线程 |
-| `test_multi_source.py` | 多源注册表完整性、默认混合源、pending 剔除、`_wrap`/`_dedupe`、`set_mixed_sources` |
+| `test_multi_source.py` | 多源注册表完整性、默认混合源、pending 剔除、`_wrap`/`_dedupe`、`set_mixed_sources`、候选详情补全 |
 | `test_cover_cache.py` | 封面 base64 LRU：`move_to_end`、条目/字节双上限、clear |
 | `test_cover_thumb.py` | 封面缩略图：首次生成、磁盘缓存命中、mtime 变化重建、data URI |
 | `test_game_process.py` | 启动目标与关闭：模拟竞态 + Windows 真实父子进程 |

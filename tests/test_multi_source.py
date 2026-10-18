@@ -92,11 +92,44 @@ def test_set_mixed():
     print("[set_mixed] OK")
 
 
+def test_detail_enrichment():
+    calls = []
+
+    class FakeClient:
+        def search(self, keyword, count=5):
+            return [
+                {"source": "fixture", "source_id": "1", "title": "A"},
+                {"source": "fixture", "source_id": "2", "title": "B",
+                 "description": "已有简介", "developer": "已有开发商"},
+            ]
+
+        def detail(self, source_id):
+            calls.append(source_id)
+            return {"description": "详情简介", "developer": "详情开发商"}
+
+    ms.SOURCES["fixture"] = {
+        "name": "Fixture", "icon": "https://example.com/favicon.ico",
+        "status": "experimental", "client": FakeClient(),
+    }
+    try:
+        out = ms.search_metadata("A", sources=["fixture"])
+    finally:
+        ms.SOURCES.pop("fixture", None)
+
+    assert calls == ["1"], calls
+    assert out[0]["description"] == "详情简介"
+    assert out[0]["developer"] == "详情开发商"
+    assert out[1]["description"] == "已有简介"
+    assert out[1]["developer"] == "已有开发商"
+    print("[detail enrichment] OK")
+
+
 def main():
     test_registry()
     test_mixed_default()
     test_wrap_and_dedupe()
     test_set_mixed()
+    test_detail_enrichment()
     print("MULTI_SOURCE TEST PASS")
     return 0
 
