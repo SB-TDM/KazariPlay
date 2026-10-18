@@ -3,9 +3,9 @@
    描述 / 窄屏响应式
    ============================================================ */
 
-  .dialog.detail{--detail-h:min(70vh,680px);
-                 width:min(94vw,calc(var(--detail-h) * 1.55),1180px);
-                 aspect-ratio:31 / 20;height:auto;max-height:var(--detail-h);
+  .dialog.detail{--detail-h:min(66vh,640px);
+                 width:min(94vw,calc(var(--detail-h) * 1.7),1180px);
+                 aspect-ratio:17 / 10;height:auto;max-height:var(--detail-h);
                  flex-direction:row;padding-top:20px;container-type:inline-size;}
   .detail-cover{flex:none;width:240px;width:clamp(210px,29cqi,300px);
                 position:relative;aspect-ratio:154/179;align-self:flex-start;
