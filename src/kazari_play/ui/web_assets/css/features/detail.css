@@ -3,28 +3,36 @@
    描述 / 窄屏响应式
    ============================================================ */
 
-  .dialog.detail{--detail-h:min(78vh,760px);
+  .dialog.detail{--detail-h:min(70vh,680px);
                  width:min(94vw,calc(var(--detail-h) * 1.45),1120px);
                  aspect-ratio:29 / 20;height:auto;max-height:var(--detail-h);
-                 flex-direction:row;padding-top:20px;}
-  .detail-cover{flex:none;width:clamp(240px,18vw,340px);position:relative;aspect-ratio:154/179;align-self:flex-start;
+                 flex-direction:row;padding-top:20px;container-type:inline-size;}
+  .detail-cover{flex:none;width:240px;width:clamp(210px,29cqi,300px);
+                position:relative;aspect-ratio:154/179;align-self:flex-start;
                 background-size:cover;background-position:center;background-color:var(--bg-hover);
-                border-radius:var(--radius-lg);margin:2px 0 0 18px;}
+                border-radius:var(--radius-lg);margin:2px 0 0 clamp(14px,1.8cqi,20px);}
   .detail-body{flex:1;min-width:0;display:flex;flex-direction:column;
-               padding:clamp(14px,1.2vw,20px) clamp(22px,2vw,30px) clamp(20px,1.6vw,28px);
+               padding:clamp(12px,1.8cqi,20px) clamp(18px,2.4cqi,30px) clamp(16px,2cqi,28px);
                overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
-  .detail-head{display:flex;align-items:flex-start;gap:10px;}
-  .detail-head h2{flex:1;min-width:0;overflow-wrap:break-word;font-size:clamp(20px,1.45vw,28px);
+  .detail-head{display:flex;align-items:flex-start;gap:clamp(8px,1cqi,12px);}
+  .detail-head h2{flex:1;min-width:0;overflow-wrap:break-word;font-size:clamp(18px,2.6cqi,28px);
                   font-weight:700;color:var(--text);line-height:1.3;}
-  .info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px 16px;margin-top:12px;}
-  .info-item{font-size:clamp(12.5px,.8vw,14px);color:var(--text-sub);}
+  .info-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+             gap:clamp(4px,.7cqi,8px) clamp(10px,1.5cqi,18px);margin-top:clamp(8px,1.4cqi,14px);}
+  .info-item{font-size:clamp(12px,1.4cqi,14px);color:var(--text-sub);}
   .info-item b{color:var(--text);font-weight:600;margin-right:4px;}
-  .detail-actions{display:flex;gap:8px;margin-top:14px;align-items:center;}
+  .detail-actions{display:flex;gap:clamp(6px,1cqi,10px);margin-top:clamp(10px,1.8cqi,16px);
+                  align-items:center;}
+  .dialog.detail .pill-btn{height:clamp(30px,3.4cqi,38px);padding:0 clamp(14px,1.9cqi,22px);
+                           font-size:clamp(12px,1.2cqi,14px);}
   .chip.manage{background:var(--bg-panel);border:1.5px dashed var(--pink);color:var(--pink-deep);
+               height:clamp(22px,2.4cqi,28px);padding:0 clamp(10px,1.2cqi,14px);
+               font-size:clamp(11px,1.1cqi,13px);
                cursor:pointer;transition:transform .2s var(--bounce),background .2s;}
   .chip.manage:hover{background:var(--bg-hover);transform:translateY(-1px);}
-  .detail-desc{margin-top:12px;overflow-y:auto;max-height:clamp(96px,13vh,160px);
-               font-size:clamp(13px,.85vw,15px);line-height:1.7;
+  .detail-desc{margin-top:clamp(8px,1.4cqi,14px);overflow-y:auto;
+               max-height:clamp(80px,16vh,140px);
+               font-size:clamp(12.5px,1.4cqi,15px);line-height:1.7;
                color:var(--text-sub);padding-right:6px;scrollbar-gutter:stable;flex:none;}
 
   @media (max-width:640px){.dialog.detail{flex-direction:column;width:100%;aspect-ratio:auto;height:var(--detail-h);}
