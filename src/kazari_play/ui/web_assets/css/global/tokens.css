@@ -12,7 +12,7 @@
     --grad-pink:linear-gradient(135deg,#ffb3c1,#ff8fab);
     --grad-mint:linear-gradient(135deg,#b5ead7,#7fd8be);
     --radius-lg:18px; --radius-md:12px; --card-w:154px; --card-h:210px;
-    --titlebar-h:40px; --sidebar-w:72px; --nav-h:44px;
+    --titlebar-h:40px; --sidebar-w:72px; --nav-h:48px;
     --navbar-bg:rgba(255,255,255,.6);
     --border-soft:#ffd7e0; --border-strong:#ff8fab;
     --glow-soft:rgba(255,143,171,.14);
