@@ -17,7 +17,7 @@
   @keyframes sheetDown{from{transform:translateY(0);}to{transform:translateY(100%);}}
   .dialog{position:relative;width:100%;margin:0 auto;background:var(--bg-panel);
           border-radius:20px 20px 0 0;border:1.5px solid var(--border-soft);border-bottom:none;
-          box-shadow:0 -14px 44px rgba(120,70,110,.32);display:flex;flex-direction:column;
+          display:flex;flex-direction:column;
           overflow:hidden;max-height:90vh;}
   .dialog::before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);
                   width:40px;height:4px;border-radius:2px;background:#e6d5dd;z-index:3;}

@@ -15,10 +15,8 @@
     --titlebar-h:40px; --sidebar-w:72px; --nav-h:44px;
     --navbar-bg:rgba(255,255,255,.6);
     --border-soft:#ffd7e0; --border-strong:#ff8fab;
-    --shadow-dlg:0 14px 40px rgba(120,70,110,.30);
     --glow-soft:rgba(255,143,171,.14);
     --glow-med:rgba(255,111,145,.28);
-    --glow-strong:rgba(255,111,145,.42);
     --scroll-thumb:#f0cfd9; --scroll-thumb-hover:#ffb3c1;
     --bounce:cubic-bezier(.34,1.56,.64,1); --soft:cubic-bezier(.22,.9,.36,1);
     /* 卡片动画 token：框与封面共用同一时长+缓动，hover/选中时同频联动 */
@@ -37,9 +35,7 @@
     --grad-pink:linear-gradient(135deg,#8a4f72,#ef86ad);
     --grad-mint:linear-gradient(135deg,#3d6b5e,#6cc5ab);
     --navbar-bg:rgba(28,22,40,.72);
-    --shadow-dlg:0 14px 40px rgba(0,0,0,.6);
     --glow-soft:rgba(239,134,173,.08);
     --glow-med:rgba(239,134,173,.14);
-    --glow-strong:rgba(239,134,173,.20);
     --scroll-thumb:#3a3049; --scroll-thumb-hover:#4a3d5c;
   }

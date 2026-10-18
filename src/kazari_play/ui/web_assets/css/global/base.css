@@ -26,7 +26,7 @@ textarea:focus:not(:focus-visible),
 /* 大号主按钮（列表空状态与主页扫描引导共用） */
 .btn-primary{height:44px;padding:0 24px;border:none;border-radius:50px;cursor:pointer;
   font-size:14px;font-weight:bold;font-family:var(--font);
-  background:var(--grad-pink);color:#fff;box-shadow:0 4px 12px var(--glow-strong);
+  background:var(--grad-pink);color:#fff;
   transition:transform .2s var(--bounce);}
 .btn-primary:hover{transform:translateY(-2px);}
 

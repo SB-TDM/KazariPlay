@@ -15,8 +15,7 @@
   /* 头部：问候 + 日期/副文案 */
   .home-head{display:flex;align-items:center;gap:14px;}
   .home-avatar{flex:none;width:48px;height:48px;border-radius:16px;background:var(--grad-pink);
-               color:#fff;display:flex;align-items:center;justify-content:center;
-               box-shadow:0 4px 12px var(--glow-strong);}
+               color:#fff;display:flex;align-items:center;justify-content:center;}
   .home-greet{min-width:0;}
   .home-hello{font-size:20px;font-weight:700;color:var(--text);}
   .home-sub{margin-top:3px;font-size:12.5px;color:var(--text-sub);}

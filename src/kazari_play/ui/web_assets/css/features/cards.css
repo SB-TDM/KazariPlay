@@ -6,7 +6,6 @@
   /* 卡片 */
   .card{width:var(--card-w);height:var(--card-h);border-radius:var(--radius-lg);background:var(--bg-panel);
         overflow:hidden;position:relative;cursor:pointer;border:1.5px solid var(--border-soft);
-        box-shadow:0 4px 12px var(--glow-soft);
         will-change:transform;
         /* 懒加载布局稳定：离屏卡片不参与渲染/布局，占位尺寸=真实尺寸，
            滚动条高度恒定，大库滚动不再跳动（与 .grid contain:layout、.scroll scrollbar-gutter 配合） */
@@ -31,7 +30,7 @@
             mask:radial-gradient(circle,transparent 0 13px,#000 14px);}
   /* 悬停：封面跟随框同向上浮 + 轻微放大（与 .card:hover 的 translateY 同向，视觉连贯） */
   .card:hover .cover{transform:translateY(-1px) scale(1.03);}
-  .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 10px 22px var(--glow-med);}
+  .card.active{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-soft);}
   /* 选中态封面：轻微放大 + 提亮（与悬停同向，互不覆盖） */
   .card.active .cover{transform:scale(1.03);filter:brightness(1.05) saturate(1.1);}
   /* 选中 + 悬停同时：显式合并（上浮 + 放大 + 提亮），避免同特异性规则互相覆盖 */
@@ -51,7 +50,7 @@
   body.batch .card:hover{transform:translateY(-3px);}
   /* 批量模式：封面不放大，避免放大干扰勾选视觉 */
   body.batch .card:hover .cover{transform:none;}
-  .card.selected{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-med),0 8px 18px var(--glow-med);}
+  .card.selected{border-color:var(--pink);box-shadow:0 0 0 3px var(--glow-soft);}
   .card.selected .check{background:var(--grad-pink);border-color:transparent;transform:scale(1.1);}
 
   /* 运行中标记 */

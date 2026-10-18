@@ -13,7 +13,7 @@
           transition:transform .22s var(--bounce),color .22s,border-color .22s,box-shadow .22s;}
 .pill-btn:hover{transform:translateY(-2px);color:var(--pink-deep);border-color:var(--pink);
                 box-shadow:0 4px 10px var(--glow-soft);}
-.pill-btn.primary{border:none;color:#fff;background:var(--grad-pink);box-shadow:0 4px 12px var(--glow-strong);}
+.pill-btn.primary{border:none;color:#fff;background:var(--grad-pink);}
 .pill-btn.primary:hover{color:#fff;}
 .pill-btn.fav.on{color:var(--star);border-color:var(--star);}
 .pill-btn:disabled{opacity:.6;cursor:default;}
@@ -28,6 +28,5 @@
         cursor:pointer;font-family:var(--font);transition:transform .22s var(--bounce),border-color .2s,color .2s,box-shadow .2s;}
 .navbtn:hover{transform:translateY(-2px);border-color:var(--pink);color:var(--pink-deep);
               box-shadow:0 4px 10px var(--glow-soft);}
-.navbtn.active{color:#fff;border-color:transparent;background:var(--grad-pink);
-               box-shadow:0 4px 12px var(--glow-strong);}
+.navbtn.active{color:#fff;border-color:transparent;background:var(--grad-pink);}
 .navbtn.active:hover{color:#fff;}
