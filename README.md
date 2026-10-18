@@ -1,127 +1,138 @@
-# KazariPlay 1.1.0 原版
+<p align="center">
+  <img src="docs/design/logo.png" width="160" alt="KazariPlay logo">
+</p>
 
-版本线：`main` / `develop`。原版已发布 `1.0.0` / `1.0.1` 正式版，当前 `1.1.0` 正式版（元数据多源自动匹配），包含游戏库、扫描、更新定位、元数据、截图能力；翻译与 Hook 注入相关功能仍保留在 `feature/hook-translation`。分支和工作流使用见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
+<h1 align="center">KazariPlay</h1>
 
-当前正式版为 `1.1.0`（多源元数据匹配）。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)。
+<p align="center">
+  面向 Windows 的视觉小说本地库启动器：扫描、整理、匹配元数据、截图，并保持自动更新。
+</p>
 
-视觉小说（Galgame）本地库启动器 · **pywebview（系统 WebView）渲染 HTML UI**
+<p align="center">
+  <a href="https://github.com/SB-TDM/KazariPlay/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/v/release/SB-TDM/KazariPlay?label=release">
+  </a>
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4">
+  <a href="LICENSE">
+    <img alt="License" src="https://img.shields.io/github/license/SB-TDM/KazariPlay">
+  </a>
+</p>
 
-原版 Minato Launcher（V1.0）旧编号为 `0.1.0`，正式更名为 **KazariPlay**。当前正式版为 `1.1.0`，包含完整 TypeScript 前端、WGC 截图、扫描、元数据多源匹配、批量重新定位与数据自愈。
+<p align="center">
+  <a href="https://github.com/SB-TDM/KazariPlay/releases/latest">
+    <img alt="下载最新版" src="https://img.shields.io/badge/下载-最新版本-2ea44f?style=for-the-badge">
+  </a>
+</p>
 
-## 特性
+KazariPlay 是一个无翻译原版视觉小说（Galgame）库管理工具。它不绑定特定启动器，直接扫描本地文件夹，用卡片方式展示游戏，并自动匹配 VNDB、Bangumi、Kungal 等来源的元数据。
 
-- **Kawaii Minimal 视觉**：UI 为 HTML/CSS/TypeScript（源 `src/kazari_play/ui/web_assets/ts/`，tsc 编译到 `js/`），由 pywebview + 系统 Edge WebView2 渲染，与设计稿一致
-- **游戏内截图提示（V1.02 新增）**：F12 截图后在**游戏画面右下角**弹出 Steam 式 toast（缩略图 + 游戏名，从底部上滑），由独立 C++ 进程 `overlay.exe` 渲染（Direct2D + DirectWrite），仅作用于游戏窗口，与主程序经命名管道通信
-- **截图内核（三级回退）**：WGC（Windows Graphics Capture，兼容 D3D/Vulkan 独占渲染）→ PrintWindow（GDI）→ 全屏兜底；每次截图保存**原图 + 统一尺寸缩略图**（等比留边、随原图存放），删除/重命名联动
-- **Steam 式截图管理**：详情页截图卡片左键**全屏预览原图**、右键菜单（重命名 / 定位到文件 / 复制到剪贴板 / 删除），缩略图懒加载
-- **收藏夹系统（V1.01 新增）**：树形分组→分类、游戏多对多归类、手风琴侧边栏、拖拽排序、管理游戏对话框
-- **游戏库主界面**：自适应卡片网格、星级评分、收藏角标、真实封面（本地 HTTP 服务，失败回退 base64）
-- **详情底部抽屉（Modal Bottom Sheet）**：点击卡片底部上拉，信息栏 3 列、收藏夹路径 chips、简介
-- **批量选择模式**：卡片圆形勾选框 + 批量工具栏（全选/批量加入收藏夹/批量移除/从库移除）
-- **批量重新定位**：按游戏身份匹配目标目录，预览确认后更新路径，保留游戏 ID、收藏夹和截图归属
-- **设置窗口**：居中模态，常规/主题（即时预览）/快捷键/伪装/关于
-- **应用内自动更新**：启动静默检查 / 关于页手动检查；下载进度与 SHA256 校验；一键立即重启更新，更新前自动备份数据库与配置、失败自动回滚
-- 搜索 / 排序 / 收藏 / 继续游玩 导航、无边框窗口 + HTML 标题栏拖拽
-- 启动游戏、游玩时长统计、VNDB/Bangumi/月幕多源自动匹配（跨源一致性校验、中文标题/简介优先）与多源搜索
-- 前后端经 **pywebview js_api**（`src/kazari_play/ui/web_bridge.py`）桥接
+> 本项目不包含翻译、Hook 注入或 AI 字幕功能；相关实验实现保留在独立分支 `feature/hook-translation`。
 
-## 前置要求
+## 功能
 
-- Windows 10/11，Python 3.11（当前验证环境）
-- Node.js / npm：首次运行前需构建前端
-- **Microsoft Edge WebView2 Runtime**（Windows 10/11 一般已内置；缺失时用 winget 安装）：
-  ```bash
-  winget install --id Microsoft.EdgeWebView2Runtime -e
-  ```
+- **本地游戏库**：扫描文件夹、识别启动程序、去重、搜索、排序、评分和收藏。
+- **多源元数据**：VNDB、Bangumi、Kungal、月幕等来源并行检索；支持中文标题、日文原名和外部 ID 桥接。
+- **截图与游戏内提示**：F12 截图，WGC / PrintWindow / 全屏三级回退；游戏窗口内显示 Steam 风格 toast。
+- **收藏夹与批量操作**：树形收藏夹、批量归类、批量移除、批量重新定位。
+- **自动更新**：从 GitHub Releases 检查、下载、SHA256 校验，更新前备份数据库与配置，失败自动回滚。
+- **原生 Windows 体验**：无边框窗口、本地 HTTP 封面服务、系统 WebView2 渲染。
 
-## 运行
+## 下载与安装
+
+前往 [Releases](https://github.com/SB-TDM/KazariPlay/releases/latest) 下载：
+
+```text
+KazariPlay-win64.zip
+```
+
+1. 解压到**非系统盘的用户可写目录**
+2. 运行 `KazariPlay.exe`
+3. 首次启动后按需扫描游戏目录
+
+建议不要放在 `Program Files` 等需要管理员权限的位置。程序需要 Microsoft Edge WebView2 Runtime；Windows 10/11 通常已内置。
+
+## 数据位置
+
+| 数据 | 默认位置 |
+|---|---|
+| 数据库 | `%APPDATA%\KazariPlay\games.db` |
+| 配置 | `%APPDATA%\KazariPlay\config.json` |
+| 日志 | `%APPDATA%\KazariPlay\logs\` |
+| 封面 | `%APPDATA%\KazariPlay\covers\` |
+| 截图 | 程序目录或 `KAZARIPLAY_DATA_DIR` 下的 `screenshots/` |
+
+升级或重装前建议先备份 `%APPDATA%\KazariPlay`。旧 Minato Launcher 数据会在首次启动时尝试迁移。
+
+## 从源码运行
+
+需要 Python 3.11、Node.js/npm 和 WebView2。
 
 ```bash
 pip install -r requirements.txt
 npm --prefix src/kazari_play/ui/web_assets ci
 npm --prefix src/kazari_play/ui/web_assets run build
-python src/kazari_play/main.py     # 在对应工作区根目录下
+python src/kazari_play/main.py
 ```
 
-生成本地 develop 自测包（不会覆盖已有输出，也不读取真实用户库）：
+<details>
+<summary>构建本地自测包</summary>
 
 ```powershell
 python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0
 ```
 
-打正式发布资产（干净包 `KazariPlay-win64.zip` + `SHA256SUMS.txt`，要求工作区干净）：
+输出目录：
+
+```text
+artifacts/trial-builds/trial-build-1.1.0/dist/KazariPlay/
+```
+
+运行 `run_develop.cmd`，数据库、配置、日志和截图会隔离在包旁 `data/`。
+
+</details>
+
+<details>
+<summary>构建正式发布资产</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.0.1 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.0 --release
 ```
 
-完成后运行 `artifacts/trial-builds/trial-build-1.0.1/dist/KazariPlay/run_develop.cmd`，自测包的数据库、配置、日志和截图均隔离在包旁 `data/`。解压运行请放在非系统盘的用户可写目录（不要在 `Program Files` 等需要管理员权限的位置）。
+会生成：
 
-## 构建 C++ Overlay（可选）
-
-游戏内截图提示由独立进程 `overlay/bin/overlay.exe` 提供，首次运行前需编译（需要 MSVC Build Tools，含 C++ 工作负载）：
-
-```bat
-cd overlay
-build.bat        # 产物：overlay/bin/overlay.exe
+```text
+KazariPlay-win64.zip
+SHA256SUMS.txt
 ```
 
-overlay.exe 缺失或编译失败时，截图提示自动降级（不影响截图主功能）。
+要求工作区干净。
 
-原版 Overlay 只提供截图 toast，不链接 Textractor，无需 `hostlib.lib` 或 `texthook.dll`。x86 可使用 `overlay/build32.bat`；源码、DLL 和编译产物不可与实验工作区混用。
+</details>
 
-## 目录结构
+## 技术栈
 
-```
-KazariPlay_main/
-├── src/kazari_play/
-│   ├── main.py                # pywebview 入口（无边框窗口 + js_api；html/js/css 启动时内联）
-│   ├── core/                  # 后端核心（扫描/启动/监控/截图/元数据/多源搜索/overlay 客户端）
-│   ├── database/              # 数据层（游戏库 + 收藏夹关联表）
-│   ├── utils/                 # 工具（配置/日志/路径/VNDB/Bangumi/标题归一化）
-│   ├── ui/
-│   │   ├── web_bridge.py      # pywebview js_api 桥（后端能力暴露给前端）
-│   │   ├── sync.py            # 界面更新总线（数据变化 → 前端刷新的统一推送/合并）
-│   │   └── web_assets/        # 前端源码（详见 web_assets/README.md）
-│   │       ├── index.html     # 应用壳（侧边栏/主区/窗口手柄 + PARTIALS/SCRIPTS 占位符）
-│   │       ├── css/style.css
-│   │       ├── ts/            # TypeScript 源（原版 14 个模块）
-│   │       ├── js/            # tsc 编译产物（由 ts/ 生成，gitignore；main.py 按 _JS_MANIFEST 内联）
-│   │       └── partials/      # 各窗口/对话框分块 HTML（_PARTIAL_MANIFEST）
-│   └── resources/
-├── overlay/                   # C++ 游戏内截图 overlay（Direct2D + 命名管道 IPC）
-│   ├── src/                   # main / toast_window / pipe_server / protocol
-│   ├── third_party/           # nlohmann/json 单头文件
-│   ├── build.bat              # MSVC 编译脚本
-│   └── bin/overlay.exe        # 编译产物（git 忽略）
-├── screenshots/               # 截图存放（按游戏分文件夹，git 忽略）
-├── artifacts/                 # 构建包/归档/历史截图（git 忽略）
-└── tests/
-```
+- Python 3.11 + pywebview 6 + SQLite
+- TypeScript 前端，tsc 编译为经典脚本
+- Windows Graphics Capture / PrintWindow 截图
+- C++ overlay（Direct2D + 命名管道 IPC）
+- PyInstaller onedir 打包
 
-后端目录按职责细分：core/{games,metadata,media,platform}、database/repositories、ui/services、utils/{clients,update,infra,domain,system}。
+## 开发
 
-## 数据
+- [架构说明](docs/ARCHITECTURE.md)
+- [后端模块](docs/backend/README.md)
+- [前端模块](docs/frontend/README.md)
+- [开发约束](docs/dev/DEV_RULES.md)
+- [测试说明](docs/dev/testing.md)
+- [变更日志](docs/dev/CHANGELOG.md)
+- [分支流程](docs/dev/BRANCH_WORKFLOW.md)
 
-- 数据库：`%APPDATA%\KazariPlay\games.db`
-- 配置：`%APPDATA%\KazariPlay\config.json`（默认浅色 Kawaii 主题）
-- 截图：当前工作区 `screenshots/{game_id}/`
-- 从旧版 Minato Launcher 升级时，`%APPDATA%\MinatoLauncher` 下已有的数据会自动迁移
+## 许可证
 
-旧实验版数据库中的 Hook/翻译列和配置中的翻译数据保留作兼容；原版不启动这些能力，也不会将翻译配置传给前端。恢复默认设置仍保留旧翻译配置。两版本不要同时写同一数据库，切换前先备份；截图保留在各工作区自己的目录，不自动搬迁。
+GNU General Public License v3.0，详见 [LICENSE](LICENSE)。
 
-## 文档
+第三方组件与许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
-- [文档索引](docs/README.md)：区分当前有效文档、历史记录和未实施方案
-- [分支开发流程](docs/dev/BRANCH_WORKFLOW.md)：原版与实验版的边界、公共修复同步和远端待办
-- [工作约束](docs/dev/DEV_RULES.md)：修改代码、打包、提交前必读
-- [变更日志](docs/dev/CHANGELOG.md)：开发改动与验证记录
-- [第三方组件声明](THIRD_PARTY.md)：依赖和许可证说明
+---
 
-## 开源许可
-
-本项目以 **GNU General Public License v3.0（GPL-3.0）** 授权，详见 [LICENSE](LICENSE)。
-
-- 原版 Overlay 不链接 Textractor；项目继续使用既有 GPL-3.0 许可，源码与构建脚本随项目提供。
-- 第三方组件（pywebview / Pillow / keyboard / pywin32 / numpy / nlohmann-json 等）的使用与许可证见 [THIRD_PARTY.md](THIRD_PARTY.md)。
-- 完整源码：https://github.com/SB-TDM/KazariPlay
+[English README](README_EN.md)
