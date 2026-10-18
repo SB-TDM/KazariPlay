@@ -102,7 +102,7 @@
 
 **定位**：侧边栏树 + 收藏夹管理抽屉（当前游戏加入/退出收藏夹）。
 **依赖**：state / core / ui。
-**定义**：`renderCollectionTree`、`renderCollectionGroup`（手风琴，`toggleExpand`）、`renderCollectionCategory`、`bindCollectionItems`、`findCollectionNode`、`selectCollection`（选中集合/分组过滤）、`findParentGroupId`、`clearCollectionFilter`、`showCollectionCtx`（右键：重命名/删除/管理游戏）、`newCollection`、`renameCollection`、`delCollection`、`openCollectionManager`、`renderGameCollections`。
+**定义**：`renderCollectionTree`（含「全部作品」入口）、`renderCollectionGroup`（手风琴，`toggleExpand`）、`renderCollectionCategory`、`bindCollectionItems`、`findCollectionNode`、`selectCollection`（选中集合/分组过滤）、`showAllWorks`（清除收藏夹筛选并保留搜索）、`findParentGroupId`、`clearCollectionFilter`、`showCollectionCtx`（右键：重命名/删除/管理游戏）、`newCollection`、`renameCollection`、`delCollection`、`openCollectionManager`、`renderGameCollections`。
 
 ---
 

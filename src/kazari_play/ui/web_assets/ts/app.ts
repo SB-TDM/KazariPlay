@@ -111,8 +111,7 @@ document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(
     App.ui.state.collectionId = null;
     // 只清除导航项高亮：收藏夹入口的 active 表示抽屉展开，由 setCollectionDrawer 维护
     setActiveSideNav(it.dataset.nav!);
-    document.querySelectorAll<HTMLElement>('#collectionTree .collection-item').forEach(x => x.classList.remove('active'));
-    document.querySelectorAll<HTMLElement>('#collectionTree .collection-group-header').forEach(x => x.classList.remove('active'));
+    renderCollectionTree();
     renderAll(true);
   };
 });

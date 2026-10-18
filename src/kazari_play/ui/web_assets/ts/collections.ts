@@ -16,8 +16,12 @@ let _collectionTreeSig = '';
 
 function renderCollectionTree(): void {
   const cl = document.getElementById('collectionTree')!;
+  const allActive = App.ui.state.collectionId === null
+    && App.ui.state.nav === '全部作品';
   const sig = JSON.stringify({
     active: App.ui.state.collectionId,
+    allActive: allActive,
+    total: (App.data.games || []).length,
     open: App.ui.state.openGroupId,
     tree: App.ui.state.collectionTree.map(g => ({
       id: g.id, name: g.name, count: g.game_count || 0,
@@ -27,6 +31,20 @@ function renderCollectionTree(): void {
   if (sig === _collectionTreeSig) return;
   _collectionTreeSig = sig;
   cl.innerHTML = '';
+  const all = document.createElement('div');
+  all.className = 'collection-item collection-all' + (allActive ? ' active' : '');
+  all.setAttribute('role', 'button');
+  all.tabIndex = 0;
+  all.innerHTML = `<span class="name">全部作品</span>
+    <span class="count">${(App.data.games || []).length}</span>`;
+  all.onclick = showAllWorks;
+  all.onkeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      showAllWorks();
+    }
+  };
+  cl.appendChild(all);
   App.ui.state.collectionTree.forEach(group => cl.appendChild(renderCollectionGroup(group)));
   bindCollectionItems();
 }
@@ -77,7 +95,7 @@ function renderCollectionCategory(cat: CollectionTreeNode): string {
 }
 
 function bindCollectionItems(): void {
-  document.querySelectorAll<HTMLElement>('#collectionTree .collection-item').forEach(it => {
+  document.querySelectorAll<HTMLElement>('#collectionTree .collection-item[data-id]').forEach(it => {
     const cid = +it.dataset.id!;
     // 键盘可达：分类项作为可聚焦按钮（Enter/空格 触发）
     it.setAttribute('role', 'button');
@@ -130,6 +148,17 @@ function selectCollection(id: number, node: CollectionTreeNode | null): void {
     const pg = findParentGroupId(id);
     if (pg) App.ui.state.openGroupId = pg;
   }
+  renderAll(true);
+  renderCollectionTree();
+}
+
+// 收藏夹侧边栏的「全部作品」：清除收藏夹筛选，保留当前搜索词
+function showAllWorks(): void {
+  App.ui.state.collectionId = null;
+  App.ui.state.collectionGroupId = null;
+  App.ui.state.openGroupId = null;
+  App.ui.state.nav = '全部作品';
+  setActiveSideNav('全部作品');
   renderAll(true);
   renderCollectionTree();
 }

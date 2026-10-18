@@ -59,6 +59,8 @@
   .collection-item.active{color:#fff;background:var(--grad-pink);box-shadow:0 3px 10px var(--glow-med);}
   .collection-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .collection-item .count{flex:none;font-size:11px;color:var(--text-disabled);}
+  .collection-all{font-weight:700;margin-bottom:6px;}
+  .collection-all .name{font-weight:700;}
   .collection-item.active .count{color:rgba(255,255,255,.8);}
   .collections-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:14px;}
   .chip.collection-chip{height:24px;background:var(--bg-hover);color:var(--text);box-shadow:0 2px 6px var(--glow-soft);

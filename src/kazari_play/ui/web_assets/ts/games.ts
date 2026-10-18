@@ -57,6 +57,7 @@ function refreshAll(force: boolean, done?: () => void): void {
       // 仅刷新运行状态等轻量字段
       App.data.games = fresh; syncCurrentGame(); markRunning();
     }
+    renderCollectionTree();   // 同步「全部作品」数量
     if (done) done();
   });
   bridge.getCollectionsTree(function (s: unknown, failed?: boolean) {
