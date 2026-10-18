@@ -1,6 +1,16 @@
 # KazariPlay 版本说明
 
-> 当前开发版（自测）：原版 `1.1.0-beta.7`（多源元数据匹配；`-beta.N` 自测包不对外发布）；当前正式版 `1.0.1`。翻译实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）。编号规则与历史映射见 [版本策略](docs/dev/VERSIONING.md)，分支状态见 [开发流程](docs/dev/BRANCH_WORKFLOW.md)。
+> 当前正式版：原版 `1.1.0`（多源元数据匹配）。翻译实验版现行 `1.4.0-experimental.1`（下次交付起改用 `1.0.0-exp.N`）。编号规则与历史映射见[版本策略](docs/dev/VERSIONING.md)，分支状态见[开发流程](docs/dev/BRANCH_WORKFLOW.md)。
+
+## 1.1.0（2026-10-18）— 多源元数据匹配正式版
+
+- **目录重构**：源码迁移到 `src/kazari_play`；`core/database/ui/utils` 按职责分层，测试、脚本、文档和 PyInstaller 路径同步。
+- **Kungal 锚点**：中文条目作为锚点，读取 `vndb_id` 后直接拉取 VNDB 详情，避免中日标题字面比较。
+- **批量详情**：VNDB 支持按 ID 批量查询，1000 游戏规模下显著减少请求数。
+- **版本识别**：增强副标题、部数、HD/FHD、Reflection Blue、Golden Time、SANA Edition 判断；VNDB release 仅采用官方且语言匹配的条目。
+- **标题安全**：增加同名小游戏、续作编号、非精确标题和缺少外部 ID 的拦截；Kungal 锚点支持旧配置自动迁移。
+- **请求治理**：新增全局按源限速、429 `Retry-After` 退避、Kungal 锚点并发配置和批量进度。
+- **测试**：完整 unittest 65 项、冻结包 smoke、冻结更新演练通过。
 
 ## 1.0.1（2026-10-17）—— 应用内更新实证版本
 

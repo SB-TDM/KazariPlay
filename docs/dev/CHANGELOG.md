@@ -3,6 +3,13 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.1.0 正式发布（2026-10-18）
+- 源码迁移到 `src/kazari_play/`，按 `core/games|metadata|media|platform`、`database/repositories`、`ui/services`、`utils/clients|update|infra|domain|system` 分层；同步测试、脚本、文档与 PyInstaller 路径。
+- 新增 Kungal 中文锚点：读取 Kungal 详情的 `vndb_id` 直接补 VNDB 详情，支持批量锚点预取与 VNDB 批量详情。
+- 增加同名/续作编号、副标题、HD/FHD、Reflection Blue、Golden Time、SANA Edition 判断；VNDB release 仅接受官方且语言匹配的条目。
+- 新增全局按源限速、429 `Retry-After` 退避、Kungal 锚点并发设置与批量进度阶段。
+- 完整 unittest 65 项、冻结包 smoke、冻结更新演练通过。
+
 ## 1.1.0-beta.7 自测（2026-10-17）
 
 - 审查修复：`update_game` 不再写 `cover_path`，封面路径只由 CoverStore / `update_cover_path` 维护，消除批量匹配/保存的旧快照覆盖异步下载或手动封面的竞态；候选应用后单独写封面路径。
