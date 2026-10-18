@@ -127,6 +127,17 @@ SHA256SUMS.txt
 - [变更日志](docs/dev/CHANGELOG.md)
 - [分支流程](docs/dev/BRANCH_WORKFLOW.md)
 
+## 致谢
+
+KazariPlay 的架构、交互和数据组织参考了以下项目。仅作设计与实现思路参考，不代表直接复用其代码；各项目许可证以其仓库为准。
+
+- [ReinaManager](https://github.com/huoshen80/ReinaManager)：数据源适配、候选选择、外部 ID 桥接、限速策略与收藏夹结构参考。
+- [PotatoVN](https://github.com/GoldenPotato137/PotatoVN)：封面路径组织与本地图片服务思路参考。
+- [LunaTranslator](https://github.com/HIllya51/LunaTranslator)：文本过滤与实验性翻译流程的设计参考，仅用于 `feature/hook-translation`。
+- [Textractor](https://github.com/Artikash/Textractor)：实验分支 Hook 方案参考，原版不包含相关代码或二进制。
+
+同时感谢 VNDB、Bangumi、Kungal、Ymgal 等站点提供公开元数据接口。
+
 ## 许可证
 
 GNU General Public License v3.0，详见 [LICENSE](LICENSE)。

@@ -110,6 +110,17 @@ This produces `KazariPlay-win64.zip` and `SHA256SUMS.txt` and requires a clean w
 - [Changelog](docs/dev/CHANGELOG.md)
 - [Branch workflow](docs/dev/BRANCH_WORKFLOW.md)
 
+## Acknowledgements
+
+KazariPlay's architecture, interactions, and data organization were informed by the following projects. These are design and implementation references, not direct code reuse; each project's license applies to its own repository.
+
+- [ReinaManager](https://github.com/huoshen80/ReinaManager): source adapters, candidate selection, external ID bridging, rate limiting, and collection structure.
+- [PotatoVN](https://github.com/GoldenPotato137/PotatoVN): cover path organization and local image service ideas.
+- [LunaTranslator](https://github.com/HIllya51/LunaTranslator): text filtering and experimental translation flow ideas, used only by `feature/hook-translation`.
+- [Textractor](https://github.com/Artikash/Textractor): hooking approach reference for the experimental branch; the original build contains neither its code nor binaries.
+
+Thanks also to VNDB, Bangumi, Kungal, and Ymgal for providing public metadata APIs.
+
 ## License
 
 GNU General Public License v3.0. See [LICENSE](LICENSE).
