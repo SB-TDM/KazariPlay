@@ -28,10 +28,22 @@ KazariPlay manages a local visual novel (Galgame) library without tying it to a 
 
 > This is the original, non-translation build. Translation, hook injection, and AI subtitle experiments live in `feature/hook-translation`.
 
+## Core feature: you pick the folders, it handles the boring part
+
+Choose one or more game folders, and KazariPlay turns a pile of “probably a game” directories into a usable library:
+
+1. **Identify**: scans subfolders and finds the real launch executable — `uninstall.exe` does not get a promotion.
+2. **Deduplicate**: checks executable paths and game identity, so moved folders, renamed executables, and rescans do not spawn duplicate cards.
+3. **Ask around**: new games are automatically matched against VNDB, Bangumi, Kungal, and other sources — no clicking “match” on every card.
+4. **Tidy up**: fills in Chinese titles, descriptions, developers, release dates, playtime, and covers whenever possible.
+
+> When it is not sure, it does not guess silently: automatic matching failures and ambiguous results keep the manual search flow available, with source candidates and per-field selection.
+
 ## Features
 
-- **Local library**: folder scanning, executable detection, deduplication, search, sorting, ratings, and favorites.
-- **Multi-source metadata**: parallel VNDB / Bangumi / Kungal / Ymgal search with Chinese titles, Japanese original titles, and external ID bridging.
+- **Automatic scan & match (core)**: pick folders, identify launch executables, deduplicate, and pull in metadata from VNDB / Bangumi / Kungal.
+- **Manual fallback**: when automatic results are uncertain, search candidates, inspect sources, and apply individual fields yourself.
+- **Local library**: search, sorting, ratings, collections, batch actions, and relocation.
 - **Network proxy**: follow the system proxy, connect directly, or set a custom HTTP proxy, with a built-in VNDB / Bangumi / Kungal connectivity test.
 - **Screenshots**: F12 capture with WGC / PrintWindow / fullscreen fallback and an in-game Steam-style toast.
 - **Collections and batch actions**: tree collections, batch assignment, removal, and relocation.
