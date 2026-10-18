@@ -17,6 +17,8 @@
 @import url("global/titlebar.css") layer(layout);
 @import url("global/layout.css") layer(layout);
 @import url("global/components/controls.css") layer(components);
+@import url("global/components/menus.css") layer(components);
+@import url("global/components/empty.css") layer(components);
 @import url("global/components/widgets.css") layer(components);
 @import url("global/components/sheets.css") layer(components);
 

@@ -26,14 +26,6 @@
                 font-family:var(--font);font-size:13px;}
   .search input::placeholder{color:var(--text-disabled);}
   .navbtns{display:flex;gap:8px;flex:none;margin-left:auto;}
-  .navbtn{height:32px;padding:0 14px;display:flex;align-items:center;gap:6px;background:var(--bg-panel);
-          border:1.5px solid var(--border-soft);border-radius:50px;color:var(--text-sub);font-size:13px;
-          cursor:pointer;font-family:var(--font);transition:transform .22s var(--bounce),border-color .2s,color .2s,box-shadow .2s;}
-  .navbtn:hover{transform:translateY(-2px);border-color:var(--pink);color:var(--pink-deep);
-                box-shadow:0 4px 10px var(--glow-soft);}
-  .navbtn.active{color:#fff;border-color:transparent;background:var(--grad-pink);
-                 box-shadow:0 4px 12px var(--glow-strong);}
-  .navbtn.active:hover{color:#fff;}
 
   /* 收藏夹开关：原侧栏入口移入副标题栏，横向对齐原抽屉关闭按钮位置（抽屉宽 248、按钮 32、右缘 8px 内缩） */
   .nav-collections{position:absolute;left:209px;top:50%;transform:translateY(-50%);
@@ -75,26 +67,6 @@
         gap:14px;justify-content:center;
         contain:layout;}
 
-  /* 下拉菜单 */
-  .dropdown{position:absolute;right:16px;top:var(--nav-h);background:var(--bg-panel);
-            border:1.5px solid var(--border-soft);border-radius:var(--radius-md);padding:6px;display:none;
-            z-index:100;min-width:210px;box-shadow:0 12px 28px var(--glow-med);}
-  .dropdown.show{display:block;}
-  .dropdown .ttl{padding:6px 12px 3px;font-size:11px;color:var(--text-disabled);}
-  .dropdown .item{padding:8px 12px;border-radius:10px;font-size:13px;color:var(--text);cursor:pointer;
-                  transition:background .2s;}
-  .dropdown .item:hover{background:var(--bg-hover);}
-  .dropdown .item.on{color:var(--pink-deep);font-weight:600;}
-
-  /* 空状态 */
-  .empty{position:absolute;left:0;right:0;top:var(--nav-h);bottom:0;display:none;
-         flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;}
-  .empty.show{display:flex;}
-  .empty h2{font-size:24px;color:var(--text);}
-  .empty p{font-size:14px;color:var(--text-sub);}
-  .empty .soft{height:44px;padding:0 24px;border-radius:50px;cursor:pointer;
-               font-size:14px;font-weight:bold;font-family:var(--font);
-               background:var(--bg-panel);color:var(--text);border:1.5px solid var(--border-soft);}
 
   /* 窗口缩放手柄 */
   .resizer{position:fixed;z-index:80;display:block;}

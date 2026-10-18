@@ -22,3 +22,12 @@
 
 .chip{height:24px;padding:0 12px;border-radius:50px;font-size:12px;display:inline-flex;
       align-items:center;gap:5px;}
+
+.navbtn{height:32px;padding:0 14px;display:flex;align-items:center;gap:6px;background:var(--bg-panel);
+        border:1.5px solid var(--border-soft);border-radius:50px;color:var(--text-sub);font-size:13px;
+        cursor:pointer;font-family:var(--font);transition:transform .22s var(--bounce),border-color .2s,color .2s,box-shadow .2s;}
+.navbtn:hover{transform:translateY(-2px);border-color:var(--pink);color:var(--pink-deep);
+              box-shadow:0 4px 10px var(--glow-soft);}
+.navbtn.active{color:#fff;border-color:transparent;background:var(--grad-pink);
+               box-shadow:0 4px 12px var(--glow-strong);}
+.navbtn.active:hover{color:#fff;}

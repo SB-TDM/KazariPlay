@@ -42,7 +42,7 @@ npm run typecheck     # 只类型检查
 - `global/tokens.css`：颜色、字体、圆角、阴影、动画、亮暗主题
 - `global/reset.css` / `global/base.css`：文档 reset、滚动条、焦点、可访问性、基础元素
 - `global/layout.css` + `titlebar.css`：应用壳、标题栏、侧栏、导航、网格、窗口缩放手柄
-- `global/components/`：跨页面控件（pill 按钮、关闭按钮、基础 chip、overlay/dialog、toast、批量工具）
+- `global/components/`：跨页面控件（pill 按钮、关闭按钮、基础 chip、导航按钮、下拉菜单、空状态、overlay/dialog、toast、批量工具）
 - `features/`：主页、卡片、收藏夹、详情、表单、设置、截图、来源、更新等业务样式
 - `utilities` 预留给真正无业务语义的工具类
 

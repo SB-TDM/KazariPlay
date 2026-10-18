@@ -1,0 +1,13 @@
+/* ============================================================
+   global/components/menus.css — 通用下拉菜单
+   ============================================================ */
+
+.dropdown{position:absolute;right:16px;top:var(--nav-h);background:var(--bg-panel);
+          border:1.5px solid var(--border-soft);border-radius:var(--radius-md);padding:6px;display:none;
+          z-index:100;min-width:210px;box-shadow:0 12px 28px var(--glow-med);}
+.dropdown.show{display:block;}
+.dropdown .ttl{padding:6px 12px 3px;font-size:11px;color:var(--text-disabled);}
+.dropdown .item{padding:8px 12px;border-radius:10px;font-size:13px;color:var(--text);cursor:pointer;
+                transition:background .2s;}
+.dropdown .item:hover{background:var(--bg-hover);}
+.dropdown .item.on{color:var(--pink-deep);font-weight:600;}

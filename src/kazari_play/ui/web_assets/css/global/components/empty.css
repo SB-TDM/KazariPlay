@@ -1,0 +1,12 @@
+/* ============================================================
+   global/components/empty.css — 通用空状态
+   ============================================================ */
+
+.empty{position:absolute;left:0;right:0;top:var(--nav-h);bottom:0;display:none;
+       flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;}
+.empty.show{display:flex;}
+.empty h2{font-size:24px;color:var(--text);}
+.empty p{font-size:14px;color:var(--text-sub);}
+.empty .soft{height:44px;padding:0 24px;border-radius:50px;cursor:pointer;
+             font-size:14px;font-weight:bold;font-family:var(--font);
+             background:var(--bg-panel);color:var(--text);border:1.5px solid var(--border-soft);}
