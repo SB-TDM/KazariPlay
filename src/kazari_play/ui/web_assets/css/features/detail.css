@@ -4,8 +4,8 @@
    ============================================================ */
 
   .dialog.detail{--detail-h:min(70vh,680px);
-                 width:min(94vw,calc(var(--detail-h) * 1.45),1120px);
-                 aspect-ratio:29 / 20;height:auto;max-height:var(--detail-h);
+                 width:min(94vw,calc(var(--detail-h) * 1.55),1180px);
+                 aspect-ratio:31 / 20;height:auto;max-height:var(--detail-h);
                  flex-direction:row;padding-top:20px;container-type:inline-size;}
   .detail-cover{flex:none;width:240px;width:clamp(210px,29cqi,300px);
                 position:relative;aspect-ratio:154/179;align-self:flex-start;
@@ -23,8 +23,8 @@
   .info-item b{color:var(--text);font-weight:600;margin-right:4px;}
   .detail-actions{display:flex;gap:clamp(6px,1cqi,10px);margin-top:clamp(10px,1.8cqi,16px);
                   align-items:center;}
-  .dialog.detail .pill-btn{height:clamp(30px,3.4cqi,38px);padding:0 clamp(14px,1.9cqi,22px);
-                           font-size:clamp(12px,1.2cqi,14px);}
+  .dialog.detail .pill-btn{height:clamp(32px,3.6cqi,40px);padding:0 clamp(16px,2cqi,24px);
+                           font-size:clamp(13px,1.25cqi,15px);}
   .chip.manage{background:var(--bg-panel);border:1.5px dashed var(--pink);color:var(--pink-deep);
                height:clamp(22px,2.4cqi,28px);padding:0 clamp(10px,1.2cqi,14px);
                font-size:clamp(11px,1.1cqi,13px);
