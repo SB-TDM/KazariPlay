@@ -72,15 +72,29 @@ function bindFilterMenu(): void {
 // ---------- 事件绑定 ----------
 // 搜索框（防抖：连续输入只触发一次过滤渲染，避免大库逐键全量重建）
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
-(document.getElementById('searchInput') as HTMLInputElement).addEventListener('input', e => {
-  const kw = (e.target as HTMLInputElement).value.trim();
+function applySearch(): void {
+  if (searchTimer !== null) {
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+  const input = document.getElementById('searchInput') as HTMLInputElement;
+  const kw = input.value.trim();
+  if (App.ui.state.kw === kw) return;
+  App.ui.state.kw = kw;
+  renderAll(true);
+}
+const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+searchInput.addEventListener('input', () => {
   clearTimeout(searchTimer as ReturnType<typeof setTimeout>);
-  searchTimer = setTimeout(() => {
-    if (App.ui.state.kw === kw) return;
-    App.ui.state.kw = kw;
-    renderAll(true);
-  }, 200);
+  searchTimer = setTimeout(applySearch, 200);
 });
+searchInput.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    applySearch();
+  }
+});
+document.getElementById('searchBtn')!.onclick = applySearch;
 function resetSearchInput(): void {
   if (searchTimer !== null) {
     clearTimeout(searchTimer);
