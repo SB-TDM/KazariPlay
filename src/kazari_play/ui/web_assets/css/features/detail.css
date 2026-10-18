@@ -4,8 +4,8 @@
    ============================================================ */
 
   .dialog.detail{--detail-h:min(78vh,760px);
-                 width:min(94vw,calc(var(--detail-h) * 1.55),1180px);
-                 aspect-ratio:31 / 20;height:auto;max-height:var(--detail-h);
+                 width:min(94vw,calc(var(--detail-h) * 1.45),1120px);
+                 aspect-ratio:29 / 20;height:auto;max-height:var(--detail-h);
                  flex-direction:row;padding-top:20px;}
   .detail-cover{flex:none;width:clamp(240px,18vw,340px);position:relative;aspect-ratio:154/179;align-self:flex-start;
                 background-size:cover;background-position:center;background-color:var(--bg-hover);
