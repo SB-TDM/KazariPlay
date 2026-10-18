@@ -3,9 +3,9 @@
    设计见 docs/dev/AUTO_UPDATE_DESIGN.md
    ============================================================ */
 
-  .dialog.update{max-width:480px;width:100%;padding:18px 22px 12px;}
+  .dialog.update{max-width:min(92vw,560px);width:100%;padding:18px 22px 12px;}
   .dialog.update .up-body{display:flex;flex-direction:column;gap:10px;
-    padding:6px 2px 8px;max-height:52vh;overflow:auto;}
+    padding:6px 2px 8px;max-height:58vh;overflow:auto;}
   .dialog.update .up-line{font-size:13.5px;color:var(--text);}
   .dialog.update .up-line b{color:var(--pink-deep);}
   .dialog.update .up-notes{font-size:12.5px;color:var(--text-sub);line-height:1.8;

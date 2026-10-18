@@ -23,7 +23,7 @@
                   width:40px;height:4px;border-radius:2px;background:#e6d5dd;z-index:3;}
 
   /* 确认对话框 */
-  .dialog.confirm{max-width:380px;width:100%;padding:20px 22px 14px;}
+  .dialog.confirm{max-width:min(92vw,380px);width:100%;padding:20px 22px 14px;}
   .dialog.confirm .dlg-title{font-size:16px;font-weight:700;color:var(--text);}
   .confirm-msg{padding:22px 6px 18px;font-size:13px;color:var(--text);
     text-align:center;line-height:1.8;min-height:70px;

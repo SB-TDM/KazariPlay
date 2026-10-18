@@ -9,6 +9,7 @@
 - 收藏夹侧边栏新增「全部作品」入口：显示全库数量，点击清除收藏夹筛选并保留当前搜索词，供从任意收藏夹快速返回全部作品。
 - 搜索框改为输入框 + 右侧可点击放大镜按钮：点击或回车立即搜索，输入仍保留 200ms 防抖；按钮支持键盘焦点与主题色悬停。
 - 调整副标题栏与搜索框尺寸：导航栏高度 48px，搜索框高度 36px、最大宽度 500px，修复输入光标上下被裁切。
+- 详情、设置、编辑、重新定位、更新、收藏夹管理等弹窗改为响应式尺寸；详情封面、标题和简介随窗口放大，最大化时不再只拉长不变宽。
 - 重构 CSS 为全局分层：`style.css` 声明 `tokens → reset → base → layout → components → features → utilities`，文件迁入 `global/` 与 `features/`；抽出共享 `pill-btn`/`close-btn`/`chip`/`navbtn`，并将下拉菜单、空状态下沉到 `global/components/`；`main.py` 的 `@import` 展开支持 `layer(name)`。规则集与重构前逐条一致。
 - 调整视觉效果：移除 `--glow-strong` 强光晕与 `--shadow-dlg`/`.dialog` 深投影；卡片常态无光晕，active/selected 使用弱光晕。
 - 修复深色主题首帧闪浅色：`main.py` 将配置主题注入 `<html data-theme>`；主题切换改为新主题绘制一帧后再恢复 transition，并跳过重复主题应用。

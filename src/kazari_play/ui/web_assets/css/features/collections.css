@@ -94,7 +94,7 @@
   .taglist .chip.on:hover{color:#fff;}
 
   /* 标签管理抽屉 */
-  .dialog.tagmgr{max-width:480px;padding:26px 22px 20px;}
+  .dialog.tagmgr{max-width:min(92vw,560px);padding:26px 22px 20px;}
   .dialog .dlg-title{display:flex;align-items:center;justify-content:space-between;
                      font-size:16px;font-weight:700;color:var(--text);}
   .section-ttl{margin:16px 0 8px;font-size:12px;color:var(--text-disabled);
