@@ -30,6 +30,7 @@
 | [AUTO_UPDATE_DESIGN.md](dev/AUTO_UPDATE_DESIGN.md) | 应用内自动更新设计 v0.7（GitHub API 更新源、数据保护最高原则、镜像回退、健康检查、平台接缝、实施计划）；已实施，E2 真实更新演练待首次正式发布后执行 |
 | [AUTO_UPDATE_CODE_REVIEW_20261014.md](dev/AUTO_UPDATE_CODE_REVIEW_20261014.md) | 自动更新代码审查（13 项问题，UPD-REV-01～13）；2026-10-14 已修复并纳入离线回归，真实发布资产与冻结包全流程仍待验收 |
 | [AUTO_UPDATE_SPEEDUP_PLAN.md](dev/AUTO_UPDATE_SPEEDUP_PLAN.md) | 更新提速与就绪复用实施计划（设计定稿待实施）：通道切换、就绪缓存、埋点、快速退出与真实链路验收演练 |
+| [METADATA_MATCH_FLOW.md](dev/METADATA_MATCH_FLOW.md) | 元数据匹配流程讨论稿：accepted / unmatched / retryable / skipped、未匹配区与游戏身份来源 |
 | [testing.md](dev/testing.md) | 测试分类、运行方式与改动验证建议 |
 | [CHANGELOG.md](dev/CHANGELOG.md) | 按时间记录实际开发改动和验证记录 |
 | [DEVELOPMENT_BACKLOG.md](dev/DEVELOPMENT_BACKLOG.md) | 代码审查问题、修复优先级、已确认分支方向和待定仓库事项 |
