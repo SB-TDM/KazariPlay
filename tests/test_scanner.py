@@ -121,9 +121,35 @@ def test_scan_ignore_folder_and_assist():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_title_metadata_priority():
+    """版本资源优先，引擎名回退文件夹，ProductName 可补位。"""
+    s = GameScanner()
+    assert s._generate_title(
+        r"C:\games\MashiroiroSymphonyFHD", "mashiro_fhd.exe",
+        {"FileDescription": "ましろ色シンフォニー -Love is pure white- *Remake for FHD"}
+    ) == "ましろ色シンフォニー -Love is pure white- *Remake for FHD"
+    assert s._generate_title(
+        r"C:\games\PC[AUGUST]FORTUNE ARTERIAL", "BGI_CHS.exe",
+        {"FileDescription": "Ethornell - BURIKO General Interpreter"}
+    ) == "FORTUNE ARTERIAL"
+    assert s._generate_title(
+        r"C:\games\PC[minori]eden＊_官方中文", "eden_en.exe",
+        {"FileDescription": "musica for ClearRave", "ProductName": "eden*"}
+    ) == "eden*"
+    assert s._generate_title(
+        r"C:\games\Galgame", "nine_kokoiro.exe", {}
+    ) == "nine_kokoiro"
+    assert s._generate_title(
+        r"C:\games\PC[パープルソフトウェア]青鸟_天之圣杯汉化组", "青鸟_CHS.exe",
+        {"FileDescription": "Longinus Start EXE", "ProductName": "Longinus Start EXE"}
+    ) == "青鸟"
+    print("[A6 版本资源标题优先级] OK")
+
+
 if __name__ == "__main__":
     test_chs_launcher_filter()
     test_clean_title()
+    test_title_metadata_priority()
     test_pick_primary_by_size()
     test_scan_progress_and_cancel()
     test_scan_ignore_folder_and_assist()

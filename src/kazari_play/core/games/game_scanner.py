@@ -1,11 +1,28 @@
 import os
 import hashlib
+import re
 from typing import List, Optional
 from core.games.game_model import Game
 from utils.domain.title_utils import normalize_title
+from utils.infra.win_version import read_version_info
 
 class GameScanner:
     """游戏扫描器 - 识别文件夹中的可执行文件"""
+
+    # exe 版本资源里常见的引擎/启动器描述，不能当作游戏名
+    TITLE_ENGINE_PATTERNS = (
+        "kirikiri", "tvp(", "tvp ", "ethornell", "buriko", "bgi", "qlie",
+        "siglus", "cmvs", "unity", "rpg maker", "renpy", "tyrano",
+        "artemis", "nscripter", "scripting platform", "game engine",
+        "visual novel engine", "musica", "clearrave", "visualart's",
+        "start exe", "launcher", "installer", "uninstaller", "setup",
+    )
+    TITLE_GENERIC_EXACT = {
+        "game", "launcher", "setup", "install", "installer", "uninstall",
+        "start", "play", "application", "program", "visual novel",
+        "galgame", "vn", "runtime", "engine", "bgi", "qlie", "cmvs",
+        "siglus", "kirikiri", "tvp",
+    }
 
     # 常见的 Galgame 引擎标识
     # 每个引擎分两类关键词：
@@ -104,6 +121,7 @@ class GameScanner:
             "smartsteamemu", "remotestorage", "plugin", "dxwebsetup", "__macosx",
         ]
         self.include_extensions = {".exe"}
+        self._version_cache = {}
 
     def scan(self, folder_path: str, recursive: bool = True,
              progress_cb=None, cancel_event=None) -> List[Game]:
@@ -123,6 +141,7 @@ class GameScanner:
         """
         if not os.path.exists(folder_path):
             return []
+        self._version_cache.clear()
 
         # 1. 收集每个文件夹下的合法 exe（按文件夹分组）
         folder_exes = {}   # {folder_path: [exe_filename, ...]}
@@ -192,13 +211,40 @@ class GameScanner:
         name_lower = filename.lower()
         return any(kw.lower() in name_lower for kw in self.CHS_KEYWORDS)
 
+    def _read_version_info(self, path: str) -> dict:
+        if path not in self._version_cache:
+            self._version_cache[path] = read_version_info(path)
+        return self._version_cache[path]
+
+    def _is_meaningful_title(self, text: str) -> bool:
+        """判断候选名称是否像游戏名，而不是引擎/安装器/通用词。"""
+        value = (text or "").strip()
+        if len(value) < 2 or len(value) > 160:
+            return False
+        low = value.lower()
+        if low in self.TITLE_GENERIC_EXACT:
+            return False
+        if any(pattern in low for pattern in self.TITLE_ENGINE_PATTERNS):
+            return False
+        return bool(re.search(r"[0-9a-zA-Z\u3040-\u30ff\u4e00-\u9fff]", value))
+
+    def _metadata_title(self, info: dict) -> str:
+        """从版本资源取一个可用的游戏名，FileDescription 优先。"""
+        for key in ("FileDescription", "ProductName"):
+            raw = (info or {}).get(key, "")
+            candidate = self._clean_title(str(raw or ""))
+            if self._is_meaningful_title(candidate):
+                return candidate
+        return ""
+
     def _pick_primary_exe(self, folder: str, exes: list) -> str:
-        """从同文件夹多个 exe 中选主启动器
+        """从同文件夹多个 exe 中选主启动器。
 
         优先级：
           1. 汉化版启动器优先（玩家通常想玩汉化版）
-          2. 同池内按 exe 体积降序（真游戏主程序通常最大）
-          3. 体积相同/取不到时按文件名排序（保证可预测）
+          2. 版本资源里有可用游戏名的优先
+          3. 同池内按 exe 体积降序
+          4. 体积相同/取不到时按文件名排序
         """
         if len(exes) <= 1:
             return exes[0] if exes else ""
@@ -213,7 +259,13 @@ class GameScanner:
             except OSError:
                 return 0
 
-        return sorted(pool, key=lambda e: (-_size(e), e))[0]
+        def _score(name: str) -> tuple:
+            path = os.path.join(folder, name)
+            info = self._read_version_info(path)
+            has_title = bool(self._metadata_title(info))
+            return (0 if has_title else 1, -_size(name), name)
+
+        return min(pool, key=_score)
 
     def _is_ignored_folder(self, folder_name: str) -> bool:
         """判断文件夹是否应被跳过（补丁备份/副本等）"""
@@ -242,7 +294,8 @@ class GameScanner:
         engine = self._detect_engine(folder, file_lower, files)
 
         # 生成标题（优先级：exe 内嵌元信息 → 文件夹名 → 文件名）
-        title = self._generate_title(folder, filename)
+        title = self._generate_title(
+            folder, filename, self._read_version_info(exe_path))
 
         # 生成唯一 ID
         game_id = self._generate_id(exe_path)
@@ -260,18 +313,22 @@ class GameScanner:
             identity=identity
         )
 
-    def _generate_title(self, folder: str, filename: str) -> str:
-        """生成游戏标题
+    def _generate_title(self, folder: str, filename: str,
+                        info: Optional[dict] = None) -> str:
+        """生成游戏标题：exe 版本资源 → 文件夹名 → exe 文件名。"""
+        metadata_title = self._metadata_title(info or {})
+        if metadata_title:
+            return metadata_title
 
-        用 exe 直接父文件夹名作为标题（用户确认的简化方案），
-        再做保守清洗：去平台前缀 / 开头来源标签 / 语言版本后缀。
-        文件夹名通常含游戏名（如「千之刃涛-桃花染之皇姬_弥生月汉化组」）。
-        """
         folder_name = os.path.basename(os.path.normpath(folder))
-        # 兜底：若文件夹名为空（理论上不会发生），用 exe 文件名
-        if not folder_name:
-            return os.path.splitext(filename)[0]
-        return self._clean_title(folder_name)
+        folder_title = self._clean_title(folder_name)
+        exe_title = self._clean_title(os.path.splitext(filename)[0])
+
+        if self._is_meaningful_title(folder_title):
+            return folder_title
+        if self._is_meaningful_title(exe_title):
+            return exe_title
+        return folder_title or exe_title or os.path.splitext(filename)[0]
 
     def _clean_title(self, name: str) -> str:
         """保守清洗文件夹名标题：去除明确噪声，保留核心游戏名
@@ -282,17 +339,25 @@ class GameScanner:
           3. 结尾语言/版本后缀（_官方中文 / _汉化版 / _全年龄 等）
         清洗后为空则回退原名，避免过度清洗丢标题。
         """
-        import re
         t = (name or "").strip()
         # 1) 开头平台前缀（PC 后需跟分隔符/方括号或结尾，避免误伤 PC98 之类）
-        t = re.sub(r'^(?:PC版|PC)(?=[\s\-_\[【]|$)[\s\-_]*', '', t, flags=re.IGNORECASE)
+        t = re.sub(r'^(?:PC版|PC(?:\+\w+)*)(?=[\s\-_\[【]|[^\x00-\x7f]|$)[\s\-_]*',
+                   '', t, flags=re.IGNORECASE)
         # 2) 开头来源标签（仅开头，通常是开发商/汉化组/平台标签）
         t = re.sub(r'^\s*(?:【[^】]*】|\[[^\]]*\])[\s\-_]*', '', t)
-        # 3) 结尾语言/版本后缀
+        # 3) 结尾语言/版本后缀与汉化组后缀
+        lang_suffix = re.compile(
+            r'[\s\-_]*(?:官方中文|官方繁體|官方繁体|汉化版|中文版|汉化|全年龄|无修版|无修|完全版|正式版|简繁英|简中|繁中)$')
+        for _ in range(3):
+            cleaned = lang_suffix.sub('', t).strip()
+            if cleaned == t:
+                break
+            t = cleaned
         t = re.sub(
-            r'[\s\-_]*(?:官方中文|官方繁體|官方繁体|汉化版|中文版|汉化|全年龄|无修版|无修|完全版|正式版)$',
+            r'_(?:[^_]{0,40}(?:汉化组|漢化組|汉化社|同好会|字幕组|翻译组|发布组|'
+            r'汉化|KIDFansClub|一译一记)(?:20\d{2})?)(?=_|$)',
             '', t)
-        t = t.strip()
+        t = re.sub(r'_+', '_', t).strip(' _-')
         return t if t else name
 
     def _detect_engine(self, folder: str, exe_name: str, files: list = None) -> str:

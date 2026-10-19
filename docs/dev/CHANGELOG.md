@@ -3,6 +3,9 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 未发布
+- 重新设计游戏识别流程：扫描时读取 exe 版本资源，过滤引擎/启动器/安装器描述后优先使用 `FileDescription` / `ProductName`，再回退清洗后的文件夹名和 exe 文件名；主 exe 选择也优先带有效游戏名的候选。
+
 ## 1.1.1（2026-10-18）
 - 修复手动多源搜索结果缺少简介/开发商：去重后对带 `detail` 的非 VNDB 源按 ID 并发补详情，Kungal/Hikarinagi/Shionlib 候选可正确填入“应用元数据”弹层。
 - 新增应用内网络代理：`network.proxy_mode` 支持跟随系统/直连/自定义 HTTP 代理，所有元数据、封面与更新请求统一走该配置；设置页可测试 VNDB/Bangumi/Kungal 连通性，保存时校验代理地址。

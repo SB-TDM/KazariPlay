@@ -41,8 +41,9 @@
 - **整棵树规则**：某目录含合法游戏 exe → 视为游戏根，`dirs.clear()` 剪枝其所有子孙目录（同一游戏只识别 1 个，避免 eden* 这类多子目录被拆成多个）。
 - **exe 过滤**：扩展名 `.exe`；命中 `ignore_patterns`（安装/卸载/补丁/存档工具/查看器/汉化补丁/UnityCrashHandler 等）剔除；`whitelist_exact` 白名单优先保留。
 - **目录过滤**：`_is_ignored_folder` 跳过 `补丁/备份/patch/backup/副本/smartsteamemu/...`。
-- **主 exe 选择** `_pick_primary_exe`：① 汉化启动器优先（`CHS_KEYWORDS`）② 同池体积降序 ③ 文件名排序。
-- **标题** `_generate_title`/`_clean_title`：用 exe 父文件夹名，保守清洗（去开头 `PC`/`【来源】`、结尾 `_汉化版/官方中文/全年龄` 等），清空则回退原名。
+- **主 exe 选择** `_pick_primary_exe`：① 汉化启动器优先（`CHS_KEYWORDS`）② exe 版本资源含可用游戏名 ③ 同池体积降序 ④ 文件名排序。
+- **标题** `_generate_title`/`_clean_title`：优先读取 exe 的 `FileDescription` / `ProductName`；过滤引擎名、启动器、安装器、通用词后使用。否则回退清洗后的文件夹名，再回退 exe 文件名。文件夹清洗会处理 `PC+krkr[...]`、汉化组和语言后缀。
+- **版本资源**：`utils/infra/win_version.py::read_version_info` 用 Windows `version.dll` 读取 `FileDescription/ProductName/FileVersion/CompanyName`，扫描内按路径缓存。
 - **引擎识别** `_detect_engine`（可靠性降序）：
   1. 特征文件（最可靠）：`renpy`/`.rpyc`→renpy；`UnityPlayer.dll`/`managed`→unity；`www/data`→rpg_maker；`.xp3`→kirikiri；`sysgrp.arc+sysprg.arc+BGI.exe`→bgi；`tyrano`→tyrano
   2. exe 完整名匹配（`ENGINE_PATTERNS[*].exact`，如 `Game.exe`→rpg_maker）
@@ -54,7 +55,7 @@
 - `_make_identity(engine, folder_name) -> str`：`f"{engine.lower()}|{normalize_title(folder_name, for_identity=True).lower()}"`。**identity 的规范来源**。
 - `_generate_id(exe_path)`：`md5(exe_path)[:16]`。
 
-**依赖**：`core.games.game_model.Game`、`utils.domain.title_utils.normalize_title(for_identity=True)`。
+**依赖**：`core.games.game_model.Game`、`utils.domain.title_utils.normalize_title(for_identity=True)`、`utils.infra.win_version.read_version_info`。
 
 **注意**：identity 用文件夹名（稳定），不能用 title（会被 VNDB 覆盖导致重扫对不上）。改归一化须同步 `_backfill_identity`。
 
