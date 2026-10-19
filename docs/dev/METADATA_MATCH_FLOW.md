@@ -14,7 +14,7 @@
 | 状态 | 含义 | 处理 |
 |---|---|---|
 | `accepted` | 存在唯一高置信候选 | 自动写回 |
-| `unmatched` | 来源正常返回，但没有候选、多个候选难分或字段冲突 | 进入未匹配区，等待手动匹配 |
+| `unmatched` | 来源正常返回，但没有候选、多个候选难分、字段冲突，或发现同版本重复卡片 | 进入未匹配区，等待手动判断 |
 | `retryable` | 超时、限流、来源不可用、来源熔断 | 不进入未匹配区；保留本次失败列表，提示重试 |
 | `skipped` | 已有 ID 或字段完整 | 不改写 |
 
@@ -64,14 +64,21 @@
 
 ## 4. 未匹配区
 
-未匹配区只保存数据层面的不确定，不保存网络错误。
+未匹配区只保存需要人工判断的情况，不保存网络错误。
+
+包括：
+
+- 无候选
+- 多候选难分
+- 年份 / 开发商 / 版本冲突
+- 发现同版本重复卡片
 
 建议表：
 
 ```sql
 unmatched_games (
   game_id     TEXT PRIMARY KEY,
-  reason      TEXT NOT NULL,     -- no_candidate / ambiguous / conflict
+  reason      TEXT NOT NULL,     -- no_candidate / ambiguous / conflict / duplicate_version
   candidates_json TEXT,          -- 精简候选，可为空
   updated_at  TEXT NOT NULL
 )
@@ -81,9 +88,10 @@ unmatched_games (
 
 ```text
 未匹配区
-  → 手动搜索
+  → 手动搜索 / 查看同版本卡片
   → 选择候选
   → 勾选字段应用
+  → 自行决定是否合并本地卡片
   → 从队列移除
 ```
 
@@ -131,7 +139,7 @@ engine          扫描识别出的引擎
 ### 已确认
 
 - `MatchHints` 先不落库；匹配时从 `title / folder / exe_path / engine` 运行时构建，批量任务内缓存。
-- FHD / SANA / HD 默认按独立版本处理；即使外部 ID / release 明确指向同一版本，也不自动合并，而是进入手动判断。
+- FHD / SANA / HD 默认按独立版本处理；即使外部 ID / release 明确指向同一版本，也不自动合并，而是进入未匹配区等待手动判断。
 - FD / 续篇 / Episode 始终独立成卡，不能与本篇或前作自动合并。
 
 ### 仍待确认
