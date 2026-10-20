@@ -88,14 +88,15 @@
       ($('setLogLevel') as HTMLSelectElement).value = String(cfg.log_level || 'INFO').toUpperCase();
       ($('setDisguise') as HTMLSelectElement).value = (cfg.disguise_scene as string) || 'excel';
       ($('setShowConsole') as HTMLInputElement).checked = !!cfg.show_console;
-      const cd = (cfg.cover_download || {}) as { timeout?: number; max_concurrent?: number };
+      const cd = (cfg.cover_download || {}) as { timeout?: number; max_concurrent?: number; preferred_source?: string };
+      ($('setCoverSource') as HTMLSelectElement).value = String(cd.preferred_source || 'auto');
       ($('setCoverTimeout') as HTMLSelectElement).value = String(cd.timeout ?? 90);
       ($('setCoverConcurrent') as HTMLSelectElement).value = String(cd.max_concurrent ?? 4);
       const ms = (cfg.metadata_sources || {}) as { shionlib_api_key?: string; kungal_concurrency?: number };
       ($('setShionlibKey') as HTMLInputElement).value = String(ms.shionlib_api_key || '');
       ($('setKungalConcurrent') as HTMLSelectElement).value = String(ms.kungal_concurrency ?? 4);
       const net = (cfg.network || {}) as { proxy_mode?: string; proxy_url?: string };
-      ($('setProxyMode') as HTMLSelectElement).value = String(net.proxy_mode || 'system');
+      ($('setProxyMode') as HTMLSelectElement).value = String(net.proxy_mode || 'direct');
       ($('setProxyUrl') as HTMLInputElement).value = String(net.proxy_url || '');
       updateProxyMode();
       const hk = cfg.hotkeys || {};
@@ -197,6 +198,7 @@
       disguise_scene: ($('setDisguise') as HTMLSelectElement).value,
       show_console: ($('setShowConsole') as HTMLInputElement).checked,
       cover_download: {
+        preferred_source: ($('setCoverSource') as HTMLSelectElement).value,
         timeout: parseInt(($('setCoverTimeout') as HTMLSelectElement).value, 10) || 90,
         max_concurrent: parseInt(($('setCoverConcurrent') as HTMLSelectElement).value, 10) || 4,
       },

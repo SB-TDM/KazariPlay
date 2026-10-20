@@ -3,7 +3,7 @@ import os
 from typing import List, Tuple
 
 from core.games.game_model import Game
-from core.metadata.merge import _lang_rank
+from core.metadata.merge.merge import _lang_rank
 from utils.infra.logger import get_logger
 from utils.infra.path_utils import get_app_data_dir
 

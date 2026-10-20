@@ -111,6 +111,21 @@
 
 ---
 
+## repositories/unmatched_repository.py — 未匹配区
+
+**对象**：UnmatchedRepository；self.db = DatabaseManager()。
+
+**职责**：持久化 `unmatched_games`，只保存需要人工判断的游戏，不保存网络错误。
+
+- `upsert(game_id, reason, candidates, code)`：按 game_id 写入原因、结构化 code 与精简候选
+- `delete` / `delete_many`：匹配成功或删除游戏时清理
+- `list_for_games`：按 500 个 ID 分块查询，供列表附加 `unmatched_reason`
+- `list_all`：按更新时间倒序读取未匹配区
+
+**说明**：`unmatched_reason` 是运行时字段，不写入 `games` 表；`retryable` 只保留在本次批量任务内，不落库。
+
+---
+
 ## 依赖与写库路径速查
 
 ```

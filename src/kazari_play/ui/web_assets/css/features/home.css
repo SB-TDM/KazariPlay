@@ -29,7 +29,7 @@
 
   /* 统计 */
   .home-stats{display:flex;flex-wrap:wrap;gap:10px;}
-  .home-stat{min-width:132px;padding:12px 16px;border-radius:var(--radius-lg);text-align:left;
+  .home-stat{min-width:132px;padding:12px 16px;border-radius:14px;text-align:left;
              background:var(--bg-panel);border:1.5px solid var(--border-soft);
              display:flex;flex-direction:column;gap:2px;font-family:var(--font);color:var(--text);}
   button.home-stat{cursor:pointer;transition:transform .2s var(--bounce),border-color .2s,box-shadow .2s;}

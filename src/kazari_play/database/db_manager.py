@@ -198,6 +198,18 @@ class DatabaseManager:
                      "ON game_sources(source, external_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_game_sources_game "
                      "ON game_sources(game_id)")
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS unmatched_games (
+                game_id         TEXT PRIMARY KEY,
+                code            TEXT DEFAULT '',
+                reason          TEXT NOT NULL,
+                candidates_json TEXT,
+                updated_at      TEXT NOT NULL
+            )
+        """)
+        self._ensure_column(conn, "unmatched_games", "code", "TEXT DEFAULT ''")
+
         # 兼容迁移：旧版专用 ID 先镜像为 ID-only 来源记录。
         conn.execute("""
             INSERT OR IGNORE INTO game_sources(game_id, source, external_id, data, fetched_at)

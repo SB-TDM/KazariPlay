@@ -2,7 +2,6 @@
 import re
 from typing import List
 
-from core.games.game_model import Game
 from utils.domain.title_utils import normalize_title
 
 def _extract_japanese(title: str) -> str:
@@ -100,20 +99,6 @@ def _series_key(text: str) -> str:
     """提取标题开头的 ASCII 系列键（9-nine / 9nine / Mashiro-iro）。"""
     m = re.match(r"^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*", _split_camel(text or ""))
     return re.sub(r"[-_]", "", m.group(0).lower()) if m else ""
-
-
-def _release_year(cand: dict) -> str:
-    m = re.match(r"(\d{4})", (cand.get("released") or "").strip())
-    return m.group(1) if m else ""
-
-
-def _year_hint(game: Game) -> str:
-    """已有发售日或标题中的年份，作为重制版选择线索"""
-    y = _release_year({"released": game.released})
-    if y:
-        return y
-    m = re.search(r"(?<!\d)((?:19|20)\d{2})(?!\d)", game.title or "")
-    return m.group(1) if m else ""
 
 
 def _build_queries(title: str) -> List[str]:

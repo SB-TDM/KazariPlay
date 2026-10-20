@@ -37,7 +37,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "log_level": "INFO",
     # 网络代理：system=跟随 Windows / direct=直连 / custom=使用 proxy_url
     "network": {
-        "proxy_mode": "system",
+        "proxy_mode": "direct",
         "proxy_url": "",
     },
     "overlay": {
@@ -52,12 +52,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "mixed": ["vndb", "bangumi", "kungal"],
         "defaults_version": 2,
         "kungal_concurrency": 4,
+        "match_concurrency": 4,
         "shionlib_api_key": "",
     },
     # 封面下载（VNDB 封面 CDN 慢，超时/并发可调；并发改动重启生效）
     "cover_download": {
         "timeout": 90,          # 单张封面下载超时（秒）
         "max_concurrent": 4,    # 同时下载的封面数上限
+        "preferred_source": "auto",  # auto / vndb / kungal / bangumi / ymgal
     },
 }
 

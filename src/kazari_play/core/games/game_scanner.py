@@ -24,6 +24,19 @@ class GameScanner:
         "siglus", "kirikiri", "tvp",
     }
 
+    # exe 版本资源不能稳定给出开发商，但能补充引擎判断。
+    VERSION_ENGINE_HINTS = {
+        "kirikiri": ("kirikiri", "krkr", "tvp"),
+        "bgi": ("bgi", "buriko", "ethornell"),
+        "siglus": ("siglus",),
+        "cmvs": ("cmvs",),
+        "qlie": ("qlie",),
+        "unity": ("unityplayer", "unityengine", "unity"),
+        "renpy": ("renpy", "ren'py"),
+        "rpg_maker": ("rpg maker", "rpgmaker", "rpg_rt"),
+        "tyrano": ("tyrano",),
+    }
+
     # 常见的 Galgame 引擎标识
     # 每个引擎分两类关键词：
     #   exact:  exe 完整文件名（basename，含扩展名，大小写不敏感）匹配
@@ -292,10 +305,12 @@ class GameScanner:
 
         # 检测引擎类型（复用扫描时已获取的文件列表，省重复 listdir）
         engine = self._detect_engine(folder, file_lower, files)
+        info = self._read_version_info(exe_path)
+        if engine == "其他":
+            engine = self._engine_from_version(info) or engine
 
         # 生成标题（优先级：exe 内嵌元信息 → 文件夹名 → 文件名）
-        title = self._generate_title(
-            folder, filename, self._read_version_info(exe_path))
+        title = self._generate_title(folder, filename, info)
 
         # 生成唯一 ID
         game_id = self._generate_id(exe_path)
@@ -310,8 +325,20 @@ class GameScanner:
             exe_path=exe_path,
             folder=folder,
             engine=engine,
-            identity=identity
+            identity=identity,
         )
+
+    def _engine_from_version(self, info: dict) -> str:
+        text = " ".join(
+            str(info.get(key) or "") for key in
+            ("ProductName", "OriginalFilename", "InternalName", "Comments", "LegalCopyright")
+        ).casefold()
+        if not text:
+            return ""
+        for engine, patterns in self.VERSION_ENGINE_HINTS.items():
+            if any(pattern in text for pattern in patterns):
+                return engine
+        return ""
 
     def _generate_title(self, folder: str, filename: str,
                         info: Optional[dict] = None) -> str:

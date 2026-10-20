@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
-from core.metadata import multi_source
+from core.metadata.search import multi_source
 from utils.infra.logger import get_logger
 
 logger = get_logger()

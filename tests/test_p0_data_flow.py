@@ -17,6 +17,7 @@ logger_module._logger = logging.getLogger("p0-data-flow")
 logger_module._logger.addHandler(logging.NullHandler())
 
 from core.games.game_manager import GameManager
+from core.games.game_merge_service import GameMergeService
 from core.games.game_model import Game
 from database.db_manager import DatabaseManager
 from ui.web_bridge import WebBridge
@@ -78,11 +79,55 @@ class DataFlowTests(unittest.TestCase):
                     "play_time", "play_count", "is_favorite", "date_added"):
             self.assertEqual(getattr(edited, key), getattr(game, key), key)
 
+    def test_dismiss_unmatched_clears_queue(self):
+        game = self.fixture()
+        self.manager.unmatched_repo.upsert(game.id, "ambiguous")
+        reply = json.loads(self.bridge.dismissUnmatched(game.id))
+        self.assertTrue(reply["ok"])
+        self.assertEqual(self.manager.unmatched_repo.list_for_games([game.id]), {})
+        self.assertEqual(self.manager.get_game(game.id).unmatched_reason, "")
+
+    def test_retry_failed_matches_starts_with_last_retryable(self):
+        game = self.fixture()
+        self.manager.last_retryable_ids = [game.id]
+        with patch.object(self.bridge, "_start_task", return_value=True) as start:
+            reply = json.loads(self.bridge.retryFailedMatches())
+        self.assertTrue(reply["ok"])
+        self.assertEqual(start.call_args[0][1][0][0].id, game.id)
+
+    def test_unmatched_queue_attaches_to_game(self):
+        game = self.fixture()
+        self.manager.unmatched_repo.upsert(
+            game.id, "ambiguous", [{"title": "candidate"}], "ambiguous")
+        loaded = self.manager.get_game(game.id)
+        self.assertEqual(loaded.unmatched_reason, "ambiguous")
+        self.assertEqual(loaded.unmatched_code, "ambiguous")
+        games = json.loads(self.bridge.getGames())
+        row = next(x for x in games if x["id"] == game.id)
+        self.assertEqual(row["unmatched_reason"], "ambiguous")
+        self.assertEqual(row["unmatched_code"], "ambiguous")
+        info = json.loads(self.bridge.getUnmatchedInfo(game.id))
+        self.assertEqual(info["code"], "ambiguous")
+        self.assertEqual(info["candidates"][0]["title"], "candidate")
+
+    def test_merge_games_moves_stats_and_deletes_source(self):
+        source = self.fixture("Source")
+        target = self.fixture("Target")
+        service = GameMergeService(repository=self.manager.repository)
+        with patch.object(service, "_move_screenshots", return_value=[]):
+            result = service.merge(source.id, target.id)
+        self.assertTrue(result["ok"], result)
+        self.assertIsNone(self.manager.get_game(source.id))
+        merged = self.manager.get_game(target.id)
+        self.assertEqual(merged.play_count, 4)
+        self.assertEqual(merged.play_time, 90)
+        self.assertTrue(merged.is_favorite)
+
     def test_batch_match_preserves_async_cover_path(self):
         game = self.fixture()
         self.manager.repository.update_cover_path(game.id, "fixture-cover.jpg")
-        from core.metadata import metadata_matcher
-        with patch.object(metadata_matcher, "match_batch", return_value=(0, 0, 0)):
+        from core.metadata.pipeline import metadata_matcher
+        with patch.object(metadata_matcher, "match_batch", return_value=(0, 0, 0, 0)):
             game.cover_path = ""
             self.manager.match_vndb_for_games([game])
         self.assertEqual(self.manager.get_game(game.id).cover_path, "fixture-cover.jpg")

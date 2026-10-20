@@ -79,8 +79,8 @@
             <div class="form-row">
               <label class="label" for="setProxyMode">代理模式</label>
               <div class="field"><select id="setProxyMode">
-                <option value="system" selected>跟随系统</option>
-                <option value="direct">直连</option>
+                <option value="system">跟随系统</option>
+                <option value="direct" selected>直连</option>
                 <option value="custom">自定义 HTTP 代理</option>
               </select><span class="desc">VNDB 在部分地区需要代理</span></div>
             </div>
@@ -114,6 +114,16 @@
           </div>
           <div class="group">
             <div class="g-title">封面下载</div>
+            <div class="form-row">
+              <label class="label" for="setCoverSource">优先来源</label>
+              <div class="field"><select id="setCoverSource">
+                <option value="auto" selected>自动（VNDB 优先）</option>
+                <option value="kungal">Kungal 优先</option>
+                <option value="vndb">VNDB 优先</option>
+                <option value="bangumi">Bangumi 优先</option>
+                <option value="ymgal">月幕优先</option>
+              </select><span class="desc">多个来源都有封面时，优先使用该来源</span></div>
+            </div>
             <div class="form-row">
               <label class="label" for="setCoverTimeout">下载超时</label>
               <div class="field"><select id="setCoverTimeout">

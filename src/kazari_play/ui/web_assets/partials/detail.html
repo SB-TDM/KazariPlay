@@ -17,6 +17,18 @@
         </div>
         <button class="close-btn" id="dlgClose" aria-label="关闭详情" data-autofocus><svg class="ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg></button>
       </div>
+      <div class="unmatched-banner" id="dlgUnmatched" style="display:none">
+        <div class="unmatched-copy">
+          <b>待人工确认</b>
+          <span id="dlgUnmatchedReason"></span>
+        </div>
+        <div class="unmatched-actions">
+          <button type="button" class="pill-btn" id="dlgUnmatchedEdit">手动匹配</button>
+          <button type="button" class="pill-btn" id="dlgUnmatchedMerge" style="display:none">合并到其他卡</button>
+          <button type="button" class="pill-btn" id="dlgUnmatchedDismiss">移出未匹配</button>
+        </div>
+      </div>
+      <div class="unmatched-candidates" id="dlgUnmatchedCands"></div>
       <div class="info-grid" id="dlgInfo"></div>
       <div class="detail-actions">
         <button class="pill-btn primary" id="dlgStart">开始游戏</button>

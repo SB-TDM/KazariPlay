@@ -121,6 +121,19 @@ def test_scan_ignore_folder_and_assist():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_engine_version_hints():
+    """版本资源只补引擎，不直接补开发商。"""
+    s = GameScanner()
+    assert s._engine_from_version(
+        {"LegalCopyright": "(KIRIKIRI core) (C) W.Dee"}) == "kirikiri"
+    assert s._engine_from_version(
+        {"InternalName": "Ethornell", "OriginalFilename": "BGI.exe"}) == "bgi"
+    assert s._engine_from_version(
+        {"ProductName": "Siglus", "OriginalFilename": "SiglusEngine.exe"}) == "siglus"
+    assert s._engine_from_version({"CompanyName": "minori"}) == ""
+    print("[A7 版本资源引擎 hint] OK")
+
+
 def test_title_metadata_priority():
     """版本资源优先，引擎名回退文件夹，ProductName 可补位。"""
     s = GameScanner()
@@ -150,6 +163,7 @@ if __name__ == "__main__":
     test_chs_launcher_filter()
     test_clean_title()
     test_title_metadata_priority()
+    test_engine_version_hints()
     test_pick_primary_by_size()
     test_scan_progress_and_cancel()
     test_scan_ignore_folder_and_assist()

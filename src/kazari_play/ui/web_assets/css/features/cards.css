@@ -4,7 +4,7 @@
    ============================================================ */
 
   /* 卡片 */
-  .card{width:var(--card-w);height:var(--card-h);border-radius:var(--radius-lg);background:var(--bg-panel);
+  .card{width:var(--card-w);height:var(--card-h);border-radius:14px;background:var(--bg-panel);
         overflow:hidden;position:relative;cursor:pointer;border:1.5px solid var(--border-soft);
         will-change:transform;
         /* 懒加载布局稳定：离屏卡片不参与渲染/布局，占位尺寸=真实尺寸，

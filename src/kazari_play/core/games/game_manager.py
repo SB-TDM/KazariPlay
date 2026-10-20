@@ -7,6 +7,7 @@ from core.games.game_launcher import GameLauncher
 from core.games.game_monitor import GameMonitor
 from database.repositories.game_repository import GameRepository
 from database.repositories.source_repository import GameSourceRepository
+from database.repositories.unmatched_repository import UnmatchedRepository
 from utils.infra.logger import get_logger
 from utils.domain.rating_utils import normalize_rating
 
@@ -41,8 +42,25 @@ class GameManager:
         from database.repositories.collection_repository import CollectionRepository
         self.collection_repo = CollectionRepository()
         self.source_repo = GameSourceRepository()
+        self.unmatched_repo = UnmatchedRepository()
+        self.last_retryable_ids: List[str] = []
         # 升级兼容：为缺身份键的旧记录回填（跨文件夹判重依赖 identity）
         self._backfill_identity()
+
+    def _record_match_result(self, game: Game, status: str, msg: str) -> None:
+        if status in ("match", "skip"):
+            self.unmatched_repo.delete(game.id)
+            game.unmatched_reason = ""
+            game.unmatched_code = ""
+            game.unmatched_candidates = []
+        elif status == "unmatched":
+            code = getattr(game, "unmatched_code", "") or "unmatched"
+            candidates = getattr(game, "unmatched_candidates", []) or []
+            self.unmatched_repo.upsert(game.id, msg, candidates, code)
+            game.unmatched_reason = msg
+            game.unmatched_code = code
+        elif status == "retryable" and game.id not in self.last_retryable_ids:
+            self.last_retryable_ids.append(game.id)
 
     def _persist_source_ids(self, game: Game) -> None:
         records = []
@@ -85,13 +103,22 @@ class GameManager:
 
     # ---------- 查询 ----------
 
+    def _attach_unmatched(self, games: List[Game]) -> List[Game]:
+        records = self.unmatched_repo.list_for_games([g.id for g in games])
+        for game in games:
+            record = records.get(game.id) or {}
+            game.unmatched_reason = str(record.get("reason") or "")
+            game.unmatched_code = str(record.get("code") or "")
+        return games
+
     def get_all_games(self) -> List[Game]:
         """获取所有游戏"""
-        return self.repository.get_all()
+        return self._attach_unmatched(self.repository.get_all())
 
     def get_game(self, game_id: str) -> Optional[Game]:
         """根据 ID 获取单个游戏"""
-        return self.repository.get_by_id(game_id)
+        game = self.repository.get_by_id(game_id)
+        return self._attach_unmatched([game])[0] if game else None
 
     def get_favorites(self) -> List[Game]:
         """获取收藏列表"""
@@ -279,7 +306,10 @@ class GameManager:
             if self.launcher.current_game_id == gid and self.launcher.is_running():
                 if not self.close_game():
                     return 0
-        return len(existing_ids) if self.repository.delete_many(existing_ids) else 0
+        deleted = bool(existing_ids) and self.repository.delete_many(existing_ids)
+        if deleted:
+            self.unmatched_repo.delete_many(existing_ids)
+        return len(existing_ids) if deleted else 0
 
     # ---------- 收藏夹管理（V1.0 collections，委托 CollectionRepository）----------
 
@@ -403,16 +433,18 @@ class GameManager:
             cancel_event: threading.Event，置位时尽快终止（可选）
 
         Returns:
-            (status, message) status ∈ {"skip", "match", "fail", "cancelled"}
+            (status, message) status ∈ {"skip", "match", "unmatched", "retryable", "cancelled"}
         """
-        from core.metadata import metadata_matcher
+        from core.metadata.pipeline import metadata_matcher
+        self.last_retryable_ids = []
         game = self.repository.get_by_id(game_id)
         if not game:
-            return "fail", "游戏不存在"
+            return "unmatched", "游戏不存在"
         original = copy.deepcopy(game)
         status, msg = metadata_matcher.match_single(
             game, force=force, cover_cb=cover_cb, cancel_event=cancel_event,
             source_cb=self._persist_group_sources)
+        self._record_match_result(game, status, msg)
         # 无论是否更新都写回数据库（已标记匹配 ID 时也保存，避免重复匹配）
         if status in ("match", "skip") and (game.vndb_id or game.bangumi_id):
             self._preserve_cover_path(game)
@@ -425,27 +457,20 @@ class GameManager:
         force: bool = False,
         progress_cb: Optional[Callable[[str, str, str, str], None]] = None,
         cover_cb=None,
-    ) -> Tuple[int, int, int]:
-        """批量匹配所有游戏的 VNDB 元数据
-
-        Args:
-            force: True 时强制重新匹配已有 vndb_id 的游戏
-            progress_cb: 进度回调 callback(game_id, title, status, msg)
-            cover_cb: 封面回调 (game_id, cover_url, dest)，封面异步下载
-
-        Returns:
-            (matched, skipped, failed)
-        """
-        from core.metadata import metadata_matcher
+    ) -> Tuple[int, int, int, int]:
+        """批量匹配所有游戏的 VNDB 元数据。返回 (matched, skipped, unmatched, retryable)。"""
+        from core.metadata.pipeline import metadata_matcher
+        self.last_retryable_ids = []
         games = self.repository.get_all()
         if not games:
-            return 0, 0, 0
+            return 0, 0, 0, 0
 
         originals = {g.id: copy.deepcopy(g) for g in games}
         # 先在内存中批量匹配（避免每次都查库）
-        matched, skipped, failed = metadata_matcher.match_batch(
+        matched, skipped, unmatched, retryable = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cover_cb=cover_cb,
-            source_cb=self._persist_group_sources
+            source_cb=self._persist_group_sources,
+            result_cb=self._record_match_result
         )
         # 统一写回数据库（已匹配或已标记匹配 ID 的）
         for game in games:
@@ -457,7 +482,13 @@ class GameManager:
                     self._persist_source_ids(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
-        return matched, skipped, failed
+        return matched, skipped, unmatched, retryable
+
+    def get_retryable_games(self) -> List[Game]:
+        ids = set(self.last_retryable_ids)
+        if not ids:
+            return []
+        return [g for g in self.get_all_games() if g.id in ids]
 
     def match_vndb_for_games(
         self,
@@ -466,26 +497,17 @@ class GameManager:
         progress_cb: Optional[Callable[[str, str, str, str], None]] = None,
         cancel_event=None,
         cover_cb=None,
-    ) -> Tuple[int, int, int]:
-        """为指定游戏列表匹配 VNDB 元数据（不匹配全库，扫描后精准匹配用）
-
-        Args:
-            games: 要匹配的游戏列表
-            force: True 时强制重新匹配已有 vndb_id 的游戏
-            progress_cb: 进度回调 callback(game_id, title, status, msg)
-            cancel_event: threading.Event，置位时提前结束（可选）
-            cover_cb: 封面回调 (game_id, cover_url, dest)，封面异步下载
-
-        Returns:
-            (matched, skipped, failed)
-        """
-        from core.metadata import metadata_matcher
+    ) -> Tuple[int, int, int, int]:
+        """为指定游戏列表匹配元数据，返回 (matched, skipped, unmatched, retryable)。"""
+        from core.metadata.pipeline import metadata_matcher
+        self.last_retryable_ids = []
         if not games:
-            return 0, 0, 0
+            return 0, 0, 0, 0
         originals = {g.id: copy.deepcopy(g) for g in games}
-        matched, skipped, failed = metadata_matcher.match_batch(
+        matched, skipped, unmatched, retryable = metadata_matcher.match_batch(
             games, force=force, progress_cb=progress_cb, cancel_event=cancel_event, cover_cb=cover_cb,
-            source_cb=self._persist_group_sources
+            source_cb=self._persist_group_sources,
+            result_cb=self._record_match_result
         )
         # 统一写回数据库（已匹配或已标记匹配 ID 的）
         for game in games:
@@ -497,4 +519,4 @@ class GameManager:
                     self._persist_source_ids(game)
                 except Exception as e:
                     logger.error("写回 VNDB 元数据失败: %s, %s", game.id, e)
-        return matched, skipped, failed
+        return matched, skipped, unmatched, retryable

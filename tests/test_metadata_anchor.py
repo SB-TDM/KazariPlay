@@ -13,9 +13,9 @@ logger_module._initialized = True
 logger_module._logger = logging.getLogger("metadata-anchor")
 logger_module._logger.addHandler(logging.NullHandler())
 
-from core.metadata import metadata_matcher as mm  # noqa: E402
-from core.metadata import multi_source as ms  # noqa: E402
-from core.metadata import search as metadata_search  # noqa: E402
+from core.metadata.pipeline import metadata_matcher as mm  # noqa: E402
+from core.metadata.search import multi_source as ms  # noqa: E402
+from core.metadata.search import search as metadata_search  # noqa: E402
 from core.games.game_model import Game  # noqa: E402
 
 

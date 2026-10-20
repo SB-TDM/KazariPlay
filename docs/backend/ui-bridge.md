@@ -76,10 +76,14 @@
 - `cancelMatch()`
 
 ### 元数据匹配
-- `_run_vndb_match(games, cancel_event)`：设 `_batch_ctx` → `manager.match_vndb_for_games(..., cover_cb=self._queue_cover)` → `refresh_delta(ids)`（**增量**，避免全量重建导致封面重新淡入）→ `notify` 结果
+- `_run_vndb_match(games, cancel_event)`：设 `_batch_ctx` → `manager.match_vndb_for_games(..., cover_cb=self._queue_cover)` → `refresh_delta(ids)`（**增量**，避免全量重建导致封面重新淡入）→ `notify` 成功/跳过/未匹配/待重试
 - `_vndb_progress`：`start` 忽略；`done+1`；每 3 条 `notify` 一次（节流）
-- `getBatchProgress()`：读 `_batch_ctx` 返回 `{running,type,total,done}`
-- `matchVndb(id)`（单游戏，force=True，复用批量进度条）/ `matchVndbBatch(ids_json)`
+- `getBatchProgress()`：读 `_batch_ctx` 返回 `{running,type,total,done,phase,retryable}`
+- `matchVndb(id)`（单游戏，force=True，复用批量进度条）/ `matchVndbBatch(ids_json)` / `retryFailedMatches()`（只重跑本次任务记录的 `retryable` 游戏）
+- `getUnmatchedInfo(game_id)`：返回未匹配原因、结构化 code 与精简候选
+- `mergeGames(source_id, target_id)`：合并两张本地卡并删除源卡，运行中的卡禁止合并
+- `dismissUnmatched(game_id)`：从未匹配区移除并刷新该卡；手动匹配复用编辑表单的 `searchMetadata/applyCandidate`
+- `_start_task` finally 会把 `_batch_ctx.retryable` 一并推给前端，用于保留「重试失败」入口
 - `selectExe()`
 
 ### 多源搜索 / 手动应用

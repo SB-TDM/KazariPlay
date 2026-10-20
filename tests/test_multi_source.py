@@ -1,6 +1,6 @@
 """多源元数据注册表 / 混合检索回归测试（不发起真实网络请求）
 
-验证 core/multi_source.py：
+验证 core/metadata/search/multi_source.py：
 1. 注册表完整性：6 源齐全，ready/experimental 有 client，pending 无 client
 2. 默认混合源 = ['vndb','bangumi']；配置中含 pending 源会被剔除
 3. _wrap 补充 source_icon / source_name
@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src", "kazari_play"))
 
-from core.metadata import multi_source as ms  # noqa: E402
+from core.metadata.search import multi_source as ms  # noqa: E402
 
 
 class FakeCfg:

@@ -58,12 +58,12 @@ def get_proxy_config() -> Tuple[str, str]:
     try:
         from utils.infra.config import Config
         cfg = Config()
-        mode = str(cfg.get("network.proxy_mode", "system") or "system").strip().lower()
+        mode = str(cfg.get("network.proxy_mode", "direct") or "direct").strip().lower()
         proxy_url = str(cfg.get("network.proxy_url", "") or "").strip()
     except Exception:
-        return "system", ""
+        return "direct", ""
     if mode not in _PROXY_MODES:
-        mode = "system"
+        mode = "direct"
     return mode, proxy_url
 
 
@@ -88,10 +88,10 @@ def normalize_proxy_url(proxy_url: str) -> str:
     return url
 
 
-def resolve_proxies(mode: str = "system", proxy_url: str = "",
+def resolve_proxies(mode: str = "direct", proxy_url: str = "",
                     system_proxies: Optional[Dict[str, str]] = None) -> dict:
     """按模式返回 urllib ProxyHandler 使用的代理字典。"""
-    mode = (mode or "system").strip().lower()
+    mode = (mode or "direct").strip().lower()
     if mode not in _PROXY_MODES:
         raise ProxyConfigError(f"未知代理模式：{mode}")
     if mode == "direct":
@@ -122,9 +122,9 @@ def build_opener(mode: Optional[str] = None, proxy_url: Optional[str] = None,
 
 
 def get_opener():
-    """返回按当前应用配置构建的 opener；配置无效时退回系统代理。"""
+    """返回按当前应用配置构建的 opener；配置无效时退回直连。"""
     try:
         return build_opener()
     except ProxyConfigError as e:
-        logger.warning("代理配置无效，已退回系统代理：%s", e)
-        return build_opener("system")
+        logger.warning("代理配置无效，已退回直连：%s", e)
+        return build_opener("direct")

@@ -12,8 +12,8 @@ logger_module._initialized = True
 logger_module._logger = logging.getLogger("source-adapter")
 logger_module._logger.addHandler(logging.NullHandler())
 
-from core.metadata import multi_source  # noqa: E402
-from core.metadata.source_adapter import enrich_candidates  # noqa: E402
+from core.metadata.search import multi_source  # noqa: E402
+from core.metadata.search.source_adapter import enrich_candidates  # noqa: E402
 
 
 class FakeClient:

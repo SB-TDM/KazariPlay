@@ -79,6 +79,10 @@ interface PyWebViewApi {
   setTheme(theme: string): Promise<unknown>;
   matchVndb(game_id: string): Promise<string>;
   matchVndbBatch(ids_json: string): Promise<string>;
+  retryFailedMatches(): Promise<string>;
+  getUnmatchedInfo(game_id: string): Promise<string>;
+  mergeGames(source_id: string, target_id: string): Promise<string>;
+  dismissUnmatched(game_id: string): Promise<string>;
   previewRelocate(ids_json: string): Promise<string>;
   applyRelocate(mapping_json: string): Promise<string>;
   setRating(game_id: string, rating: number): Promise<boolean>;

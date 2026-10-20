@@ -1,21 +1,22 @@
 """单源/多源搜索与 Kungal 锚点解析。"""
 import concurrent.futures
+import copy
 import time
 from typing import Dict, List, Optional, Tuple
 
 from core.games.game_model import Game
-from core.metadata import multi_source
-from core.metadata.candidates import (
-    _candidate_titles, _pick_result, _query_sim, _release_year, _year_compatible,
+from core.metadata.search import multi_source
+from core.metadata.candidates.candidates import (
+    _candidate_titles, _pick_result, _query_sim,
 )
-from core.metadata.constants import (
+from core.metadata.candidates.constants import (
     _SEARCH_DEADLINE, _SINGLE_QUERY_RATIO, _SLOW_SOURCE_SECONDS,
 )
-from core.metadata.queries import (
-    _build_queries, _edition_tokens, _strip_edition, _year_hint,
+from core.metadata.candidates.queries import (
+    _build_queries, _edition_tokens, _match_key, _strip_edition,
 )
-from core.metadata.source_adapter import enrich_candidates, get_adapter
-from core.metadata.title_policy import (
+from core.metadata.search.source_adapter import enrich_candidates, get_adapter
+from core.metadata.candidates.title_policy import (
     part_score, release_language_hints, trailing_part,
 )
 from utils.clients import vndb_client
@@ -25,14 +26,13 @@ from utils.infra.logger import get_logger
 logger = get_logger()
 
 def _search_source(source_id: str, queries: List[str], cancel_event=None,
-                   trust_rank: bool = False, year_hint: str = "",
-                   edition_tokens: Optional[List[str]] = None) -> Optional[dict]:
+                   trust_rank: bool = False,
+                   edition_tokens: Optional[List[str]] = None,
+                   cache: Optional[dict] = None,
+                   reject_ambiguous: bool = False) -> Optional[dict]:
     """在单个源上按关键词策略搜索，返回最合适的候选
 
-    - year_hint：优先选发行年份一致的候选（用于按年份选重制版）；当前关键词
-      没有同年结果时继续尝试后续关键词，全部失败才回退到首个结果
-    - edition_tokens：目录带 FHD/HD/Remake 等标记时，优先带标记的候选；
-      都不带时按发行年份取最新（自动选重制版），并继续尝试后续关键词
+    - edition_tokens：目录带 FHD/HD/Remake 等标记时，优先带标记的候选
     - trust_rank=True 时直接取搜索排名第一条（用于跨语言桥接）
     """
     meta = multi_source.SOURCES.get(source_id) or {}
@@ -40,11 +40,6 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
     if client is None or not multi_source.source_available(source_id):
         return None
     fallback: Optional[dict] = None
-
-    def keep_newest(cand: dict) -> None:
-        nonlocal fallback
-        if fallback is None or int(_release_year(cand) or 0) > int(_release_year(fallback) or 0):
-            fallback = cand
 
     def part_ok(cand: dict) -> bool:
         local_part = trailing_part(queries[0] if queries else "")
@@ -56,30 +51,37 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
             return None
         if not multi_source.source_available(source_id):
             return None
-        try:
-            started = time.monotonic()
-            results = client.search(q, count=5)
-            elapsed = time.monotonic() - started
-            if elapsed >= _SLOW_SOURCE_SECONDS:
+        cache_key = (source_id, q.casefold())
+        if cache is not None and cache_key in cache:
+            results = copy.deepcopy(cache[cache_key])
+        else:
+            try:
+                started = time.monotonic()
+                results = client.search(q, count=5)
+                elapsed = time.monotonic() - started
+                if elapsed >= _SLOW_SOURCE_SECONDS:
+                    multi_source.mark_source_failure(source_id)
+                else:
+                    multi_source.mark_source_success(source_id)
+            except Exception as e:  # noqa: BLE001
                 multi_source.mark_source_failure(source_id)
-            else:
-                multi_source.mark_source_success(source_id)
-        except Exception as e:  # noqa: BLE001
-            multi_source.mark_source_failure(source_id)
-            logger.warning("元数据源 %s 搜索失败: q='%s', %s", source_id, q, e)
-            continue
+                logger.warning("元数据源 %s 搜索失败: q='%s', %s", source_id, q, e)
+                continue
+            if cache is not None:
+                cache[cache_key] = copy.deepcopy(results)
         if not results:
             continue
+        if reject_ambiguous:
+            qkeys = {_match_key(q) for q in queries if _match_key(q)}
+            exact = [r for r in results
+                     if any(_match_key(t) in qkeys
+                            for t in _candidate_titles(r))]
+            if len(exact) > 1:
+                logger.info("源 %s 同名候选过多，跳过自动锚点: q='%s', n=%d",
+                            source_id, q, len(exact))
+                return None
 
         pool = results
-        if year_hint:
-            same_year = [r for r in results if _release_year(r) == year_hint]
-            if not same_year:
-                cand = _pick_result(results, queries, edition_tokens, trust_rank)
-                if part_ok(cand):
-                    keep_newest(cand)
-                continue
-            pool = same_year
 
         if edition_tokens and not trust_rank:
             hits = [r for r in pool
@@ -101,8 +103,9 @@ def _search_source(source_id: str, queries: List[str], cancel_event=None,
     return fallback
 
 
-def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
-                edition_tokens: Optional[List[str]] = None) -> Dict[str, dict]:
+def _search_all(queries: List[str], cancel_event=None,
+                edition_tokens: Optional[List[str]] = None,
+                cache: Optional[dict] = None) -> Dict[str, dict]:
     """并行查询各源，返回 {source_id: 候选}；失败的源忽略"""
     sources = [s for s in multi_source.get_mixed_sources()
                if (multi_source.SOURCES.get(s) or {}).get("client") is not None
@@ -112,11 +115,11 @@ def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
     candidates: Dict[str, dict] = {}
     if len(sources) == 1:
         cand = _search_source(sources[0], queries, cancel_event, False,
-                              year_hint, edition_tokens)
+                              edition_tokens, cache)
         return {sources[0]: cand} if cand else {}
     ex = concurrent.futures.ThreadPoolExecutor(max_workers=len(sources))
     futs = {ex.submit(_search_source, sid, queries, cancel_event, False,
-                      year_hint, edition_tokens): sid for sid in sources}
+                      edition_tokens, cache): sid for sid in sources}
     try:
         for fut in concurrent.futures.as_completed(futs, timeout=_SEARCH_DEADLINE):
             sid = futs[fut]
@@ -157,36 +160,11 @@ def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
                 break
             try:
                 cand = _search_source(sid, bridge[:2], cancel_event, True,
-                                      year_hint, edition_tokens)
+                                      edition_tokens, cache)
             except Exception as e:  # noqa: BLE001
                 logger.warning("元数据源 %s 桥接搜索失败: %s", sid, e)
                 continue
             if cand:
-                candidates[sid] = cand
-
-    # 年份冲突修复：以 VNDB 为锚点补查另一源，只接受年份一致的候选；
-    # 另一源当前候选已带目录版本标记时跳过（避免把 HD/BLUE 版换成原版）
-    vndb = candidates.get("vndb")
-    if vndb and len(candidates) >= 2:
-        for sid in list(candidates):
-            if sid == "vndb":
-                continue
-            current = candidates[sid]
-            if _year_compatible(current, vndb):
-                continue
-            if edition_tokens:
-                now_titles = " ".join(_candidate_titles(current)).lower()
-                if all(t in now_titles for t in edition_tokens):
-                    continue
-            titles = _candidate_titles(vndb)[:2]
-            if not titles:
-                continue
-            try:
-                cand = _search_source(sid, titles, cancel_event, False, "", None)
-            except Exception as e:  # noqa: BLE001
-                logger.warning("元数据源 %s 年份修复失败: %s", sid, e)
-                continue
-            if cand and _year_compatible(cand, vndb):
                 candidates[sid] = cand
 
     # 版本标记补搜：目录带 HD/FHD/Reflection Blue 等标记但当前候选都没有时，
@@ -212,8 +190,8 @@ def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
                 if cancel_event is not None and cancel_event.is_set():
                     break
                 try:
-                    cand = _search_source(sid, titles[:2], cancel_event, False, "",
-                                          edition_tokens)
+                    cand = _search_source(sid, titles[:2], cancel_event, False,
+                                          edition_tokens, cache)
                 except Exception as e:  # noqa: BLE001
                     logger.warning("元数据源 %s 版本标记补搜失败: %s", sid, e)
                     continue
@@ -225,15 +203,15 @@ def _search_all(queries: List[str], cancel_event=None, year_hint: str = "",
 
 
 def _resolve_kungal_anchor(queries: List[str], cancel_event=None,
-                           year_hint: str = "",
-                           edition_tokens: Optional[List[str]] = None) -> Dict[str, dict]:
+                           edition_tokens: Optional[List[str]] = None,
+                           cache: Optional[dict] = None) -> Dict[str, dict]:
     """只解析 Kungal 锚点及详情，不拉取 VNDB（批量阶段用）。"""
     if "kungal" not in multi_source.get_mixed_sources():
         return {}
     if not multi_source.source_available("kungal"):
         return {}
     cand = _search_source("kungal", queries, cancel_event, False,
-                          year_hint, edition_tokens)
+                          edition_tokens, cache, reject_ambiguous=True)
     if not cand:
         return {}
     sim = _query_sim(cand, queries)
@@ -275,11 +253,11 @@ def _resolve_kungal_anchor(queries: List[str], cancel_event=None,
 
 
 def _resolve_anchor(queries: List[str], cancel_event=None,
-                    year_hint: str = "",
-                    edition_tokens: Optional[List[str]] = None) -> Dict[str, dict]:
+                    edition_tokens: Optional[List[str]] = None,
+                    cache: Optional[dict] = None) -> Dict[str, dict]:
     """Kungal 锚点 + vndb_id 直接补 VNDB 详情（单游戏路径）。"""
-    group = _resolve_kungal_anchor(queries, cancel_event, year_hint,
-                                   edition_tokens)
+    group = _resolve_kungal_anchor(queries, cancel_event,
+                                   edition_tokens, cache)
     if not group:
         return {}
     cand = group["kungal"]
@@ -295,7 +273,8 @@ def _resolve_anchor(queries: List[str], cancel_event=None,
 
 
 def _prefetch_anchors(games: List[Game], force: bool,
-                      cancel_event=None, progress_cb=None) -> Tuple[Dict[str, Dict[str, dict]], bool]:
+                      cancel_event=None, progress_cb=None,
+                      cache: Optional[dict] = None) -> Tuple[Dict[str, Dict[str, dict]], bool]:
     """并发预取 Kungal 锚点，再一次性批量拉 VNDB 详情。"""
     sources = multi_source.get_mixed_sources()
     if "kungal" not in sources or not multi_source.source_available("kungal"):
@@ -319,7 +298,7 @@ def _prefetch_anchors(games: List[Game], force: bool,
         max_workers=workers, thread_name_prefix="kungal-anchor")
     futures = {
         ex.submit(_resolve_kungal_anchor, _build_queries(game.title),
-                  cancel_event, _year_hint(game), _edition_tokens(game.title)): game
+                  cancel_event, _edition_tokens(game.title), cache): game
         for game in pending
     }
     completed = 0

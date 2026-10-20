@@ -6,6 +6,9 @@
 ## 模块地图
 
 ### core/（业务层，经 `GameManager` 门面聚合）
+
+> `core/metadata/` 分五层：`pipeline/`、`search/`、`candidates/`、`merge/`、`validation/`；下表路径相对于该目录。
+
 | 模块 | 职责（一句话） |
 |---|---|
 | `game_manager.py` | **门面**：聚合 scanner/launcher/monitor/metadata/multi_source/repository，对桥暴露统一接口 |
@@ -13,14 +16,14 @@
 | `game_scanner.py` | 目录扫描、引擎识别、主 exe 选择、`identity` 生成、辅助程序黑名单 |
 | `game_launcher.py` | 启动/关闭游戏进程、子进程树追踪、自定义启动路径、热键 |
 | `game_monitor.py` | 运行中游戏的存活监控、退出回调、游玩计时 |
-| `metadata_matcher.py` | 编排单游戏/批量匹配、锚点、版本守卫、写回字段 |
-| `search.py` | 单源/多源搜索、Kungal 锚点、批量锚点预取 |
-| `queries.py` | 标题清洗、查询变体、部数/年份线索 |
-| `candidates.py` | 候选相似度、部数/副标题评分、跨源分组 |
-| `guard.py` | 自动采用前的同名/编号/ID 安全校验 |
-| `merge.py` | 跨源字段优先级合并 |
-| `title_policy.py` | 副标题、全半角符号、部数编号等纯标题策略 |
-| `multi_source.py` | 多源（VNDB/Bangumi/YMGal）搜索、合并去重、并发 + 整体超时 |
+| `pipeline/metadata_matcher.py` | 编排单游戏/批量匹配、锚点、版本守卫、写回字段 |
+| `search/search.py` | 单源/多源搜索、Kungal 锚点、批量锚点预取 |
+| `candidates/queries.py` | 标题清洗、查询变体、部数/年份线索 |
+| `candidates/candidates.py` | 候选相似度、部数/副标题评分、跨源分组 |
+| `validation/guard.py` | 自动采用前的同名/编号/ID 安全校验 |
+| `merge/merge.py` | 跨源字段优先级合并 |
+| `candidates/title_policy.py` | 副标题、全半角符号、部数编号等纯标题策略 |
+| `search/multi_source.py` | 多源（VNDB/Bangumi/YMGal）搜索、合并去重、并发 + 整体超时 |
 | `screenshot_service.py` | 截图内核 WGC→PrintWindow→ImageGrab 三级回退；原图 + 留边缩略图双保存 |
 | `overlay_client.py` | C++ overlay 客户端单例：命名管道长连接、懒启动、退出 |
 

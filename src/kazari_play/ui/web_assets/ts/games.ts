@@ -137,6 +137,8 @@ function _gamesChanged(a: Game[], b: Game[]): boolean {
     const x = a[i], y = b[i];
     const xc = (x.collections || []).map(c => c.id).join(','), yc = (y.collections || []).map(c => c.id).join(',');
     if (!x || !y || x.id !== y.id || x.fav !== y.fav || x.rating !== y.rating
+        || (x.unmatched_reason || '') !== (y.unmatched_reason || '')
+        || (x.unmatched_code || '') !== (y.unmatched_code || '')
       || x.dev !== y.dev || x.title !== y.title || x.last_played !== y.last_played
       || x.play_time !== y.play_time
       || !!x.has_cover !== !!y.has_cover
@@ -200,6 +202,7 @@ function filterGames(games: Game[], ignoreKw?: boolean): Game[] {
     });
   }
   else if (App.ui.state.nav === '我的最爱') list = list.filter(g => g.fav);
+  else if (App.ui.state.nav === '未匹配') list = list.filter(g => !!g.unmatched_reason);
   if (App.ui.state.collectionId !== null) {
     // 分组选中：显示该分组 + 全部子分类内的游戏；分类选中：仅显示自身
     let ids = [App.ui.state.collectionId];
@@ -296,11 +299,17 @@ function renderEmpty(list: Game[]): void {
   e.classList.toggle('show', show);
   if (!show) return;
   const favEmpty = App.ui.state.nav === '我的最爱';
+  const unmatchedEmpty = App.ui.state.nav === '未匹配';
   const filterEmpty = App.ui.state.collectionId !== null || !!App.ui.state.kw;
   if (favEmpty) {
     document.getElementById('emptyTitle')!.textContent = '还没有最爱的游戏';
     document.getElementById('emptySub')!.textContent = '在卡片详情里点击「最爱」，游戏就会出现在这里';
     document.getElementById('btnShowAll')!.style.display = 'inline-block';
+    document.getElementById('btnScan')!.style.display = 'none';
+  } else if (unmatchedEmpty) {
+    document.getElementById('emptyTitle')!.textContent = '没有待处理的游戏';
+    document.getElementById('emptySub')!.textContent = '当前没有需要人工确认或重新匹配的游戏';
+    document.getElementById('btnShowAll')!.style.display = 'none';
     document.getElementById('btnScan')!.style.display = 'none';
   } else if (filterEmpty) {
     document.getElementById('emptyTitle')!.textContent = '没有符合条件的结果';

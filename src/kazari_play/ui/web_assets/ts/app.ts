@@ -113,13 +113,15 @@ document.getElementById('filterBtn')!.onclick = function (e: MouseEvent) {
 bindFilterMenu();
 updateSortLabel();
 
+const NAV_ITEM_SELECTOR = '#sidebar .side-item[data-nav], .navbar .navbtn[data-nav]';
+
 function setActiveSideNav(name: string): void {
-  document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]')
+  document.querySelectorAll<HTMLElement>(NAV_ITEM_SELECTOR)
     .forEach(x => x.classList.toggle('active', x.dataset.nav === name));
 }
 
 // 侧边栏导航（全部作品 / 我的收藏；收藏夹入口在下方浮层）
-document.querySelectorAll<HTMLElement>('#sidebar .side-item[data-nav]').forEach(it => {
+document.querySelectorAll<HTMLElement>(NAV_ITEM_SELECTOR).forEach(it => {
   it.onclick = () => {
     App.ui.state.nav = it.dataset.nav!;
     App.ui.state.collectionId = null;

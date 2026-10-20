@@ -15,8 +15,10 @@ interface MetadataSource {
 
 /** 元数据候选（后端 searchMetadata 返回元素） */
 interface MetadataCandidate {
+  source?: string;
   source_id?: string;
   source_name?: string;
+  alt_title?: string;
   source_icon?: string;
   title?: string;
   developer?: string;

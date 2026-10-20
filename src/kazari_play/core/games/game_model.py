@@ -16,7 +16,10 @@ class Game:
     folder: str = ""
     cover_path: str = ""
     engine: str = ""
-    identity: str = ""           # 游戏身份键（引擎|归一化标题），跨文件夹判重用
+    identity: str = ""           # 游戏身份键（引擎|归一化文件夹名），跨文件夹判重用
+    unmatched_reason: str = ""   # 运行时未匹配状态，不写入数据库
+    unmatched_code: str = ""
+    unmatched_candidates: List[dict] = field(default_factory=list)
     tags: List[str] = field(default_factory=list)          # 旧 tags 标签（兼容保留）
     collections: List[dict] = field(default_factory=list)  # 所属收藏夹 [{"id","name","color","icon"}]
     is_favorite: bool = False

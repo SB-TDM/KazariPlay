@@ -43,7 +43,7 @@
 - **目录过滤**：`_is_ignored_folder` 跳过 `补丁/备份/patch/backup/副本/smartsteamemu/...`。
 - **主 exe 选择** `_pick_primary_exe`：① 汉化启动器优先（`CHS_KEYWORDS`）② exe 版本资源含可用游戏名 ③ 同池体积降序 ④ 文件名排序。
 - **标题** `_generate_title`/`_clean_title`：优先读取 exe 的 `FileDescription` / `ProductName`；过滤引擎名、启动器、安装器、通用词后使用。否则回退清洗后的文件夹名，再回退 exe 文件名。文件夹清洗会处理 `PC+krkr[...]`、汉化组和语言后缀。
-- **版本资源**：`utils/infra/win_version.py::read_version_info` 用 Windows `version.dll` 读取 `FileDescription/ProductName/FileVersion/CompanyName`，扫描内按路径缓存。
+- **版本资源**：`utils/infra/win_version.py::read_version_info` 用 Windows `version.dll` 读取 `FileDescription/ProductName/FileVersion/CompanyName/LegalCopyright/OriginalFilename/InternalName/Comments`，扫描内按路径缓存。`CompanyName` / `LegalCopyright` 只作为临时线索，不进入 `Game`/数据库/UI；文件特征无法识别引擎时，`_engine_from_version` 用版本资源补引擎。探测结论见 [EXE_VERSION_HINTS.md](../dev/EXE_VERSION_HINTS.md)。
 - **引擎识别** `_detect_engine`（可靠性降序）：
   1. 特征文件（最可靠）：`renpy`/`.rpyc`→renpy；`UnityPlayer.dll`/`managed`→unity；`www/data`→rpg_maker；`.xp3`→kirikiri；`sysgrp.arc+sysprg.arc+BGI.exe`→bgi；`tyrano`→tyrano
   2. exe 完整名匹配（`ENGINE_PATTERNS[*].exact`，如 `Game.exe`→rpg_maker）
@@ -120,21 +120,39 @@
 
 ---
 
-## metadata_matcher.py — 元数据匹配
+## game_merge_service.py — 手动合并本地卡
+
+**对象**：`GameMergeService`
+
+**职责**：用户确认后，把源卡的收藏夹、标签、来源记录、游玩统计、截图合并到目标卡，删除源卡。
+
+- 截图先移动；数据库事务失败时回滚文件
+- 目标卡已有字段优先；评分保留目标值，游玩次数/时长累加，收藏状态取并集
+- 数据库事务内删除源卡关联和 `unmatched_games` 记录
+- 运行中的源卡/目标卡由 WebBridge 拒绝合并
+
+---
+
+## pipeline/metadata_matcher.py — 元数据匹配
 
 **模块级函数**（非类）
 
 **定位**：VNDB 标题归一化搜索 → 多关键词回退 → **保守合并**字段 → 封面回调。
 
 **`match_single(game, force=False, cancel_event=None, cover_cb=None) -> (status, msg)`**
-- 有 `vndb_id` 且非 force → `("skip", ...)`
-- 关键词策略（依次尝试）：`normalize_title(title)` → `_extract_japanese(title)`（提取最长 CJK 片段，排除汉化/版本词）→ 原标题
-- 命中后**保守更新**：`title` 无条件用 VNDB 正式名覆盖；其余字段仅在本地为空时填（`description/rating/released/developer/length_minutes`）
-- 封面：本地空且有 `cover_url` → 有 `cover_cb` 则异步 `cover_cb(game_id, url, dest)`（不阻塞匹配）；否则同步 `vndb_client.download_cover`
-- `status ∈ {"skip","match","fail","cancelled"}`
+- 有 `vndb_id`/`bangumi_id` 且非 force → `("skip", ...)`
+- 本地标题线索：当前标题、文件夹名、exe 名、exe `FileDescription` / `ProductName`，统一构建查询；引擎/启动器描述会被过滤
+- 命中后**保守更新**：`title` 用合并结果覆盖；其余字段仅在本地为空时填
+- 网络/来源不可用且无候选 → `retryable`；来源正常返回但无候选/歧义/冲突 → `unmatched`
+- 封面：本地空且有 `cover_url` → 有 `cover_cb` 则异步 `cover_cb(game_id, url, dest)`；否则同步下载
+- `status ∈ {"skip","match","unmatched","retryable","cancelled"}`
 
-**`match_batch(games, force, progress_cb, cancel_event, cover_cb) -> (matched, skipped, failed)`**
-- 逐游戏 `match_single`；`progress_cb(game_id, title, status, msg)`（"start" 与结果各一次）；`cancelled` 不计入且停止
+**`match_batch(games, force, progress_cb, cancel_event, cover_cb, source_cb, result_cb) -> (matched, skipped, unmatched, retryable)`**
+- 按 `date_added` 排序；同一外部 ID 只保留最早入库卡为主卡，其余记 `unmatched`
+- 游戏级并发调用 `match_single`（`metadata_sources.match_concurrency`，默认 4）；`progress_cb(game_id, title, status, msg)`（"start" 与结果各一次）；`cancelled` 不计入且停止
+- 同一批任务共享 `search_cache`，相同「源 + 关键词」只请求一次；锚点预取和后续搜索共用
+- 来源写入和封面回调先按游戏暂存，去重判定后再对主卡执行
+- `result_cb(game, status, msg)` 用于写未匹配区 / 收集本次可重试失败
 
 **`_cover_dest_path(game_id, cover_url)`**：`covers/{game_id}_vndb.{jpg|png|webp}`。
 
@@ -142,7 +160,7 @@
 
 ---
 
-## multi_source.py — 多源搜索
+## search/multi_source.py — 多源搜索
 
 **模块级函数 + `SOURCES` 注册表**
 

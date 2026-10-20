@@ -63,7 +63,8 @@ def read_version_info(path: str) -> Dict[str, str]:
         translations = [(0x0409, 0x04B0), (0x0804, 0x04B0), (0x0411, 0x04B0)]
 
     result = {}
-    for field in ("FileDescription", "ProductName", "FileVersion", "CompanyName"):
+    for field in ("FileDescription", "ProductName", "FileVersion", "CompanyName",
+                  "LegalCopyright", "OriginalFilename", "InternalName", "Comments"):
         value = ""
         for lang, codepage in translations:
             value = _query(

@@ -6,10 +6,10 @@
   /* ===== 设置窗口（居中模态，对齐设置计划书） ===== */
   .overlay.center{align-items:center;padding:20px;}
   /* 居中模态四角全圆角（覆盖 BottomSheet 的底部直角） */
-  .overlay.center .dialog{border-radius:20px;border-bottom:1.5px solid var(--border-soft,var(--border-soft));}
+  .overlay.center .dialog{border-radius:16px;border-bottom:1.5px solid var(--border-soft,var(--border-soft));}
   .dialog.settings{width:min(90vw,900px);height:min(82vh,760px);max-width:100%;display:flex;flex-direction:column;
                    background:var(--bg-panel);border:1.5px solid var(--border-soft,var(--border-soft));
-                   border-radius:20px;overflow:hidden;}
+                   border-radius:16px;overflow:hidden;}
   .dlg-head{display:flex;align-items:center;gap:10px;padding:18px 22px 10px;}
   .dlg-head h3{flex:1;font-size:clamp(16px,1vw,18px);font-weight:700;color:var(--text);}
   .dlg-head h3 .cog{color:var(--pink-deep);}
@@ -44,7 +44,7 @@
   .switch input:checked + .track .thumb{left:calc(100% - 20px);}
   .switch input:focus + .track{box-shadow:0 0 0 3px var(--glow-soft);}
   .theme-cards{display:flex;gap:14px;}
-  .theme-card{flex:1;border:1.5px solid var(--border-soft,var(--border-soft));border-radius:var(--radius-lg);
+  .theme-card{flex:1;border:1.5px solid var(--border-soft,var(--border-soft));border-radius:14px;
               padding:10px;cursor:pointer;text-align:center;transition:transform .22s var(--bounce);
               background:var(--bg-panel);font-family:var(--font);font-size:13px;}
   .theme-card:hover{transform:translateY(-2px);}

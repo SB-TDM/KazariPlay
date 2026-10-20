@@ -9,6 +9,7 @@
 
 // 详情请求代际：连续打开不同游戏或已关闭时，丢弃迟到响应（参考 screenshots.ts 的 request+gid）
 let detailRequest = 0;
+let unmatchedInfoRequest = 0;
 let detailRateSlider: StarSlider | null = null;
 
 // 打开详情（卡片闭包数据可能是快照，随后异步重取最新数据刷新）
@@ -19,6 +20,9 @@ function openDetail(g: Game): void {
   document.getElementById('dlgTitle')!.textContent = g.title;
   renderInfoBar();
   initRateEdit();
+  renderUnmatchedState();
+  renderUnmatchedCandidates([]);
+  loadUnmatchedInfo(g);
   renderDetailTags();
   document.getElementById('dlgDesc')!.textContent = g.description || '暂无简介';
   updateFavBtn();
@@ -54,6 +58,8 @@ function refreshDetail(): void {
   document.getElementById('dlgDesc')!.textContent = App.data.currentGame.description || '暂无简介';
   renderDetailTags();
   updateInfoValues();
+  renderUnmatchedState();
+  if (App.data.currentGame) loadUnmatchedInfo(App.data.currentGame);
   updateFavBtn();
   renderScreenshots();
   if (detailRateSlider) detailRateSlider.set(+App.data.currentGame.rating || 0);
@@ -143,6 +149,65 @@ function renderDetailTags(): void {
   t.appendChild(m);
 }
 
+function renderUnmatchedState(): void {
+  const box = document.getElementById('dlgUnmatched');
+  const reasonEl = document.getElementById('dlgUnmatchedReason');
+  const mergeBtn = document.getElementById('dlgUnmatchedMerge') as HTMLElement | null;
+  if (!box || !reasonEl) return;
+  const game = App.data.currentGame;
+  const reason = String(game?.unmatched_reason || '').trim();
+  box.style.display = reason ? 'flex' : 'none';
+  reasonEl.textContent = reason;
+  if (mergeBtn) mergeBtn.style.display = game?.unmatched_code === 'duplicate_version' ? '' : 'none';
+}
+
+function renderUnmatchedCandidates(cands: MetadataCandidate[]): void {
+  const box = document.getElementById('dlgUnmatchedCands');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!cands.length) {
+    box.classList.remove('show');
+    return;
+  }
+  box.classList.add('show');
+  cands.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'unmatched-cand';
+    const title = c.title || c.alt_title || '未命名候选';
+    b.innerHTML = `<span class="unmatched-cand-title" title="${esc(title)}">${esc(title)}</span>
+      <span class="unmatched-cand-sub">${esc(c.released || '')}${c.developer ? ' · ' + esc(c.developer) : ''}</span>
+      <span class="unmatched-cand-src">${esc(c.source_name || c.source || '')}</span>`;
+    b.onclick = () => {
+      const g = App.data.currentGame;
+      if (!g) return;
+      App.data.editingId = String(g.id);
+      openMetaApply(c);
+    };
+    box.appendChild(b);
+  });
+}
+
+function loadUnmatchedInfo(game: Game): void {
+  const request = ++unmatchedInfoRequest;
+  if (!game.unmatched_reason) {
+    renderUnmatchedCandidates([]);
+    return;
+  }
+  bridge.getUnmatchedInfo(String(game.id), function (s: unknown) {
+    if (request !== unmatchedInfoRequest
+      || String(App.data.currentGame?.id) !== String(game.id)) return;
+    let info: { reason?: string; code?: string; candidates?: MetadataCandidate[] } = {};
+    try { info = JSON.parse(String(s || '{}')); } catch (e) { }
+    if (App.data.currentGame) {
+      App.data.currentGame.unmatched_reason = info.reason || App.data.currentGame.unmatched_reason || '';
+      App.data.currentGame.unmatched_code = info.code || App.data.currentGame.unmatched_code || '';
+    }
+    renderUnmatchedState();
+    renderUnmatchedCandidates(Array.isArray(info.candidates) ? info.candidates : []);
+  });
+}
+
 // 收藏按钮状态
 function updateFavBtn(): void {
   const b = document.getElementById('dlgFav')!;
@@ -159,6 +224,56 @@ document.getElementById('dlgFav')!.onclick = () => {
   App.data.currentGame.fav = !App.data.currentGame.fav;
   bridge.toggleFav(String(App.data.currentGame.id));
   updateFavBtn();
+};
+document.getElementById('dlgUnmatchedEdit')!.onclick = () => {
+  const g = App.data.currentGame;
+  if (!g) return;
+  closeSheet('detailOverlay', true);
+  openEdit(g);
+  setTimeout(() => (document.getElementById('fSearchKw') as HTMLInputElement | null)?.focus(), 50);
+};
+document.getElementById('dlgUnmatchedMerge')!.onclick = () => {
+  const g = App.data.currentGame;
+  if (!g) return;
+  const targets = (App.data.games || []).filter(x => String(x.id) !== String(g.id));
+  if (!targets.length) { toast('没有可合并的目标卡片'); return; }
+  const items: PickerItem[] = targets.map((x, i) => ({
+    label: `${x.title}${x.dev ? ' · ' + x.dev : ''}`,
+    value: i,
+  }));
+  openPicker('选择要合并到的卡片', items, (index) => {
+    const target = targets[index];
+    if (!target) return;
+    showConfirmDialog({
+      title: '合并本地卡片',
+      message: `将「${g.title}」合并到「${target.title}」？\n收藏夹、标签、来源记录、游玩时长和截图会合并，源卡片会被删除。此操作不可撤销。`,
+      danger: true,
+      okText: '合并并删除',
+      cb: () => {
+        bridge.mergeGames(String(g.id), String(target.id), function (s: unknown, failed?: boolean) {
+          if (failed) { toast('合并失败'); return; }
+          let r: { ok?: boolean; msg?: string } = {};
+          try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+          toast(r.msg || (r.ok ? '合并完成' : '合并失败'));
+          if (r.ok) { closeSheet('detailOverlay', true); refreshAll(true); }
+        });
+      },
+    });
+  });
+};
+document.getElementById('dlgUnmatchedDismiss')!.onclick = () => {
+  const g = App.data.currentGame;
+  if (!g) return;
+  bridge.dismissUnmatched(String(g.id), function (s: unknown, failed?: boolean) {
+    if (failed) { toast('移出失败，请重试'); return; }
+    let r: { ok?: boolean; msg?: string } = {};
+    try { r = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+    if (r.ok !== true) { toast(r.msg || '移出失败'); return; }
+    g.unmatched_reason = '';
+    renderUnmatchedState();
+    applyGamesDelta([String(g.id)]);
+    toast(r.msg || '已移出未匹配区');
+  });
 };
 document.getElementById('dlgMore')!.onclick = function (e: MouseEvent) {
   e.stopPropagation();

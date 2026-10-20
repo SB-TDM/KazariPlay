@@ -29,6 +29,8 @@ interface Game {
   fav: boolean;
   tags: string[];
   cat_id: number;
+  unmatched_reason?: string;
+  unmatched_code?: string;
   collections: CollectionRef[];
   play_time: number;
   last_played: string;

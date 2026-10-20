@@ -3,9 +3,9 @@ from typing import Dict
 
 from core.games.game_model import Game
 from utils.domain.title_utils import normalize_title
-from core.metadata.candidates import _candidate_titles
-from core.metadata.queries import _edition_tokens, _soft_edition, _strip_edition
-from core.metadata.title_policy import exact_title_match, trailing_part
+from core.metadata.candidates.candidates import _candidate_titles
+from core.metadata.candidates.queries import _edition_tokens, _soft_edition, _strip_edition
+from core.metadata.candidates.title_policy import exact_title_match, trailing_part
 
 def _has_external_bridge(group: Dict[str, dict]) -> bool:
     for source_id, cand in group.items():

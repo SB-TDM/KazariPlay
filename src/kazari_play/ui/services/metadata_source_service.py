@@ -1,7 +1,7 @@
 """元数据来源配置用例。"""
 from typing import List
 
-from core.metadata import multi_source
+from core.metadata.search import multi_source
 
 
 class MetadataSourceService:

@@ -4,13 +4,13 @@ import re
 from typing import Dict, List, Optional, Tuple
 
 from utils.domain.title_utils import normalize_title
-from core.metadata.constants import (
+from core.metadata.candidates.constants import (
     _CONSENSUS_RATIO,
     _PICK_BY_TITLE_RATIO,
     _SINGLE_QUERY_RATIO,
 )
-from core.metadata.queries import _match_key, _release_year, _series_key, _soft_edition
-from core.metadata.title_policy import (
+from core.metadata.candidates.queries import _match_key, _soft_edition
+from core.metadata.candidates.title_policy import (
     extra_subtitle_hits,
     part_score,
     subtitle_tokens,
@@ -18,16 +18,8 @@ from core.metadata.title_policy import (
 )
 
 def _title_affinity(a: dict, b: dict, queries: List[str]) -> float:
-    """跨源标题亲和度：整标题相似度，或同系列 + 同年份。"""
-    sim = _title_sim(a, b)
-    if sim >= _CONSENSUS_RATIO:
-        return sim
-    ka, kb = _series_key(" / ".join(_candidate_titles(a))), _series_key(" / ".join(_candidate_titles(b)))
-    da = (a.get("released") or "").strip()
-    db = (b.get("released") or "").strip()
-    if ka and ka == kb and len(ka) >= 3 and da and db and da == db:
-        return 1.0
-    return sim
+    """跨源标题亲和度：只比较标题/别名，不做同系列猜测。"""
+    return _title_sim(a, b)
 
 
 def _similarity(a: str, b: str) -> float:
@@ -67,16 +59,9 @@ def _title_sim(a: dict, b: dict) -> float:
                 for tb in _candidate_titles(b)), default=0.0)
 
 
-def _year_compatible(a: dict, b: dict) -> bool:
-    """发行年份一致（任一侧缺失时放行），防止同名不同版本/系列作被并组"""
-    ya, yb = _release_year(a), _release_year(b)
-    return not ya or not yb or ya == yb
-
-
 def _pick_result(results: List[dict], queries: List[str],
                  edition_tokens: Optional[List[str]], trust_rank: bool) -> dict:
-    """在结果集中选最佳候选：版本标记匹配优先，其次标题相似度；
-    无标记命中时（重制版目录）取发行年份最新的条目"""
+    """在结果集中选最佳候选：版本标记匹配优先，其次标题相似度。"""
     if trust_rank:
         return results[0]
     tokens = edition_tokens or []
@@ -97,19 +82,41 @@ def _pick_result(results: List[dict], queries: List[str],
         qkeys = {_match_key(q) for q in queries}
         qraw = {normalize_title(q).lower() for q in queries}
         qfull = {re.sub(r"[\s\*＊]+", "", q.lower()) for q in queries}
-        primary = _match_key(r.get("title") or "")
-        raw_primary = normalize_title(r.get("title") or "").lower()
-        full_primary = re.sub(r"[\s\*＊]+", "", (r.get("title") or "").lower())
-        exact = 1 if primary and primary in qkeys else 0
-        raw_exact = 1 if raw_primary and raw_primary in qraw else 0
-        full_exact = 1 if full_primary and full_primary in qfull else 0
-        titles_text = " ".join(_candidate_titles(r)).lower()
+        official = []
+        for key in ("title", "alt_title"):
+            value = str(r.get(key) or "").strip()
+            if value and value not in official:
+                official.append(value)
+        for value in (r.get("all_titles") or []):
+            value = str(value or "").strip()
+            if value and value not in official:
+                official.append(value)
+        aliases = [str(v).strip() for v in (r.get("aliases") or []) if str(v).strip()]
+
+        def exact_score(values: List[str]) -> tuple:
+            keys = {_match_key(v) for v in values if _match_key(v)}
+            raw = {normalize_title(v).lower() for v in values if normalize_title(v)}
+            full = {re.sub(r"[\s\*＊]+", "", v.lower()) for v in values if v}
+            return (
+                1 if keys & qkeys else 0,
+                1 if raw & qraw else 0,
+                1 if full & qfull else 0,
+            )
+
+        official_exact, official_raw, official_full = exact_score(official)
+        alias_exact, _, _ = exact_score(aliases)
+        all_titles = official + aliases
+        titles_text = " ".join(all_titles).lower()
         subtitle_hits = sum(1 for token in subtitles if token in titles_text)
+        matched_lens = [len(v) for v in all_titles
+                        if _match_key(v) in qkeys or normalize_title(v).lower() in qraw]
+        matched_len = min(matched_lens) if matched_lens else len(official[0] if official else "")
         part = part_score(local_part, trailing_part(r.get("title") or ""))
+        primary_titles = [str(r.get("title") or "")]
         return (part, subtitle_hits,
-                -extra_subtitle_hits(queries, _candidate_titles(r)),
-                full_exact, raw_exact, sim, exact, -len(primary),
-                int(_release_year(r) or 0))
+                -extra_subtitle_hits(queries, primary_titles),
+                official_full, official_raw, official_exact, alias_exact,
+                sim, -matched_len)
 
     best = max(results, key=score)
     if _query_sim(best, queries) >= _PICK_BY_TITLE_RATIO:
@@ -117,11 +124,26 @@ def _pick_result(results: List[dict], queries: List[str],
     return results[0]
 
 
+def _external_id_conflict(candidates: Dict[str, dict]) -> str:
+    for field, label in (("vndb_id", "VNDB"), ("bangumi_id", "Bangumi")):
+        values = {
+            str(cand.get(field)).strip()
+            for cand in candidates.values()
+            if str(cand.get(field) or "").strip()
+        }
+        if len(values) > 1:
+            return f"{label} 外部 ID 冲突：{' / '.join(sorted(values))}"
+    return ""
+
+
 def _pick_group(candidates: Dict[str, dict], queries: List[str],
                 edition_tokens: Optional[List[str]] = None) -> Tuple[Optional[Dict[str, dict]], str]:
     """跨源一致性校验，返回可合并的源组；失败时返回原因"""
     if not candidates:
         return None, "未找到匹配"
+    conflict = _external_id_conflict(candidates)
+    if conflict:
+        return None, conflict
     if len(candidates) == 1:
         sid, cand = next(iter(candidates.items()))
         sim = _query_sim(cand, queries)
@@ -141,12 +163,11 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str],
 
     for i, a in enumerate(sids):
         for b in sids[i + 1:]:
-            if _year_compatible(candidates[a], candidates[b]):
-                sim = _title_affinity(candidates[a], candidates[b], queries)
-                # 两个源都带同一版本标记（如 Golden Time）→ 即使跨语言也视为同一版本
-                if _has_tokens(candidates[a]) and _has_tokens(candidates[b]):
-                    sim = 1.0
-                edges.append((sim, a, b))
+            sim = _title_affinity(candidates[a], candidates[b], queries)
+            # 两个源都带同一版本标记（如 Golden Time）→ 即使跨语言也视为同一版本
+            if _has_tokens(candidates[a]) and _has_tokens(candidates[b]):
+                sim = 1.0
+            edges.append((sim, a, b))
     if not edges:
         # 先接受“带目录版本标记”的候选（如 HD 版 / REFLECTION BLUE / FHD）
         tokens = edition_tokens or []
@@ -160,18 +181,21 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str],
                 sid, cand = max(token_cands, key=lambda kv: _query_sim(kv[1], queries))
                 if _query_sim(cand, queries) >= _SINGLE_QUERY_RATIO:
                     return {sid: cand}, ""
-        # 否则年份冲突时，VNDB 标题与查询完全一致则以 VNDB 为准
-        vndb = candidates.get("vndb")
-        if vndb and _release_year(vndb):
-            qkeys = {_match_key(q) for q in queries}
-            tkeys = {_match_key(t) for t in _candidate_titles(vndb)}
-            if qkeys & tkeys:
-                return {"vndb": vndb}, ""
         detail = " / ".join(f"{sid}:{candidates[sid].get('title', '')}"
                             for sid in sids)
-        return None, f"各源发行年份不一致（{detail}），请手动确认"
+        return None, f"各源候选不一致（{detail}），请手动确认"
     best_sim, best_a, best_b = max(edges, key=lambda e: e[0])
     if best_sim < _CONSENSUS_RATIO:
+        tokens = edition_tokens or []
+        token_cands = []
+        for sid, cand in candidates.items():
+            titles = " ".join(_candidate_titles(cand)).lower()
+            if tokens and all(t in titles for t in tokens):
+                token_cands.append((sid, cand))
+        if token_cands:
+            sid, cand = max(token_cands, key=lambda kv: _query_sim(kv[1], queries))
+            if _query_sim(cand, queries) >= _SINGLE_QUERY_RATIO:
+                return {sid: cand}, ""
         detail = " / ".join(f"{sid}:{candidates[sid].get('title', '')}"
                             for sid in sids)
         return None, f"多源结果不一致（{detail}），请手动确认"
@@ -184,7 +208,6 @@ def _pick_group(candidates: Dict[str, dict], queries: List[str],
             if sid in group:
                 continue
             if any(_title_affinity(candidates[sid], candidates[g], queries) >= _CONSENSUS_RATIO
-                   and _year_compatible(candidates[sid], candidates[g])
                    for g in group):
                 group.add(sid)
                 changed = True

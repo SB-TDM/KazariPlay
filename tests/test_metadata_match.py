@@ -1,6 +1,6 @@
 """多源元数据自动匹配的离线回归（不访问真实网络）
 
-覆盖 core/metadata_matcher.py：
+覆盖 core/metadata/pipeline/metadata_matcher.py：
 1. VNDB + Bangumi 标题一致 → 合并，标题优先中文，字段按优先级取
 2. Bangumi 单源命中（中文文件夹名）→ 采用并记录 bangumi_id
 3. 单源候选与标题差异过大 → 拒绝（避免误匹配）
@@ -9,6 +9,7 @@
 """
 import os
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src", "kazari_play"))
@@ -18,8 +19,18 @@ import utils.infra.logger as logger_module  # noqa: E402
 logger_module._initialized = True
 
 from core.games.game_model import Game  # noqa: E402
-from core.metadata import multi_source as ms  # noqa: E402
-from core.metadata import metadata_matcher as mm  # noqa: E402
+from core.metadata.search import multi_source as ms  # noqa: E402
+from core.metadata.merge import merge as merge_mod  # noqa: E402
+from core.metadata.pipeline import metadata_matcher as mm  # noqa: E402
+from core.metadata.candidates.candidates import (  # noqa: E402
+    _pick_group, _pick_result, _similarity,
+)
+from core.metadata.candidates.queries import _extract_japanese, _strip_edition  # noqa: E402
+from core.metadata.search import search as metadata_search  # noqa: E402
+from core.metadata.search.search import _search_source  # noqa: E402
+from core.metadata.candidates.title_policy import (  # noqa: E402
+    exact_title_match, part_score, trailing_part,
+)
 
 
 class FakeClient:
@@ -117,7 +128,7 @@ def test_single_source_weak_rejected():
     }])
     g = _game("千恋万花")
     status, msg = mm.match_single(g, cover_cb=lambda *a: None)
-    assert status == "fail", (status, msg)
+    assert status == "unmatched", (status, msg)
     assert g.bangumi_id == "" and g.vndb_id == ""
     assert "相似度不足" in msg, msg
     print("[single-source weak rejected] OK")
@@ -133,7 +144,7 @@ def test_sources_disagree_rejected():
     }])
     g = _game("Sakura no Uta")
     status, msg = mm.match_single(g, cover_cb=lambda *a: None)
-    assert status == "fail", (status, msg)
+    assert status == "unmatched", (status, msg)
     assert "不一致" in msg, msg
     assert g.vndb_id == "" and g.bangumi_id == ""
     print("[sources disagree rejected] OK")
@@ -146,33 +157,6 @@ def test_skip_when_matched():
     assert status == "skip", (status, msg)
     assert "12345" in msg, msg
     print("[skip matched] OK")
-
-
-def test_year_remake_selection():
-    old = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
-           "cover_url": "", "rating": 3, "description": "old",
-           "developer": "OldDev", "released": "2009-01-01",
-           "length_minutes": 100}
-    new = {"vndb_id": "v2", "title": "Foo Remake", "alt_title": "Foo Remake",
-           "cover_url": "", "rating": 4, "description": "new",
-           "developer": "NewDev", "released": "2023-06-23",
-           "length_minutes": 2000}
-    bgm = {"source": "Bangumi", "source_id": "b2", "title": "Foo 中文",
-           "alt_title": "Foo Remake", "cover_url": "",
-           "description": "中文简介", "developer": "",
-           "released": "2023-06-23", "rating": 4, "length_minutes": 0,
-           "tags": []}
-    _install([old, new], [bgm])
-    g = _game("Foo FHD", released="2023-06-23")
-    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
-    assert status == "match", msg
-    assert g.vndb_id == "v2", g.vndb_id
-    assert g.bangumi_id == "b2", g.bangumi_id
-    assert g.title == "Foo FHD", g.title
-    assert g.released == "2023-06-23", g.released
-    assert g.developer == "NewDev", g.developer
-    assert "Foo" in mm._build_queries("Foo FHD"), mm._build_queries("Foo FHD")
-    print("[year remake selection] OK")
 
 
 def test_force_overwrites_fields():
@@ -233,23 +217,6 @@ def test_edition_without_year_rejected():
     assert g.vndb_id == "v1", g.vndb_id
     assert g.title == "Foo FHD", g.title
     print("[edition without year uses base VN] OK")
-
-
-def test_year_conflict_exact_vndb():
-    v = {"vndb_id": "v1", "title": "Foo", "alt_title": "Foo",
-         "cover_url": "", "rating": 3, "description": "",
-         "developer": "", "released": "2009-01-01", "length_minutes": 100}
-    b = {"source": "Bangumi", "source_id": "b1", "title": "Foo",
-         "alt_title": "Foo 新版", "cover_url": "", "description": "中文",
-         "developer": "", "released": "2020-01-01", "rating": 4,
-         "length_minutes": 0, "tags": []}
-    _install([v], [b])
-    g = _game("Foo")
-    status, msg = mm.match_single(g, cover_cb=lambda *a: None)
-    assert status == "match", msg
-    assert g.vndb_id == "v1", g.vndb_id
-    assert g.bangumi_id == "", g.bangumi_id
-    print("[year conflict -> exact VNDB] OK")
 
 
 def test_reflection_blue_token():
@@ -328,14 +295,14 @@ def test_token_pair_merge():
 
 
 def test_parenthesized_suffix_query():
-    assert mm._extract_japanese("9nine⑤-新章(最终章)") == "新章"
+    assert _extract_japanese("9nine⑤-新章(最终章)") == "新章"
     print("[parenthesized suffix query] OK")
 
 
 def test_similarity():
-    assert mm._similarity("Summer Pockets", "summer-pockets") == 1.0
-    assert mm._similarity("千恋万花", "千恋＊万花") > 0.9
-    assert mm._similarity("", "abc") == 0.0
+    assert _similarity("Summer Pockets", "summer-pockets") == 1.0
+    assert _similarity("千恋万花", "千恋＊万花") > 0.9
+    assert _similarity("", "abc") == 0.0
     print("[similarity] OK")
 
 
@@ -344,39 +311,39 @@ def test_title_variants_and_edition_strip():
     q2 = [q.lower() for q in mm._build_queries("9-nine-ここのつ")]
     assert "9nine" in q1, q1
     assert any("9-nine" in q for q in q2), q2
-    assert mm._strip_edition("Foo Reflection Blue HD") == "Foo"
-    assert mm._strip_edition("Foo Golden Time") == "Foo"
+    assert _strip_edition("Foo Reflection Blue HD") == "Foo"
+    assert _strip_edition("Foo Golden Time") == "Foo"
     assert "eden" in mm._build_queries("eden＊")
-    assert mm.exact_title_match("eden＊", ["eden*"])
+    assert exact_title_match("eden＊", ["eden*"])
     qs = mm._build_queries("大图书馆的牧羊人-Dreaming-Sheep")
-    picked = mm._pick_result([
+    picked = _pick_result([
         {"source_id": "base", "title": "大图书馆的牧羊人"},
         {"source_id": "fd", "title": "大图书馆的牧羊人 Dreaming Sheep"},
     ], qs, None, False)
     assert picked["source_id"] == "fd", picked
     qs = mm._build_queries("千之刃涛-桃花染之皇姬_弥生月汉化组")
-    picked = mm._pick_result([
+    picked = _pick_result([
         {"source_id": "base", "title": "千之刃涛、桃花染之皇姬"},
         {"source_id": "extra", "title": "千之刃涛、桃花染之皇姬 -花あかり-"},
     ], qs, None, False)
     assert picked["source_id"] == "base", picked
     qs = mm._build_queries("近月少女的礼仪")
-    picked = mm._pick_result([
+    picked = _pick_result([
         {"source_id": "base", "title": "近月少女的礼仪"},
         {"source_id": "sequel", "title": "近月少女的礼仪2"},
     ], qs, None, False)
     assert picked["source_id"] == "base", picked
     qs = mm._build_queries("近月少女的礼仪1")
-    picked = mm._pick_result([
+    picked = _pick_result([
         {"source_id": "base", "title": "近月少女的礼仪"},
         {"source_id": "sequel", "title": "近月少女的礼仪2"},
     ], qs, None, False)
     assert picked["source_id"] == "base", picked
-    assert mm.trailing_part("近月少女的礼仪1") == "1"
-    assert mm.part_score("1", "2") < 0
-    assert mm.part_score("", "2") < 0
+    assert trailing_part("近月少女的礼仪1") == "1"
+    assert part_score("1", "2") < 0
+    assert part_score("", "2") < 0
     qs = mm._build_queries("CLANNAD HD")
-    picked = mm._pick_result([
+    picked = _pick_result([
         {"source_id": "base", "title": "CLANNAD"},
         {"source_id": "side", "title": "CLANNAD - 智代アフター"},
     ], qs, ["hd"], False)
@@ -385,29 +352,239 @@ def test_title_variants_and_edition_strip():
     print("[title variants / edition strip] OK")
 
 
-def test_cross_source_series_affinity():
-    v = {"title": "9-nine-ここのつ", "released": "2019-04-26"}
-    b = {"title": "9-nine-九次九日九重色", "released": "2019-04-26"}
-    group, reason = mm._pick_group({"vndb": v, "ymgal": b}, ["9nine-九次九日九重色"])
-    assert group is not None, reason
-    assert set(group) == {"vndb", "ymgal"}
-    print("[cross-source series affinity] OK")
+def test_same_series_without_bridge_is_not_merged():
+    v = {"title": "9-nine-Alpha", "released": "2019-04-26"}
+    b = {"title": "9-nine-Zeta", "released": "2019-04-26"}
+    group, reason = _pick_group({"vndb": v, "ymgal": b}, ["9nine-Zeta"])
+    assert group is None, reason
+    print("[same series without bridge rejected] OK")
+
+
+
+
+def test_cover_source_priority():
+    class FakeConfig:
+        def get(self, key, default=None):
+            return "kungal" if key == "cover_download.preferred_source" else default
+
+    group = {
+        "vndb": {"cover_url": "https://vndb/cover.jpg"},
+        "kungal": {"cover_url": "https://kungal/cover.jpg"},
+    }
+    with patch.object(merge_mod, "Config", FakeConfig):
+        merged = merge_mod._merge_candidates(group)
+    assert merged["cover_url"] == "https://kungal/cover.jpg", merged["cover_url"]
+    print("[cover source priority] OK")
+
+
+def test_base_before_fd_by_primary_subtitle():
+    base = {
+        "vndb_id": "v15708",
+        "title": "千の刃濤、桃花染の皇姫",
+        "alt_title": "Sen no Hatou, Tsukisome no Kouki",
+        "all_titles": [
+            "Senmomo: Through Billows of Blades, A Peachbloom Princess",
+            "千の刃濤、桃花染の皇姫",
+            "千之刃涛，桃花染之皇姬",
+        ],
+    }
+    fd = {
+        "vndb_id": "v26001",
+        "title": "千の刃濤、桃花染の皇姫 -花あかり-",
+        "alt_title": "Sen no Hatou, Tsukisome no Kouki -Hana Akari-",
+        "all_titles": [
+            "千の刃濤、桃花染の皇姫 -花あかり-",
+            "千之刃涛，桃花染之皇姬 -柳暗花明-",
+        ],
+    }
+    picked = _pick_result([fd, base], ["千之刃涛-桃花染之皇姬"], None, False)
+    assert picked["vndb_id"] == "v15708", picked
+    print("[base before fd by primary subtitle] OK")
+
+
+def test_vndb_alias_exact_preferred():
+    correct = {
+        "vndb_id": "v21523", "title": "アオイトリ", "alt_title": "Aoi Tori",
+        "all_titles": ["Aoi Tori", "アオイトリ", "青鸟"],
+        "aliases": ["Blue Bird", "Caged Bird"],
+    }
+    wrong = {
+        "vndb_id": "v64142", "title": "青鸟", "alt_title": "Qing Niao",
+        "aliases": ["The Azure One"],
+    }
+    picked = _pick_result([correct, wrong], ["青鸟"], None, False)
+    assert picked["vndb_id"] == "v21523", picked
+    print("[vndb alias exact preferred] OK")
+
+
+def test_kungal_ambiguous_anchor_rejected():
+    old = ms.SOURCES["kungal"]["client"]
+    ms.SOURCES["kungal"]["client"] = FakeClient([
+        {"id": "59620", "title": "青鸟", "developer": "Haoyunfeng"},
+        {"id": "324", "title": "青鸟", "developer": "Purple SOFTWARE"},
+    ])
+    try:
+        assert _search_source("kungal", ["青鸟"], reject_ambiguous=True) is None
+    finally:
+        ms.SOURCES["kungal"]["client"] = old
+    print("[kungal ambiguous anchor rejected] OK")
+
+
+
+
+def test_edition_supplement_keeps_cache_dict():
+    calls = []
+
+    def fake_search(source_id, queries, cancel_event=None, trust_rank=False,
+                    edition_tokens=None, cache=None, reject_ambiguous=False):
+        assert cache is None or isinstance(cache, dict), type(cache)
+        calls.append(source_id)
+        return {"source": source_id, "source_id": source_id,
+                "title": queries[0]}
+
+    with patch.object(ms, "get_mixed_sources", return_value=["vndb", "bangumi"]), \
+         patch.object(ms, "source_available", return_value=True), \
+         patch.object(metadata_search, "_search_source", side_effect=fake_search):
+        result = metadata_search._search_all(
+            ["Foo FHD"], edition_tokens=["fhd"], cache={})
+    assert "vndb" in result and "bangumi" in result
+    print("[edition supplement cache dict] OK")
+
+
+def test_conflicting_external_ids_are_not_merged():
+    v = {"title": "Eden", "vndb_id": "v1286"}
+    k = {"title": "Eden", "vndb_id": "v2285"}
+    group, reason = _pick_group({"vndb": v, "kungal": k}, ["Eden"])
+    assert group is None, reason
+    assert "外部 ID 冲突" in reason, reason
+    b1 = {"title": "青鸟", "bangumi_id": "111"}
+    b2 = {"title": "青鸟", "bangumi_id": "222"}
+    group, reason = _pick_group({"vndb": b1, "bangumi": b2}, ["青鸟"])
+    assert group is None, reason
+    assert "外部 ID 冲突" in reason, reason
+    print("[conflicting external ids rejected] OK")
+
+
+
+def test_retryable_and_unmatched_status():
+    game = Game(id="status", title="Status Game")
+    with patch.object(ms, "get_mixed_sources", return_value=["vndb"]), \
+         patch.object(ms, "source_available", return_value=False), \
+         patch.object(mm, "_resolve_anchor", return_value={}), \
+         patch.object(mm, "_search_all", return_value={}):
+        status, _ = mm.match_single(game)
+        assert status == "retryable", status
+    with patch.object(ms, "get_mixed_sources", return_value=["vndb"]), \
+         patch.object(ms, "source_available", return_value=True), \
+         patch.object(mm, "_resolve_anchor", return_value={}), \
+         patch.object(mm, "_search_all", return_value={}):
+        status, _ = mm.match_single(game)
+        assert status == "unmatched", status
+        assert game.unmatched_code == "no_candidate", game.unmatched_code
+    print("[retryable/unmatched status] OK")
+
+
+def test_duplicate_version_earliest_wins():
+    older = Game(id="older", title="Same", date_added="2020-01-01T00:00:00")
+    newer = Game(id="newer", title="Same", date_added="2021-01-01T00:00:00")
+    statuses = []
+
+    def fake_match(game, **kwargs):
+        game.vndb_id = "v1"
+        return "match", "ok"
+
+    def result_cb(game, status, msg):
+        statuses.append((game.id, status))
+
+    with patch.object(mm, "_prefetch_anchors", return_value=({}, False)), \
+         patch.object(mm, "match_single", side_effect=fake_match):
+        summary = mm.match_batch([newer, older], force=True, result_cb=result_cb)
+    assert summary == (1, 0, 1, 0), summary
+    assert older.vndb_id == "v1"
+    assert newer.vndb_id == ""
+    assert newer.unmatched_code == "duplicate_version"
+    assert statuses == [("older", "match"), ("newer", "unmatched")], statuses
+    print("[duplicate version earliest wins] OK")
+
+
+def test_batch_defers_duplicate_side_effects():
+    older = Game(id="older", title="Same", vndb_id="v1",
+                 date_added="2020-01-01T00:00:00")
+    newer = Game(id="newer", title="Same", vndb_id="v1",
+                 date_added="2021-01-01T00:00:00")
+    sources, covers = [], []
+
+    def fake_match(game, **kwargs):
+        kwargs["source_cb"](game.id, {"vndb": {"source_id": "v1"}})
+        kwargs["cover_cb"](game.id, "cover-url", "cover-dest")
+        return "match", "ok"
+
+    with patch.object(mm, "_prefetch_anchors", return_value=({}, False)), \
+         patch.object(mm, "match_single", side_effect=fake_match):
+        summary = mm.match_batch(
+            [newer, older], force=True,
+            source_cb=lambda gid, group: sources.append(gid),
+            cover_cb=lambda gid, url, dest: covers.append(gid))
+    assert summary == (1, 0, 1, 0), summary
+    assert sources == ["older"], sources
+    assert covers == ["older"], covers
+    print("[batch defers duplicate side effects] OK")
+
+
+def test_local_titles_skip_engine_descriptions():
+    game = Game(id="filter", title="Musica", folder="E:/games/Musica",
+                exe_path="E:/games/Musica/SiglusEngine.exe")
+    titles = mm._local_titles(game)
+    assert "Musica" in titles
+    assert all("siglus" not in t.lower() for t in titles), titles
+    print("[local titles skip engine] OK")
+
+
+def test_search_source_cache_reuses_query():
+    class CountingClient(FakeClient):
+        def __init__(self, results):
+            super().__init__(results)
+            self.count = 0
+
+        def search(self, keyword, count=5):
+            self.count += 1
+            return super().search(keyword, count)
+
+    client = CountingClient([dict(VNDB_SUMMER)])
+    ms.SOURCES["vndb"]["client"] = client
+    cache = {}
+    first = _search_source("vndb", ["Summer Pockets"], cache=cache)
+    first["title"] = "mutated"
+    second = _search_source("vndb", ["Summer Pockets"], cache=cache)
+    assert first and second
+    assert second["title"] != "mutated", second
+    assert client.count == 1, client.count
+    print("[search source cache] OK")
 
 
 def main():
     test_title_variants_and_edition_strip()
-    test_cross_source_series_affinity()
+    test_same_series_without_bridge_is_not_merged()
+    test_conflicting_external_ids_are_not_merged()
+    test_cover_source_priority()
+    test_base_before_fd_by_primary_subtitle()
+    test_vndb_alias_exact_preferred()
+    test_kungal_ambiguous_anchor_rejected()
+    test_edition_supplement_keeps_cache_dict()
     test_similarity()
     test_consensus_merge()
     test_bangumi_only_chinese_folder()
     test_single_source_weak_rejected()
     test_sources_disagree_rejected()
     test_skip_when_matched()
-    test_year_remake_selection()
     test_force_overwrites_fields()
     test_description_language_priority()
+    test_retryable_and_unmatched_status()
+    test_duplicate_version_earliest_wins()
+    test_batch_defers_duplicate_side_effects()
+    test_local_titles_skip_engine_descriptions()
+    test_search_source_cache_reuses_query()
     test_edition_without_year_rejected()
-    test_year_conflict_exact_vndb()
     test_reflection_blue_token()
     test_edition_token_single_accept()
     test_dash_subtitle_agreement()

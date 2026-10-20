@@ -2,11 +2,19 @@
 import re
 from typing import Dict, Tuple
 
-from core.metadata.constants import (
+from core.metadata.candidates.constants import (
     _COVER_ORDER,
     _DETAIL_ORDER,
     _TITLE_DESC_ORDER,
 )
+from utils.infra.config import Config
+
+def _cover_order() -> Tuple[str, ...]:
+    preferred = str(Config().get("cover_download.preferred_source", "auto") or "auto").lower()
+    if preferred in _COVER_ORDER:
+        return (preferred,) + tuple(s for s in _COVER_ORDER if s != preferred)
+    return _COVER_ORDER
+
 
 def _pick_field(group: Dict[str, dict], field: str, order: Tuple[str, ...]):
     """按源优先级取第一个非空字段值"""
@@ -47,7 +55,7 @@ def _merge_candidates(group: Dict[str, dict]) -> dict:
         "released": _pick_field(group, "released", _DETAIL_ORDER),
         "rating": (_pick_field(group, "rating", _DETAIL_ORDER) or 0),
         "length_minutes": (_pick_field(group, "length_minutes", _DETAIL_ORDER) or 0),
-        "cover_url": _pick_field(group, "cover_url", _COVER_ORDER),
+        "cover_url": _pick_field(group, "cover_url", _cover_order()),
     }
 
 

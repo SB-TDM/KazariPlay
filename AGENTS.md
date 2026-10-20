@@ -51,6 +51,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 ## 目录与约定
 
 - `src/kazari_play/{core/{games,metadata,media,platform},database/{db_manager,repositories},ui/{web_bridge,sync,services},utils/{clients,update,infra,domain,system}}`：后端；`ui/web_bridge.py` = js_api 桥，`ui/sync.py` = UISync 刷新总线
+- `core/metadata/` 按层拆分：`pipeline/` 编排、`search/` 搜索与来源、`candidates/` 候选/标题/查询、`merge/` 合并/写回、`validation/` 守卫；新代码不要继续平铺到根目录
 - `src/kazari_play/ui/web_assets/`：`ts/` = TypeScript 源（唯一真相），`js/` = 编译产物（勿手改），`css/`、`partials/`、`index.html`
 - 新增前端模块：`ts/` 建文件 → 登记 `main.py` 的 `_JS_MANIFEST`（顺序即依赖顺序，两处同步）
 - `overlay/`：截图 toast 源码；`tests/`：原版回归与边界检查
@@ -63,7 +64,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/domain/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
 - 当前正式版 `1.1.1`；核心号随 `main` 发布定稿，版本规则与历史映射见 `docs/dev/VERSIONING.md`，历史版本见 `RELEASE_NOTES.md`
-- 元数据自动匹配（1.1.x 线）：VNDB/Bangumi/月幕多源并行 + 跨源一致性校验；中文标题/简介优先，`bangumi_id` 自动迁移；批量入口 force=True（用户评分不覆盖）。
+- 元数据自动匹配（1.1.x 线）：VNDB/Bangumi/月幕多源并行 + 跨源一致性校验；中文标题/简介优先，`bangumi_id` 自动迁移；批量入口 force=True（用户评分不覆盖）。匹配结果分 `match / unmatched / retryable / skip`，未匹配区落 `unmatched_games`，网络失败只保留本次任务并支持「重试失败」。
 - 封面（1.1.x 线）：`covers/{id}.{ext}` + `thumbs/{id}_w512.jpg` 单文件模型；本地 HTTP 服务（127.0.0.1、持久 token/端口、immutable），失败回退 base64；启动迁移旧变体与清理。
 - 更新器（1.0.x）：通道切换 + 就绪缓存（启动本地探测自动提示，确认期间跳过）+ 硬链接程序备份 + 分阶段埋点；应用方式仅「立即重启更新」；设计见 `docs/dev/AUTO_UPDATE_SPEEDUP_PLAN.md`
 - `scripts/package_develop.py` 生成隔离的 onedir 试用包，运行时数据在包旁 `data/`；不覆盖现有构建目录，打包前需先完成 Overlay x64/x86 构建。

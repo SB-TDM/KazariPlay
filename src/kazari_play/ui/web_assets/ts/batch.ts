@@ -10,6 +10,7 @@ interface BatchProgress {
   done?: number;
   total?: number;
   phase?: string;
+  retryable?: number;
 }
 
 // 批量工具栏状态（renderAll 时调用）
@@ -67,9 +68,35 @@ function hideBatchProgress(): void {
   // 任务结束后恢复取消按钮（下次任务重新可用）；取消等待中不恢复
   const cancelBtn = document.getElementById('bpCancel') as HTMLButtonElement | null;
   if (cancelBtn && !cancelPending) cancelBtn.disabled = false;
+  const retryBtn = document.getElementById('bpRetry') as HTMLElement | null;
+  if (retryBtn) retryBtn.style.display = 'none';
 }
 
 // 轮询后端批量任务进度；完成（running=false）时收起并提示
+function showRetryPrompt(count: number): void {
+  bpGeneration++;
+  if (bpTimer) { clearInterval(bpTimer); bpTimer = null; }
+  const box = document.getElementById('batchProgress');
+  if (!box) return;
+  box.classList.add('show');
+  const titleEl = document.getElementById('bpTitle');
+  const pctEl = document.getElementById('bpPct');
+  const fillEl = document.getElementById('bpFill');
+  const subEl = document.getElementById('bpSub');
+  if (titleEl) titleEl.textContent = '元数据匹配完成';
+  if (pctEl) pctEl.textContent = '100%';
+  if (fillEl) (fillEl as HTMLElement).style.width = '100%';
+  if (subEl) subEl.textContent = `网络失败 ${count} 个，可稍后重试`;
+  const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  const retryBtn = document.getElementById('bpRetry') as HTMLElement | null;
+  if (retryBtn) {
+    retryBtn.style.display = '';
+    retryBtn.textContent = `重试失败的 ${count} 个`;
+    (retryBtn as HTMLButtonElement).disabled = false;
+  }
+}
+
 function trackBatchProgress(title: string): void {
   hideBatchProgress();
   const generation = bpGeneration;
@@ -88,8 +115,12 @@ function trackBatchProgress(title: string): void {
       let p: BatchProgress = {};
       try { p = JSON.parse(String(s || '{}')) as BatchProgress; } catch (e) { }
       if (!p || !p.running) {
-        cancelPending = false;   // 任务真正结束，取消等待解除
-        hideBatchProgress();
+        cancelPending = false;
+        if (p && (p.retryable || 0) > 0) {
+          showRetryPrompt(p.retryable || 0);
+        } else {
+          hideBatchProgress();
+        }
         return;
       }
       const done = p.done || 0, total = p.total || 0;
@@ -120,6 +151,8 @@ function updateScanProgress(p: ScanProgress): void {
   const box = document.getElementById('batchProgress');
   if (!box) return;
   const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
+  const retryBtn = document.getElementById('bpRetry') as HTMLElement | null;
+  if (retryBtn) retryBtn.style.display = 'none';
   if (!p || !p.running) {
     // 扫描结束：解除取消等待，延迟收起（让用户看到最终进度），隐藏取消按钮
     cancelPending = false;
@@ -147,15 +180,19 @@ function updateScanProgress(p: ScanProgress): void {
 
 // 批量任务进度信号（后端 UISync batch_progress 域推送）：
 // 进入批量任务（如扫描后自动 VNDB 匹配）→ 启动轮询；结束 → 收起
-function updateBatchProgress(p: { running?: boolean; title?: string }): void {
+function updateBatchProgress(p: { running?: boolean; title?: string; retryable?: number }): void {
   if (p && p.running) {
     cancelMode = 'match';
     const cancelBtn = document.getElementById('bpCancel') as HTMLElement | null;
     if (cancelBtn && !cancelPending) cancelBtn.textContent = '取消匹配';
     trackBatchProgress(p.title || '批量处理中…');
   } else {
-    cancelPending = false;   // 任务真正结束，取消等待解除
-    hideBatchProgress();
+    cancelPending = false;
+    if (p && (p.retryable || 0) > 0) {
+      showRetryPrompt(p.retryable || 0);
+    } else {
+      hideBatchProgress();
+    }
   }
 }
 
@@ -279,4 +316,18 @@ document.getElementById('bpCancel')!.onclick = () => {
   // 立即反馈“正在取消”（实际终止可能需等在途请求返回）；置位后进度推送不再重置按钮
   if (btn && !btn.disabled) { btn.disabled = true; btn.textContent = '正在取消…'; cancelPending = true; }
   if (cancelMode === 'match') bridge.cancelMatch(); else bridge.cancelScan();
+};
+document.getElementById('bpRetry')!.onclick = () => {
+  const btn = document.getElementById('bpRetry') as HTMLButtonElement | null;
+  if (btn) { btn.disabled = true; btn.textContent = '正在重试...'; }
+  bridge.retryFailedMatches(function (s: unknown) {
+    let result: { ok?: boolean; msg?: string } = {};
+    try { result = JSON.parse(String(s || '{}')) as { ok?: boolean; msg?: string }; } catch (e) { }
+    if (result.ok) {
+      trackBatchProgress('重试匹配中');
+    } else {
+      if (btn) { btn.disabled = false; btn.textContent = '重试失败'; }
+      toast(result.msg || '没有待重试的游戏');
+    }
+  });
 };

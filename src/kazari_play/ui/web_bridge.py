@@ -20,6 +20,7 @@ from typing import Optional, Dict, Any
 import webview
 
 from core.games.game_manager import GameManager
+from core.games.game_merge_service import GameMergeService
 from core.games.game_model import Game
 from core.media.cover_store import CoverStore
 from ui.sync import UISync
@@ -265,6 +266,8 @@ def _game_dict(g: Game, cover_url: str = "", has_cover: Optional[bool] = None) -
         "fav": g.is_favorite,
         "tags": list(g.tags),
         "cat_id": g.category_id or 0,
+        "unmatched_reason": getattr(g, "unmatched_reason", "") or "",
+        "unmatched_code": getattr(g, "unmatched_code", "") or "",
         "collections": [
             {"id": c.get("id"), "name": c.get("name", ""), "color": c.get("color", "") or "",
              "icon": c.get("icon", "") or ""}
@@ -294,6 +297,7 @@ class WebBridge:
         self._metadata_source_service = MetadataSourceService()
         self._library_service = GameLibraryService(self.manager)
         self._game_edit_service = GameEditService(self.manager)
+        self._merge_service = GameMergeService(repository=self.manager.repository)
         self._collection_service = CollectionService(self.manager)
         self._screenshot_service = ScreenshotService()
         self._cover_store = cover_store or CoverStore()
@@ -662,6 +666,7 @@ class WebBridge:
             return False
         self._scan_cancel = threading.Event()
         self._vndb_cancel = threading.Event()
+        self._batch_ctx = None
 
         def run():
             try:
@@ -671,10 +676,13 @@ class WebBridge:
                 self.notify('后台任务失败，请查看日志')
             finally:
                 try:
+                    retryable = 0
                     if self._batch_ctx is not None:
                         self._batch_ctx['running'] = False
+                        retryable = int(self._batch_ctx.get('retryable', 0) or 0)
                     self._ui.invalidate('scan_progress', {'running': False})
-                    self._ui.invalidate('batch_progress', {'running': False})
+                    self._ui.invalidate('batch_progress',
+                                        {'running': False, 'retryable': retryable})
                 finally:
                     self._task_lock.release()
         try:
@@ -753,6 +761,7 @@ class WebBridge:
     def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""
         self._vndb_counter = 0
+        retryable = 0
         cancel_event = cancel_event if cancel_event is not None else self._vndb_cancel
         if games:
             self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
@@ -760,23 +769,27 @@ class WebBridge:
             self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
             # 批量重匹配：force=True 刷新旧数据；match_single 内部不覆盖用户评分
-            matched, skipped, failed = self.manager.match_vndb_for_games(
+            matched, skipped, unmatched, retryable = self.manager.match_vndb_for_games(
                 games, force=True, progress_cb=self._vndb_progress,
                 cancel_event=cancel_event, cover_cb=self._queue_cover)
+            if self._batch_ctx is not None:
+                self._batch_ctx["retryable"] = retryable
             # 只增量更新本次匹配的卡片（避免全量重建导致所有封面重新加载/淡入闪烁）；
             # 封面由异步下载完成后各自 reloadCover
             self.refresh_delta([g.id for g in games])
             if cancel_event is not None and cancel_event.is_set():
-                self.notify(f"元数据匹配已取消（成功 {matched} / 跳过 {skipped} / 失败 {failed}）")
+                self.notify(f"元数据匹配已取消（成功 {matched} / 跳过 {skipped} / 未匹配 {unmatched}）")
             else:
                 self.notify(
-                    f"元数据匹配完成：成功 {matched} / 跳过 {skipped} / 失败 {failed}")
+                    f"元数据匹配完成：成功 {matched} / 跳过 {skipped} / 未匹配 {unmatched}"
+                    f" / 待重试 {retryable}")
         except Exception as e:
             logger.error("VNDB 批量匹配异常: %s", e)
         finally:
             if self._batch_ctx is not None:
                 self._batch_ctx["running"] = False
-            self._ui.invalidate("batch_progress", {"running": False})
+            self._ui.invalidate("batch_progress",
+                                {"running": False, "retryable": retryable})
 
     def _vndb_progress(self, game_id: str, title: str, status: str, msg: str):
         if status == "anchor":
@@ -798,14 +811,15 @@ class WebBridge:
         """返回当前批量任务进度 JSON（无任务返回 running=false）"""
         ctx = self._batch_ctx
         if not ctx:
-            return json.dumps({"running": False, "type": "", "total": 0, "done": 0},
-                              ensure_ascii=False)
+            return json.dumps({"running": False, "type": "", "total": 0, "done": 0,
+                               "retryable": 0}, ensure_ascii=False)
         return json.dumps({
             "running": bool(ctx.get("running")),
             "type": ctx.get("type", ""),
             "total": ctx.get("total", 0),
             "done": ctx.get("done", 0),
             "phase": ctx.get("phase", ""),
+            "retryable": ctx.get("retryable", 0),
         }, ensure_ascii=False)
 
     def selectExe(self) -> str:
@@ -835,6 +849,8 @@ class WebBridge:
                 cancel_event=self._vndb_cancel)
             logger.info("VNDB 匹配 %s: %s %s", game_id, status, msg)
             self._batch_ctx["done"] = 1
+            if status == "retryable":
+                self._batch_ctx["retryable"] = 1
             if status == "cancelled":
                 self.notify(f"元数据匹配已取消：{msg}")
             else:
@@ -859,6 +875,43 @@ class WebBridge:
     def _do_match_batch(self, games: list):
         self._run_vndb_match(games, self._vndb_cancel)
         self.refresh()
+
+    def getUnmatchedInfo(self, game_id: str) -> str:
+        record = self.manager.unmatched_repo.get(game_id) or {}
+        return json.dumps({
+            "reason": record.get("reason") or "",
+            "code": record.get("code") or "",
+            "candidates": record.get("candidates") or [],
+        }, ensure_ascii=False)
+
+    def mergeGames(self, source_id: str, target_id: str) -> str:
+        running = self.manager.launcher.current_game_id
+        if self.manager.launcher.is_running() and running in (source_id, target_id):
+            return json.dumps({"ok": False, "msg": "运行中的游戏不能合并"},
+                              ensure_ascii=False)
+        result = self._merge_service.merge(source_id, target_id)
+        if result.get("ok"):
+            self.refresh()
+        return json.dumps(result, ensure_ascii=False)
+
+    def dismissUnmatched(self, game_id: str) -> str:
+        if not game_id:
+            return json.dumps({"ok": False, "msg": "缺少游戏 ID"}, ensure_ascii=False)
+        self.manager.unmatched_repo.delete(game_id)
+        game = self.manager.get_game(game_id)
+        if game:
+            game.unmatched_reason = ""
+        self.refresh_delta([game_id])
+        return json.dumps({"ok": True, "msg": "已移出未匹配区"}, ensure_ascii=False)
+
+    def retryFailedMatches(self) -> str:
+        games = self.manager.get_retryable_games()
+        if not games:
+            return json.dumps({"ok": False, "msg": "没有待重试的游戏"}, ensure_ascii=False)
+        if not self._start_task(self._do_match_batch, (games,)):
+            return json.dumps({"ok": False, "msg": "当前有扫描或匹配任务正在进行"},
+                              ensure_ascii=False)
+        return json.dumps({"ok": True, "msg": "开始重试..."}, ensure_ascii=False)
 
     # ---------- 评分 / 运行状态 ----------
     def setRating(self, game_id: str, rating: float) -> bool:
@@ -1189,10 +1242,10 @@ class WebBridge:
             self.refresh_delta([game_id])
             return json.dumps({"ok": False, "msg": "封面更新失败"}, ensure_ascii=False)
 
-    # ---------- 多源搜索手动匹配（源可自行配置，见 core/metadata/multi_source.py）----------
+    # ---------- 多源搜索手动匹配（源可自行配置，见 core/metadata/search/multi_source.py）----------
     def searchMetadata(self, keyword: str, sources_json: str = "") -> str:
         """多源搜索元数据；sources_json 为源 id 列表，空则用用户配置的混合源"""
-        from core.metadata import multi_source
+        from core.metadata.search import multi_source
         try:
             sources = None
             if sources_json and sources_json.strip():
@@ -1238,7 +1291,7 @@ class WebBridge:
         fields_json：勾选要应用的字段 JSON 数组（如 ["title","cover"]）；
           仅这些字段被覆盖。为空字符串时退回旧行为（仅填充空白字段）。
         """
-        from core.metadata import multi_source
+        from core.metadata.search import multi_source
         try:
             cand = json.loads(candidate_json)
         except Exception:
@@ -1301,6 +1354,8 @@ class WebBridge:
         if src and sid:
             self.manager.source_repo.upsert(game_id, src, sid, cand)
         if changed:
+            self.manager.unmatched_repo.delete(game_id)
+            g.unmatched_reason = ""
             self.manager.update_game(g)
             if g.cover_path:
                 self.manager.repository.update_cover_path(game_id, g.cover_path)
