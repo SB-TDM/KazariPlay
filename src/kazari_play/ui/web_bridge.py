@@ -308,7 +308,6 @@ class WebBridge:
         self._drag_anchor = None
         self._maximized = False      # 本地跟踪最大化状态（pywebview 判断可能失效）
         self._hwnd = 0               # 主窗口句柄缓存（_win32_hwnd 命中复用）
-        self._vndb_counter = 0       # VNDB 进度节流计数
         self._batch_ctx = None       # 批量任务进度上下文（matchVndbBatch 设置，getBatchProgress 读取）
         self._scan_cancel = threading.Event()   # 扫描取消信号（cancelScan 置位，scan 循环检查）
         self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
@@ -760,11 +759,11 @@ class WebBridge:
 
     def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""
-        self._vndb_counter = 0
         retryable = 0
         cancel_event = cancel_event if cancel_event is not None else self._vndb_cancel
         if games:
-            self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0, "running": True}
+            self._batch_ctx = {"type": "vndb", "total": len(games), "done": 0,
+                               "phase_done": 0, "phase_total": 0, "running": True}
             # 通知前端启动批量进度条轮询（扫描后自动匹配同样可见）
             self._ui.invalidate("batch_progress", {"running": True, "title": "元数据匹配中"})
         try:
@@ -792,26 +791,34 @@ class WebBridge:
                                 {"running": False, "retryable": retryable})
 
     def _vndb_progress(self, game_id: str, title: str, status: str, msg: str):
+        ctx = self._batch_ctx
+        if ctx is None:
+            return
         if status == "anchor":
-            if self._batch_ctx is not None:
-                self._batch_ctx["phase"] = msg
+            ctx["phase"] = msg
+            try:
+                done, total = msg.rsplit(" ", 1)[-1].split("/", 1)
+                ctx["phase_done"] = int(done)
+                ctx["phase_total"] = int(total)
+            except (TypeError, ValueError):
+                pass
             return
         if status == "start":
-            if self._batch_ctx is not None:
-                self._batch_ctx["phase"] = ""
+            ctx["phase"] = ""
             return
-        if self._batch_ctx is not None:
-            self._batch_ctx["done"] = min(self._batch_ctx.get("done", 0) + 1,
-                                          self._batch_ctx.get("total", 1))
-        self._vndb_counter += 1
-        if self._vndb_counter % 3 == 0:
-            self.notify(f"元数据匹配中：{title[:24]}")
+        counted = ctx.setdefault("_counted", set())
+        if game_id and game_id not in counted:
+            counted.add(game_id)
+            ctx["done"] = min(ctx.get("done", 0) + 1, ctx.get("total", 1))
+        if status == "progress":
+            ctx["phase"] = f"已完成 {ctx.get('done', 0)}/{ctx.get('total', 0)}"
 
     def getBatchProgress(self) -> str:
         """返回当前批量任务进度 JSON（无任务返回 running=false）"""
         ctx = self._batch_ctx
         if not ctx:
             return json.dumps({"running": False, "type": "", "total": 0, "done": 0,
+                               "phase_done": 0, "phase_total": 0,
                                "retryable": 0}, ensure_ascii=False)
         return json.dumps({
             "running": bool(ctx.get("running")),
@@ -819,6 +826,8 @@ class WebBridge:
             "total": ctx.get("total", 0),
             "done": ctx.get("done", 0),
             "phase": ctx.get("phase", ""),
+            "phase_done": ctx.get("phase_done", 0),
+            "phase_total": ctx.get("phase_total", 0),
             "retryable": ctx.get("retryable", 0),
         }, ensure_ascii=False)
 

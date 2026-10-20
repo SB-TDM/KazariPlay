@@ -57,4 +57,4 @@
   .card .running{position:absolute;top:6px;left:8px;z-index:3;height:20px;padding:0 10px;
     border-radius:50px;background:var(--grad-mint);color:#fff;font-size:11px;
     display:flex;align-items:center;font-weight:600;
-    box-shadow:0 2px 6px rgba(74,140,120,.4);}
+}

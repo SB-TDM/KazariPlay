@@ -33,8 +33,7 @@
              background:var(--bg-panel);border:1.5px solid var(--border-soft);
              display:flex;flex-direction:column;gap:2px;font-family:var(--font);color:var(--text);}
   button.home-stat{cursor:pointer;transition:transform .2s var(--bounce),border-color .2s,box-shadow .2s;}
-  button.home-stat:hover{transform:translateY(-2px);border-color:var(--pink);
-                         box-shadow:0 4px 10px var(--glow-soft);}
+  button.home-stat:hover{transform:translateY(-2px);border-color:var(--pink);}
   .home-stat b{font-size:18px;font-weight:700;}
   .home-stat span{font-size:11.5px;color:var(--text-sub);}
 

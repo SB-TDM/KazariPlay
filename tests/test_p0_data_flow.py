@@ -95,6 +95,23 @@ class DataFlowTests(unittest.TestCase):
         self.assertTrue(reply["ok"])
         self.assertEqual(start.call_args[0][1][0][0].id, game.id)
 
+    def test_batch_progress_counts_anchor_and_completion_once(self):
+        self.bridge._batch_ctx = {
+            "type": "vndb", "total": 2, "done": 0,
+            "phase_done": 0, "phase_total": 0, "running": True,
+        }
+        self.bridge._vndb_progress("", "", "anchor", "Kungal ?? 1/2")
+        progress = json.loads(self.bridge.getBatchProgress())
+        self.assertEqual(progress["phase_done"], 1)
+        self.assertEqual(progress["phase_total"], 2)
+        self.bridge._vndb_progress("g1", "One", "progress", "1/2")
+        self.bridge._vndb_progress("g1", "One", "match", "ok")
+        progress = json.loads(self.bridge.getBatchProgress())
+        self.assertEqual(progress["done"], 1)
+        self.bridge._vndb_progress("g2", "Two", "progress", "2/2")
+        progress = json.loads(self.bridge.getBatchProgress())
+        self.assertEqual(progress["done"], 2)
+
     def test_unmatched_queue_attaches_to_game(self):
         game = self.fixture()
         self.manager.unmatched_repo.upsert(

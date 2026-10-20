@@ -14,7 +14,7 @@
   .fab-refresh svg{width:24px;height:24px;}
   .fabmenu{position:absolute;right:30px;bottom:92px;z-index:21;background:var(--bg-panel);
            border:1.5px solid var(--border-soft);border-radius:var(--radius-md);padding:6px;display:none;
-           min-width:200px;box-shadow:0 12px 28px var(--glow-med);}
+           min-width:200px;}
   .fabmenu.show{display:block;}
   .fabmenu .item{padding:9px 14px;border-radius:10px;font-size:13px;color:var(--text);cursor:pointer;
                  transition:background .2s;}
@@ -24,8 +24,7 @@
   .batchbar{position:absolute;left:50%;transform:translate(-50%,16px);bottom:24px;z-index:30;
             display:none;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;
             max-width:calc(100% - 24px);background:var(--bg-panel);
-            border:1.5px solid var(--border-soft);border-radius:50px;padding:8px 14px;
-            box-shadow:0 14px 32px var(--glow-med);opacity:0;
+            border:1.5px solid var(--border-soft);border-radius:50px;padding:8px 14px;opacity:0;
             transition:opacity .22s,transform .28s var(--bounce);}
   body.batch .batchbar{display:flex;opacity:1;transform:translate(-50%,0);}
   .batchbar .count{font-size:13px;color:var(--pink-deep);font-weight:700;padding-right:10px;
@@ -43,7 +42,7 @@
   /* Toast：fixed + 高 z-index 保证详情/设置等弹窗打开时也始终置顶可见 */
   .toast{position:fixed;top:calc(var(--nav-h) + 12px);left:50%;transform:translateX(-50%);z-index:300;
          background:var(--bg-panel);border:1.5px solid var(--border-soft);border-radius:50px;padding:9px 20px;font-size:13px;
-         color:var(--pink-deep);box-shadow:0 10px 24px var(--glow-med);opacity:0;
+         color:var(--pink-deep);opacity:0;
          transition:opacity .25s,transform .25s var(--bounce);pointer-events:none;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(2px);}
 
@@ -52,7 +51,7 @@
   .batch-progress{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
                   z-index:90;width:min(420px,80vw);background:var(--bg-panel);
                   border:1.5px solid var(--border-soft);border-radius:var(--radius-lg);
-                  padding:12px 16px;box-shadow:0 10px 26px var(--glow-med);
+                  padding:12px 16px;
                   opacity:0;pointer-events:none;transition:opacity .25s var(--soft),transform .25s var(--soft);}
   .batch-progress.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
   /* 批量模式下底部有批量工具栏，进度面板上移错开，避免两者相互遮挡 */
@@ -74,8 +73,7 @@
   .batch-collection{position:relative;display:flex;}
   .batch-collection-menu{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
     display:none;min-width:160px;padding:6px;background:var(--bg-panel);
-    border:1.5px solid var(--border-soft);border-radius:var(--radius-md);
-    box-shadow:0 12px 28px var(--glow-med);z-index:40;}
+    border:1.5px solid var(--border-soft);border-radius:var(--radius-md);z-index:40;}
   .batch-collection-menu.show{display:block;}
   .batch-collection-menu button{display:block;width:100%;text-align:left;border:none;background:transparent;
     height:32px;padding:0 12px;border-radius:8px;color:var(--text);font-size:13px;font-family:var(--font);cursor:pointer;}

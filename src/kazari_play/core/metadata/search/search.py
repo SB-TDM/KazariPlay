@@ -318,7 +318,7 @@ def _prefetch_anchors(games: List[Game], force: bool,
                 vndb_id = str((group.get("kungal") or {}).get("vndb_id") or "").strip()
                 if vndb_id:
                     vndb_ids.append(vndb_id)
-            if progress_cb and completed % 5 == 0:
+            if progress_cb and (completed == 1 or completed % 5 == 0):
                 try:
                     progress_cb(game.id, game.title, "anchor",
                                 f"Kungal 锚点 {completed}/{len(pending)}")

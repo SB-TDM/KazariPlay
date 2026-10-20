@@ -11,8 +11,7 @@
 .pill-btn{height:34px;padding:0 18px;border-radius:50px;border:1.5px solid var(--border-soft);background:var(--bg-panel);
           color:var(--text-sub);font-size:13px;font-family:var(--font);cursor:pointer;
           transition:transform .22s var(--bounce),color .22s,border-color .22s,box-shadow .22s;}
-.pill-btn:hover{transform:translateY(-2px);color:var(--pink-deep);border-color:var(--pink);
-                box-shadow:0 4px 10px var(--glow-soft);}
+.pill-btn:hover{transform:translateY(-2px);color:var(--pink-deep);border-color:var(--pink);}
 .pill-btn.primary{border:none;color:#fff;background:var(--grad-pink);}
 .pill-btn.primary:hover{color:#fff;}
 .pill-btn.fav.on{color:var(--star);border-color:var(--star);}
@@ -26,7 +25,6 @@
 .navbtn{height:32px;padding:0 14px;display:flex;align-items:center;gap:6px;background:var(--bg-panel);
         border:1.5px solid var(--border-soft);border-radius:50px;color:var(--text-sub);font-size:13px;
         cursor:pointer;font-family:var(--font);transition:transform .22s var(--bounce),border-color .2s,color .2s,box-shadow .2s;}
-.navbtn:hover{transform:translateY(-2px);border-color:var(--pink);color:var(--pink-deep);
-              box-shadow:0 4px 10px var(--glow-soft);}
+.navbtn:hover{transform:translateY(-2px);border-color:var(--pink);color:var(--pink-deep);}
 .navbtn.active{color:#fff;border-color:transparent;background:var(--grad-pink);}
 .navbtn.active:hover{color:#fff;}

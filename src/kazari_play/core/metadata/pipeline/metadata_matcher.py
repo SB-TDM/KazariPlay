@@ -292,8 +292,16 @@ def match_batch(
                 except Exception:
                     pass
             futures[ex.submit(run, game)] = (i, game)
+        completed = 0
         for fut in as_completed(futures):
             i, game = futures[fut]
+            completed += 1
+            if progress_cb:
+                try:
+                    progress_cb(game.id, game.title, "progress",
+                                f"{completed}/{total}")
+                except Exception:
+                    pass
             try:
                 results[i] = fut.result()
             except Exception as e:  # noqa: BLE001

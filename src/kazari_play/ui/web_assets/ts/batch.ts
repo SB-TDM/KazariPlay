@@ -10,6 +10,8 @@ interface BatchProgress {
   done?: number;
   total?: number;
   phase?: string;
+  phase_done?: number;
+  phase_total?: number;
   retryable?: number;
 }
 
@@ -124,7 +126,11 @@ function trackBatchProgress(title: string): void {
         return;
       }
       const done = p.done || 0, total = p.total || 0;
-      const pct = total > 0 ? Math.round(done * 100 / total) : 0;
+      const phaseDone = p.phase_done || 0, phaseTotal = p.phase_total || 0;
+      const base = phaseTotal > 0 ? 35 : 0;
+      const pct = phaseTotal > 0 && done === 0
+        ? Math.round(phaseDone * base / phaseTotal)
+        : (total > 0 ? Math.round(base + (100 - base) * done / total) : 0);
       if (pctEl) pctEl.textContent = pct + '%';
       if (fillEl) (fillEl as HTMLElement).style.width = pct + '%';
       if (subEl) subEl.textContent = p.phase || `已完成 ${done} / ${total}`;
