@@ -78,6 +78,7 @@
 |---|---|
 | [TRIAL_FEEDBACK_20261007.md](archive/TRIAL_FEEDBACK_20261007.md) | develop 试用三项反馈的基线、证据、验收要求和接手边界；三项已于 `36c17dc`/`d1b30fa` 修复（层级/取消反馈/命名），底层网络取消仍按既有超时返回，待新试用包复验 |
 | [SESSION_20261008.md](archive/SESSION_20261008.md) | 2026-10-08 本轮改动说明（扫描整棵树 / 封面解耦与体验 / 搜索超时 / 候选字段勾选） |
+| [RUNTIME_20261020.md](archive/RUNTIME_20261020.md) | 2026-10-20 三次开发运行记录：34/35 游戏、31/35 匹配稳定、Kungal 封面加速与 4 个待人工确认项 |
 | [COVER_DOWNLOAD_OPTIMIZATION.md](archive/COVER_DOWNLOAD_OPTIMIZATION.md) | 元数据匹配与封面下载性能优化：封面与匹配解耦、短超时不重试、可配置与可视化 |
 | [MAIN_UI_REDESIGN_G0_TRIAGE.md](archive/MAIN_UI_REDESIGN_G0_TRIAGE.md) | 2026-10-10 G0 基线及早期实施记录；不能用其中的“已修/待做”代替 `b5c8b8d` 前端审查结论 |
 | [UI_OPTIMIZATION_DISCUSSION.md](archive/UI_OPTIMIZATION_DISCUSSION.md) | 2026-10-07 评审证据与候选建议；设计承接见主界面计划，当前修复状态见 2026-10-11 前端台账，不自动全量授权实施 |
