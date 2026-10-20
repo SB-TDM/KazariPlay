@@ -64,6 +64,14 @@ KazariPlay-win64.zip
 
 建议不要放在 `Program Files` 等需要管理员权限的位置。程序需要 Microsoft Edge WebView2 Runtime；Windows 10/11 通常已内置。
 
+## 网络与代理
+
+元数据匹配依赖 VNDB、Bangumi、Kungal 等外部服务。部分地区或网络环境下这些站点可能超时，导致匹配变慢、封面加载失败或只匹配到部分来源。
+
+遇到连接失败、持续超时或来源不可用时，建议先开启代理软件，再在「设置 → 网络代理」中选择「跟随系统」或填写代理地址，并测试 VNDB / Bangumi / Kungal 的连通性。
+
+应用默认使用直连；代理配置只影响应用自身的元数据、封面和更新请求。
+
 ## 数据位置
 
 | 数据 | 默认位置 |
@@ -91,13 +99,13 @@ python src/kazari_play/main.py
 <summary>构建本地自测包</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.1
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.0
 ```
 
 输出目录：
 
 ```text
-artifacts/trial-builds/trial-build-1.1.1/dist/KazariPlay/
+artifacts/trial-builds/trial-build-1.2.0/dist/KazariPlay/
 ```
 
 运行 `run_develop.cmd`，数据库、配置、日志和截图会隔离在包旁 `data/`。
@@ -108,7 +116,7 @@ artifacts/trial-builds/trial-build-1.1.1/dist/KazariPlay/
 <summary>构建正式发布资产</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.1.1 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.0 --release
 ```
 
 会生成：

@@ -1,6 +1,6 @@
 """KazariPlay release identity for the classic build."""
 
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 PRODUCT_LINE = "原版"
 DISPLAY_VERSION = f"v{VERSION}"
 WINDOW_TITLE = f"KazariPlay {DISPLAY_VERSION} ({PRODUCT_LINE})"

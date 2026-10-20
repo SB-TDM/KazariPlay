@@ -3,7 +3,10 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
-## 未发布
+## 1.2.0（2026-10-21）— 元数据匹配与未匹配区
+- 批量匹配进度条改为“锚点预取 0-35% + 匹配 35-100%”两阶段；并发任务完成即时计数，避免完成后进度跳变。
+- 除卡片 `box-shadow` 光晕外，移除其余元素的 `box-shadow`；主页头部保持原圆角，其余卡片/统计/窗口圆角调低。
+- README 新增网络与代理说明：明确 Bangumi/VNDB 等来源可能超时，建议开启代理软件并测试连通性。
 - 归档 2026-10-20 三次开发运行记录：[RUNTIME_20261020.md](../archive/RUNTIME_20261020.md)，包含 31/35 稳定匹配、Kungal 封面加速和 4 个待人工确认项。
 - 新增 [exe 版本资源字段探测](EXE_VERSION_HINTS.md)：以当前 34 个游戏统计 `CompanyName` / `LegalCopyright` / `OriginalFilename` / `InternalName` 等字段，明确版权字段可用于引擎线索、开发商只能作为弱候选。
 - 元数据匹配结果拆分为 `match / unmatched / retryable / skip / cancelled`：网络失败不再混入“未匹配”，批量结束显示成功、跳过、未匹配和待重试数量。
