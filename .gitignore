@@ -18,6 +18,9 @@ screenshots/
 overlay/bin/
 overlay/bin32/
 overlay/build/
+host/build/
+host/.tools/
+host/.packages/
 *.obj
 *.pdb
 
