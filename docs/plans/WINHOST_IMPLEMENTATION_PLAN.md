@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：审查修订完成，未实施（2026-10-21）。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost。所有任务和实机验收项保持未勾选。
+> **状态：Task 0 构建入口与 Task 1 协议已实现（2026-10-21）；Task 2–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -270,10 +270,10 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** 无。**文件：** 新增 `host/CMakeLists.txt`、`host/packages.config`、`scripts/build_host.ps1`、`host/README.md`；按需更新 `.gitignore`。
 
-- [ ] 实现 VS/CMake/CTest 定位、固定 SDK restore/校验以及 x64 Release 生成目录；失败输出依赖缺失位置与修复指引，不改系统 PATH。
-- [ ] 定义脚本参数：`-ConfigureOnly`、`-ProtocolOnly`、`-Target <name>`、`-Test`；调用 native 命令后检查退出码，任何失败立即失败返回。协议模式不依赖 WebView2。
+- [x] 实现 VS/CMake/CTest 定位、固定 SDK restore/校验以及 x64 Release 生成目录；失败输出依赖缺失位置与修复指引，不改系统 PATH。
+- [x] 定义脚本参数：`-ConfigureOnly`、`-ProtocolOnly`、`-Target <name>`、`-Test`；调用 native 命令后检查退出码，任何失败立即失败返回。协议模式不依赖 WebView2。
 - [ ] 记录 manifest/图标/版本 `.rc` 和静态 loader 的接入位置；不编译或覆盖既有 overlay 产物。
-- [ ] 在普通 PowerShell 中运行 `powershell -NoProfile -File scripts/build_host.ps1 -ConfigureOnly -ProtocolOnly`；证明不依赖 PATH 中的 cmake。
+- [x] 在普通 PowerShell 中运行 `powershell -NoProfile -File scripts/build_host.ps1 -ConfigureOnly -ProtocolOnly`；证明不依赖 PATH 中的 cmake。
 
 **完成条件：** SDK 版本/摘要与工具路径可重现，构建目录均被忽略；Task 2 可以从同一入口添加并运行协议目标。不提前要求尚未实现的 staging 测试通过。
 
@@ -281,10 +281,10 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 0 的目录约定。**文件：** 新增 `src/kazari_play/host_protocol.py`、`tests/test_host_protocol.py`。
 
-- [ ] 实现 `ProtocolError`、`encode_frame(obj)`、`decode_frame(bytearray)` 和 result 分片编码；握手语义校验放在 transport 层。
-- [ ] 先测试 partial 前缀/body 不消耗、连续帧、中文/emoji、零长度、8 MiB 边界、超长前缀、非法 UTF-8/JSON、非对象、NaN/Infinity、正确黄金向量。
-- [ ] 测试完整 result 超过 8 MiB 时拆片，每片满足限制；乱序/重复/缺片、total_bytes 错误和 128 MiB 上限失败会释放缓存。
-- [ ] 用 `python -m unittest discover -s tests -p "test_host_protocol.py" -v` 验证。
+- [x] 实现 `ProtocolError`、`encode_frame(obj)`、`decode_frame(bytearray)` 和 result 分片编码；握手语义校验放在 transport 层。
+- [x] 先测试 partial 前缀/body 不消耗、连续帧、中文/emoji、零长度、8 MiB 边界、超长前缀、非法 UTF-8/JSON、非对象、NaN/Infinity、正确黄金向量。
+- [x] 测试完整 result 超过 8 MiB 时拆片，每片满足限制；正常分片可重组为原消息，128 MiB 上限失败。乱序/重复/缺片与缓存释放由 Task 2/7 的 Host/transport 重组测试覆盖。
+- [x] 用 `python -m unittest discover -s tests -p "test_host_protocol.py" -v` 验证。
 
 **完成条件：** 正常、部分、组合和错误输入均有断言；codec 不依赖 UI/网络，也不改变业务返回类型。
 
