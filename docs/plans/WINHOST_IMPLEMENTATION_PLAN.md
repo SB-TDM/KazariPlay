@@ -208,7 +208,7 @@ Host 返回 WebView2 message 的统一外层示例：`{"document_id":"document-1
 
 ### 3.7 原生窗口、WebView2 输入与 DPI
 
-窗口样式保留 `WS_OVERLAPPEDWINDOW`。`WM_NCCALCSIZE` 去掉系统标题栏占用，最大化时按当前显示器 work area 修正；`DwmExtendFrameIntoClientArea` 扩展的是 DWM frame，不代替客户区尺寸计算。
+实际窗口使用 `WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU`，由页面绘制标题栏；保留 `WS_THICKFRAME` 的缩放/贴靠能力，不使用会显示系统标题栏的 `WS_CAPTION`。`WM_NCCALCSIZE` 去掉系统标题栏占用，最大化时按当前显示器 work area 修正；`DwmExtendFrameIntoClientArea` 扩展的是 DWM frame，不代替客户区尺寸计算。
 
 **输入承载决定：** 使用 `ICoreWebView2CompositionController` + DirectComposition，让顶层 HWND 拥有鼠标命中路径；仅在 Host 返回 `HTCLIENT` 的区域把输入通过官方 `SendMouseInput/SendPointerInput` 交给 WebView。这样不依赖 Chromium 私有 child HWND subclass，也不假设普通 windowed WebView 会把命中消息透传到父窗口。Task 5 必须用真实控件先验证，失败不得靠 JS 拖拽绕过。
 
