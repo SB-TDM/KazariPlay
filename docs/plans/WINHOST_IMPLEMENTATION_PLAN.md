@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0 构建入口、Task 1–2 帧协议已实现（2026-10-21）；Task 3–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0 构建入口、Task 1–3 协议与 dispatch 已实现（2026-10-21）；Task 4–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -303,11 +303,11 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 1。**文件：** 新增 `ui/host_dispatch.py`、`tests/test_host_dispatch.py`。
 
-- [ ] 提取前端实际调用清单与动态调用点，定义 `HOST_DISPATCH_METHODS`、`HOST_LOCAL_METHODS`；核对 `.d.ts` 的方法/参数/返回值。
-- [ ] 实现 `dispatch(bridge, method, args)`，分类处理 unknown_method/invalid_args/method_failed；内部生命周期 API 不暴露。
-- [ ] Fake API 使用已登记的 `getGames()` 等名称测试成功，不向生产 allowlist 加测试专用 ping。
-- [ ] 测试私有方法、未登记的 public helper、全部窗口方法、非 callable、参数类型/个数错误和业务异常；确认原 JSON 字符串不被二次解析。
-- [ ] 运行 `python -m unittest discover -s tests -p "test_host_dispatch.py" -v`。
+- [x] 提取前端实际调用清单与动态调用点，定义 `HOST_DISPATCH_METHODS`、`HOST_LOCAL_METHODS`；核对 `.d.ts` 的方法/参数/返回值。
+- [x] 实现 `dispatch(bridge, method, args)`，分类处理 unknown_method/invalid_args/method_failed；内部生命周期 API 不暴露。
+- [x] Fake API 使用已登记的 `getGames()` 等名称测试成功，不向生产 allowlist 加测试专用 ping。
+- [x] 测试私有方法、未登记的 public helper、全部窗口方法、非 callable、参数类型/个数错误和业务异常；确认原 JSON 字符串不被二次解析。
+- [x] 运行 `python -m unittest discover -s tests -p "test_host_dispatch.py" -v`。
 
 **完成条件：** 所有前端业务调用均有登记，内部 helper 和窗口方法不可经 Backend dispatch 到达。
 
