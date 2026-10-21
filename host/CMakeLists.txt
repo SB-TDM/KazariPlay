@@ -19,6 +19,9 @@ enable_testing()
 function(add_host_test name source)
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/${source}")
         add_executable(${name} "src/${source}")
+        if(name STREQUAL "host_window_geometry_test")
+            target_sources(${name} PRIVATE "src/window_geometry.cpp")
+        endif()
         target_include_directories(${name} PRIVATE src ../overlay/third_party)
         add_test(NAME ${name} COMMAND ${name})
         set_target_properties(${name} PROPERTIES
@@ -51,9 +54,12 @@ if(KAZARIPLAY_BUILD_HOST)
         set(HOST_SOURCES
             src/main.cpp
             src/window.cpp
+            src/window_geometry.cpp
             src/webview.cpp
-            src/backend.cpp
         )
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/backend.cpp")
+            list(APPEND HOST_SOURCES src/backend.cpp)
+        endif()
         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/host.manifest.rc")
             list(APPEND HOST_SOURCES host.manifest.rc)
         endif()
@@ -74,6 +80,9 @@ if(KAZARIPLAY_BUILD_HOST)
             user32
             gdi32
         )
+        if(MSVC)
+            target_link_options(KazariPlayHost PRIVATE /MANIFEST:NO)
+        endif()
         set_target_properties(KazariPlayHost PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY "${KAZARIPLAY_OUTPUT_DIR}"
             RUNTIME_OUTPUT_DIRECTORY_RELEASE "${KAZARIPLAY_OUTPUT_DIR}"

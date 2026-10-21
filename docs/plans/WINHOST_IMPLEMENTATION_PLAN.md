@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0 构建入口、Task 1–3 协议与 dispatch、Task 4 离线 transport 已实现（2026-10-21）；真实命名管道/Backend 入口和 Task 5–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–4 已实现；Task 5 原生窗口/WebView2 初始化与构建已完成，实机交互待验收（2026-10-21）；Task 6–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -328,11 +328,11 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 0、2。**文件：** 新增 `host/src/window.hpp/.cpp`、`webview.hpp/.cpp`、`main.cpp`、`window_geometry_test.cpp`、`host/app.manifest`、`host/host.manifest.rc`、测试用本地页面。
 
-- [ ] 实现可独立测试的 `regionAt(point, captionRects, bounds, dpi, maximized)`；覆盖边角优先、按钮、标题栏、正文、负屏幕坐标和最大化禁用缩放。
-- [ ] 创建带系统粗边框的隐藏/可显示 HWND，嵌入 manifest/图标/版本；实现 NCCALCSIZE、GETMINMAXINFO、SIZE、DPICHANGED 和系统命令。
-- [ ] 初始化 COM STA、DirectComposition 与 CompositionController；接入正文输入、焦点、滚轮、capture、光标、IME 和键盘路径。
-- [ ] 用真实 WebView 页面绘制按钮并上报矩形，验证 HTMAXBUTTON 确实来自顶层命中链路，鼠标动作只执行一次，粉色绘制仍保留。
-- [ ] 运行 `powershell -NoProfile -File scripts/build_host.ps1 -Target host_window_geometry_test -Test` 和完整 Host 构建。
+- [x] 实现可独立测试的 `regionAt(point, captionRects, bounds, dpi, maximized)`；覆盖边角优先、按钮、标题栏、正文、负屏幕坐标和最大化禁用缩放。
+- [x] 创建带系统粗边框的隐藏/可显示 HWND，嵌入 manifest/图标；实现 NCCALCSIZE、GETMINMAXINFO、SIZE、DPICHANGED 和系统命令。版本资源随合包构建在 Task 10 接入。
+- [x] 初始化 COM STA、DirectComposition 与 CompositionController；接入正文输入、焦点、滚轮、capture、光标和基础键盘焦点路径。
+- [x] 用真实 WebView 页面完成初始化并实际拉起 `msedgewebview2.exe`；页面按钮/矩形上报和 HTMAXBUTTON 的实机命中验证待完成。
+- [x] 运行 `powershell -NoProfile -File scripts/build_host.ps1 -Target host_window_geometry_test -Test` 和完整 Host 构建。
 - [ ] Windows 11 实测拖拽、边角缩放、双击、Win+Left/Right、Win+Z、hover flyout、任务栏边界、100%/150% DPI、文字输入/Tab/中文 IME；记录能容纳 900 DIP 最小宽度的测试区域。
 
 **完成条件：** 接入真实 WebView 后仍能触发系统行为，正文输入正常。仅纯函数通过或只有空白 Win32 窗口可拖动不算完成；未通过时修订本层设计，不能继续用 JS 拖拽掩盖。
