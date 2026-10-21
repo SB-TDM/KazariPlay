@@ -21,12 +21,17 @@ const bridge = new Proxy({} as Record<string, (...args: unknown[]) => Promise<un
       const notify = cb ? function (r: unknown, failed?: boolean): void {
         try { (cb as BridgeCallback)(r, failed); } catch (e) { }
       } : null;
+      const host = window.__host;
       const api = window.pywebview && window.pywebview.api;
-      const fn = api && (api as unknown as Record<string, unknown>)[name];
-      if (typeof fn !== 'function') { if (notify) notify('[]', true); return Promise.resolve('[]'); }
       let p: Promise<unknown>;
       try {
-        p = (fn as (...a: unknown[]) => Promise<unknown>).apply(api, args);
+        if (host && typeof host.invoke === 'function') {
+          p = host.invoke(String(name), args);
+        } else {
+          const fn = api && (api as unknown as Record<string, unknown>)[name];
+          if (typeof fn !== 'function') { if (notify) notify('[]', true); return Promise.resolve('[]'); }
+          p = (fn as (...a: unknown[]) => Promise<unknown>).apply(api, args);
+        }
       } catch (e) {
         if (notify) notify('[]', true);
         return Promise.resolve('[]');

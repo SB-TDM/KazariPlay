@@ -50,6 +50,7 @@ class HostSession:
         worker_count: int = 4,
         dialog_timeout: float = DEFAULT_DIALOG_TIMEOUT,
         clock: Callable[[], float] = time.monotonic,
+        ready_payload: dict | None = None,
     ):
         if worker_count < 1:
             raise ValueError("worker_count must be positive")
@@ -59,6 +60,7 @@ class HostSession:
         self.worker_count = worker_count
         self.dialog_timeout = dialog_timeout
         self.clock = clock
+        self.ready_payload = dict(ready_payload or {})
 
         self._queue: queue.Queue[tuple[int, str, list] | None] = queue.Queue(
             maxsize=MAX_PENDING_CALLS)
@@ -96,7 +98,9 @@ class HostSession:
             for worker in self._workers:
                 worker.start()
             self._reader.start()
-        self._write({"type": "ready", "protocol": PROTOCOL_VERSION})
+        ready = {"type": "ready", "protocol": PROTOCOL_VERSION}
+        ready.update(self.ready_payload)
+        self._write(ready)
 
     def run(self) -> None:
         self.start()

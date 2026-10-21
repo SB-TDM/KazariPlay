@@ -1,0 +1,243 @@
+"""WinHost 常驻 Backend 入口。
+
+真实 IPC 使用命名管道；业务对象仍由现有 WebBridge 提供。
+"""
+from __future__ import annotations
+
+import argparse
+import ctypes
+import os
+import sys
+import threading
+import time
+from ctypes import wintypes
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from host_protocol import ProtocolError, decode_frame, encode_frame
+from ui.host_dispatch import DispatchError, dispatch
+from ui.web_asset_stager import AssetIdentity, stage_assets
+from utils.infra.config import Config
+from utils.infra.logger import get_logger, set_level
+from version import DISPLAY_VERSION, PRODUCT_LINE, VERSION, WINDOW_TITLE
+
+
+class PipePort:
+    """pywin32 命名管道字节流；Host 负责创建服务端。"""
+
+    def __init__(self, handle):
+        self.handle = int(handle)
+        self._buffer = bytearray()
+        self._write_lock = threading.Lock()
+        self._closed = False
+
+    @staticmethod
+    def _kernel32():
+        kernel32 = ctypes.windll.kernel32
+        kernel32.ReadFile.argtypes = [
+            wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
+        kernel32.ReadFile.restype = wintypes.BOOL
+        kernel32.WriteFile.argtypes = [
+            wintypes.HANDLE, wintypes.LPCVOID, wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
+        kernel32.WriteFile.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        return kernel32
+
+    def read_frame(self):
+        kernel32 = self._kernel32()
+        while True:
+            message = decode_frame(self._buffer)
+            if message is not None:
+                return message
+            if self._closed:
+                return None
+            buf = ctypes.create_string_buffer(65536)
+            read = wintypes.DWORD()
+            ok = kernel32.ReadFile(
+                wintypes.HANDLE(self.handle), buf, 65536,
+                ctypes.byref(read), None)
+            if not ok:
+                return None
+            data = buf.raw[:read.value]
+            if not data:
+                return None
+            self._buffer.extend(data)
+
+    def write_frame(self, message):
+        data = encode_frame(message)
+        kernel32 = self._kernel32()
+        with self._write_lock:
+            if self._closed:
+                raise RuntimeError("pipe closed")
+            offset = 0
+            while offset < len(data):
+                chunk = data[offset:]
+                buf = ctypes.create_string_buffer(chunk)
+                written = wintypes.DWORD()
+                ok = kernel32.WriteFile(
+                    wintypes.HANDLE(self.handle), buf, len(chunk),
+                    ctypes.byref(written), None)
+                if not ok or not written.value:
+                    raise RuntimeError("short pipe write")
+                offset += written.value
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._kernel32().CloseHandle(wintypes.HANDLE(self.handle))
+        except Exception:
+            pass
+
+
+def connect_pipe(name: str, timeout: float = 15.0):
+    import win32file
+    import pywintypes
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            handle = win32file.CreateFile(
+                name,
+                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                0,
+                None,
+                win32file.OPEN_EXISTING,
+                0,
+                None,
+            )
+            raw = int(handle)
+            handle.Detach()
+            return PipePort(raw)
+        except (pywintypes.error, OSError):
+            time.sleep(0.1)
+    raise TimeoutError(f"could not connect to WinHost pipe: {name}")
+
+
+def build_bridge(data_dir: Path, preview: bool = False):
+    from core.games.game_manager import GameManager
+    from core.media.cover_store import CoverStore
+    from ui.services.cover_service import CoverService
+    from ui.web_bridge import WebBridge
+
+    manager = GameManager()
+    cover_store = CoverStore()
+    cover_service = CoverService(cover_store)
+    cover_service.start()
+    bridge = WebBridge(
+        manager,
+        cover_store=cover_store,
+        cover_service=cover_service if cover_service.started else None,
+    )
+    bridge._preview = preview
+    return bridge, cover_service
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("pipe")
+    parser.add_argument("--host-pid", type=int, default=0)
+    parser.add_argument("--asset-root", type=Path)
+    args = parser.parse_args(argv)
+
+    cfg = Config()
+    set_level(cfg.get("log_level", "INFO"))
+    logger = get_logger()
+    if args.host_pid:
+        logger.info("WinHost Backend 连接 host pid=%s pipe=%s", args.host_pid, args.pipe)
+
+    data_dir = Path(os.environ.get("KAZARIPLAY_DATA_DIR") or "").resolve() if os.environ.get(
+        "KAZARIPLAY_DATA_DIR") else Path.home() / "AppData" / "Roaming" / "KazariPlay"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    stage_root = args.asset_root
+    if stage_root is None:
+        theme = str(cfg.get("theme", "light") or "light")
+        stage_root = data_dir / "cache" / "winhost" / f"run-{os.getpid()}" / "web"
+        stage_assets(
+            Path(__file__).resolve().parent / "ui" / "web_assets",
+            stage_root,
+            AssetIdentity(DISPLAY_VERSION, PRODUCT_LINE, WINDOW_TITLE),
+            theme,
+        )
+
+    port = connect_pipe(args.pipe)
+    bridge, cover_service = build_bridge(data_dir)
+    bridge._start_ts = time.monotonic()
+
+    def shutdown():
+        try:
+            cover_service.stop()
+        except Exception:
+            pass
+        overlay = getattr(bridge, "_overlay_client", None)
+        if overlay is not None:
+            try:
+                overlay.quit()
+            except Exception:
+                pass
+
+    bridge.on_host_shutdown = shutdown
+    ready = {
+        "type": "ready",
+        "protocol": 1,
+        "version": VERSION,
+        "display_version": DISPLAY_VERSION,
+        "theme": str(cfg.get("theme", "light") or "light"),
+        "asset_root": str(stage_root),
+    }
+    def serve_sync():
+        port.write_frame(ready)
+        while True:
+            message = port.read_frame()
+            if message is None:
+                return
+            kind = message.get("type")
+            if kind == "shutdown":
+                shutdown()
+                try:
+                    port.write_frame({"type": "shutdown_complete"})
+                except Exception:
+                    pass
+                return
+            if kind != "call":
+                continue
+            call_id = message.get("id")
+            try:
+                result = dispatch(bridge, message.get("method"), message.get("args"))
+                response = {"type": "result", "id": call_id, "ok": True, "result": result}
+            except DispatchError as exc:
+                response = {
+                    "type": "result", "id": call_id, "ok": False,
+                    "error": {"code": exc.code, "message": exc.message},
+                }
+            except ProtocolError as exc:
+                response = {
+                    "type": "result", "id": call_id, "ok": False,
+                    "error": {"code": "protocol", "message": str(exc)},
+                }
+            port.write_frame(response)
+
+    try:
+        serve_sync()
+    except Exception as exc:
+        logger.error("WinHost Backend 失败: %s", exc)
+        try:
+            port.write_frame({
+                "type": "startup_error",
+                "code": "backend_init",
+                "message": str(exc),
+            })
+        except Exception:
+            pass
+        return 1
+    finally:
+        port.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

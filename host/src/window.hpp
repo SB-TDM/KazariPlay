@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 class WebViewHost;
 
 struct CaptionRects {
@@ -23,6 +25,7 @@ public:
     void setCaptionRects(const CaptionRects& rects);
     bool isMaximized() const { return maximized_; }
     void applyDpi(UINT dpi);
+    void onBackendPayload(const std::string& payload);
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);

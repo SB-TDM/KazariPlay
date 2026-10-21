@@ -8,6 +8,7 @@
 
 namespace {
 constexpr wchar_t kClassName[] = L"KazariPlayHost";
+constexpr UINT kBackendMessage = WM_APP + 20;
 
 int dip(int value, int dpi) {
     return MulDiv(value, dpi, 96);
@@ -65,6 +66,12 @@ void Window::setCaptionRects(const CaptionRects& rects) {
 void Window::applyDpi(UINT dpi) {
     dpi_ = dpi;
     onSize();
+}
+
+void Window::onBackendPayload(const std::string& payload) {
+    if (webview_) {
+        webview_->postBackendMessage(payload);
+    }
 }
 
 void Window::onSize() {
@@ -165,6 +172,14 @@ LRESULT Window::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_MOUSELEAVE:
         if (webview_) webview_->onMouse(message, wParam, lParam);
         return 0;
+    case kBackendMessage: {
+        auto* payload = reinterpret_cast<std::string*>(lParam);
+        if (payload) {
+            onBackendPayload(*payload);
+            delete payload;
+        }
+        return 0;
+    }
     case WM_ERASEBKGND:
         return 1;
     case WM_PAINT: {

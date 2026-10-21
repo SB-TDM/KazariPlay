@@ -150,8 +150,16 @@ declare global {
     evaluate_js?(code: string): unknown;
   }
 
+  /** WinHost 注入的业务桥。 */
+  interface HostBridge {
+    ready: boolean;
+    invoke(name: string, args: unknown[]): Promise<unknown>;
+    _settle?(id: number, ok: boolean, result: unknown): void;
+  }
+
   interface Window {
     pywebview?: PyWebView;
+    __host?: HostBridge;
     bridgeReady?: boolean;
   }
 }

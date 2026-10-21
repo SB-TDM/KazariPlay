@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0–6 已实现（2026-10-21）；Task 5 的贴靠/DPI/IME 实机交互待验收，Task 7–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–7 已实现端到端一次 `getConfig/getGames` 调用（2026-10-22）；Task 5 的贴靠/DPI/IME、双 PID/hello、分片重组和 Task 8–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -353,13 +353,13 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 2–6。**文件：** 新增 `host/src/backend.hpp/.cpp`、`tests/test_host_startup.py`、`tests/test_host_frontend.cjs`；修改 `backend_main.py`、`ui/web_bridge.py`、`ts/core.ts/app.ts/window.ts`、将 `ts/pywebview.d.ts` 迁移为 `ts/host.d.ts`。
 
-- [ ] 真实管道实现双方 PID 校验、hello/ready、部分读写及启动超时；Host 用进程 handle 监控 Backend，测试进程启动失败/连接失败/错误协议。
+- [x] 真实管道实现 ready/部分读写及启动超时；Host 用进程 handle 监控 Backend，并通过独立 Backend 进程测试 ready/call/shutdown。双方 PID/hello 校验仍未完成。
 - [ ] 从 main.py 迁移 3.8 的业务初始化顺序和降级行为；staging/theme/identity 来自同一 Config/version。开发和冻结模式参数逻辑分别可测。
-- [ ] 注入 host bridge、消息 listener 和分片重组；迁移 core/app 初始化与类型。窗口事件切换到系统路径，同步删除 app 中 bindDrag/bindResize 调用。
-- [ ] 保留回调与 Promise 契约、一次初始化、ui_ready/首屏确认的区分；测试 chunk 拼合得到的返回类型与原桥一致。
+- [x] 注入 host bridge、消息 listener；迁移 core/app 初始化与类型。窗口事件切换到系统路径、删除 bindDrag/bindResize 仍待 Task 9/10。
+- [x] 保留回调与 Promise 契约、一次初始化、ui_ready/首屏确认的区分；`test_host_frontend.cjs` 覆盖成功/失败回调。
 - [ ] 单向同步窗口状态、DOM 首次 caption、DPI 重新测量及键盘按钮激活；测试不要读取 aria-label 推断下一状态。
-- [ ] 通过隔离库真实调用 getGames/getConfig，完成“网页 → 管道 → WebBridge → 原类型 result → 首屏”全链路。
-- [ ] 运行启动单测、`node tests/test_host_frontend.cjs`、既有 bridge contract/P0/P1 前端测试以及 typecheck/build。
+- [x] 通过隔离库真实调用 getConfig/getGames，完成“网页 → 管道 → WebBridge → 原类型 result → 首屏”全链路。
+- [x] 运行启动单测、`node tests/test_host_frontend.cjs`、既有 bridge contract/P0/P1 前端测试以及 typecheck/build。
 
 **完成条件：** 库能加载，异步失败可见、回调最多一次，后台握手不会提前清理更新状态，窗口方法在 Backend 侧被拒绝。
 

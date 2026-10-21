@@ -1,9 +1,30 @@
+#include "backend.hpp"
 #include "webview.hpp"
 #include "window.hpp"
 
 #include <iterator>
 #include <objbase.h>
+#include <string>
 #include <windows.h>
+
+namespace {
+std::wstring envValue(const wchar_t* name) {
+    wchar_t buffer[32768]{};
+    const DWORD length = GetEnvironmentVariableW(
+        name, buffer, static_cast<DWORD>(std::size(buffer)));
+    return length ? std::wstring(buffer, length) : std::wstring();
+}
+
+std::wstring widenUtf8(const std::string& value) {
+    if (value.empty()) return {};
+    const int length = MultiByteToWideChar(
+        CP_UTF8, 0, value.data(), static_cast<int>(value.size()), nullptr, 0);
+    std::wstring out(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                        out.data(), length);
+    return out;
+}
+}  // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -12,17 +33,44 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    wchar_t assetRoot[MAX_PATH * 4]{};
-    GetEnvironmentVariableW(L"KAZARIPLAY_ASSET_ROOT", assetRoot,
-                            static_cast<DWORD>(std::size(assetRoot)));
-
     WebViewHost webview;
     Window window;
     if (!window.create(instance, &webview)) {
         CoUninitialize();
         return 1;
     }
-    if (!webview.initialize(window.hwnd(), assetRoot)) {
+
+    std::wstring workdir = envValue(L"KAZARIPLAY_DEV_ROOT");
+    if (workdir.empty()) {
+        wchar_t current[MAX_PATH]{};
+        if (GetCurrentDirectoryW(MAX_PATH, current)) {
+            workdir = current;
+        }
+    }
+    std::wstring python = envValue(L"KAZARIPLAY_DEV_PYTHON");
+    if (python.empty()) python = L"python";
+    std::wstring script = envValue(L"KAZARIPLAY_BACKEND_SCRIPT");
+    if (script.empty()) {
+        script = workdir + L"\\src\\kazari_play\\backend_main.py";
+    }
+
+    BackendProcess backend;
+    const auto backendHandler = [&window](const nlohmann::json& message) {
+        auto* payload = new std::string(message.dump());
+        if (!PostMessageW(window.hwnd(), WM_APP + 20, 0,
+                          reinterpret_cast<LPARAM>(payload))) {
+            delete payload;
+        }
+    };
+    if (!backend.start(window.hwnd(), python, script, workdir, backendHandler)) {
+        MessageBoxW(window.hwnd(), L"Python backend did not start or become ready.",
+                    L"KazariPlay", MB_ICONERROR);
+        CoUninitialize();
+        return 1;
+    }
+    const std::string assetRootUtf8 = backend.ready().value("asset_root", "");
+    if (!webview.initialize(window.hwnd(), widenUtf8(assetRootUtf8), &backend)) {
+        backend.stop();
         CoUninitialize();
         return 1;
     }
@@ -33,6 +81,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }
+    backend.stop();
     CoUninitialize();
     return static_cast<int>(message.wParam);
 }

@@ -1,5 +1,7 @@
 #include "webview.hpp"
 
+#include "backend.hpp"
+
 #include <string>
 #include <windowsx.h>
 
@@ -7,6 +9,51 @@ using Microsoft::WRL::Callback;
 using Microsoft::WRL::ComPtr;
 
 namespace {
+constexpr wchar_t kBridgeScript[] = LR"JS(
+(function(){
+  const host = {
+    ready: true,
+    _pending: new Map(),
+    _seq: 0,
+    invoke(name, args) {
+      const id = ++this._seq;
+      const promise = new Promise((resolve, reject) => {
+        this._pending.set(id, {resolve, reject});
+      });
+      window.chrome.webview.postMessage({type:'call', id:id, method:name, args:args});
+      return promise;
+    },
+    _settle(id, ok, value) {
+      const item = this._pending.get(id);
+      if (!item) return;
+      this._pending.delete(id);
+      if (ok) item.resolve(value);
+      else item.reject(new Error(String(value && value.message || value || 'backend error')));
+    }
+  };
+  Object.defineProperty(window, '__host', {value: host, configurable: false});
+  window.chrome.webview.addEventListener('message', function(event) {
+    const message = event.data;
+    if (!message || message.type !== 'result') return;
+    host._settle(message.id, !!message.ok,
+      message.ok ? message.result : message.error);
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    window.chrome.webview.postMessage({type:'ui_ready'});
+  });
+})();
+)JS";
+
+std::wstring widen(const std::string& value) {
+    if (value.empty()) return {};
+    const int length = MultiByteToWideChar(CP_UTF8, 0, value.data(),
+                                           static_cast<int>(value.size()), nullptr, 0);
+    std::wstring out(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                        out.data(), length);
+    return out;
+}
+
 constexpr wchar_t kTestPage[] = LR"HTML(
 <!doctype html>
 <html lang="zh-CN" data-theme="light">
@@ -60,9 +107,11 @@ COREWEBVIEW2_MOUSE_EVENT_KIND mouseKind(UINT message) {
 
 }  // namespace
 
-bool WebViewHost::initialize(HWND hwnd, const std::wstring& assetRoot) {
+bool WebViewHost::initialize(HWND hwnd, const std::wstring& assetRoot,
+                             BackendProcess* backend) {
     hwnd_ = hwnd;
     asset_root_ = assetRoot;
+    backend_ = backend;
     dpi_ = GetDpiForWindow(hwnd_);
     auto handler = Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
         [this](HRESULT error, ICoreWebView2Environment* environment) -> HRESULT {
@@ -132,25 +181,84 @@ void WebViewHost::onComposition(HRESULT error, ICoreWebView2CompositionControlle
         MessageBoxW(hwnd_, L"WebView2 interface is unavailable.", L"KazariPlay", MB_ICONERROR);
         return;
     }
+    installBridge();
+    ready_ = true;
+}
+
+void WebViewHost::installBridge() {
+    auto message_handler = Callback<ICoreWebView2WebMessageReceivedEventHandler>(
+        [this](ICoreWebView2*, ICoreWebView2WebMessageReceivedEventArgs* args) -> HRESULT {
+            LPWSTR raw = nullptr;
+            if (FAILED(args->get_WebMessageAsJson(&raw)) || !raw) {
+                return S_OK;
+            }
+            const std::wstring text(raw);
+            CoTaskMemFree(raw);
+            try {
+                const int length = WideCharToMultiByte(
+                    CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                    nullptr, 0, nullptr, nullptr);
+                std::string utf8(length, '\0');
+                WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                                    utf8.data(), length, nullptr, nullptr);
+                const auto message = nlohmann::json::parse(utf8);
+                if (message.value("type", "") == "call" && backend_) {
+                    backend_->sendCall(message.value("id", 0),
+                                       message.value("method", ""),
+                                       message.value("args", nlohmann::json::array()));
+                }
+            } catch (const std::exception&) {
+            }
+            return S_OK;
+        });
+    EventRegistrationToken token{};
+    webview_->add_WebMessageReceived(message_handler.Get(), &token);
+
+    auto script_handler =
+        Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
+            [this](HRESULT, LPCWSTR) -> HRESULT {
+                navigate();
+                return S_OK;
+            });
+    if (FAILED(webview_->AddScriptToExecuteOnDocumentCreated(
+            kBridgeScript, script_handler.Get()))) {
+        navigate();
+    }
+}
+
+void WebViewHost::navigate() {
     if (asset_root_.empty()) {
         webview_->NavigateToString(kTestPage);
-    } else {
-        ComPtr<ICoreWebView2_3> webview3;
-        if (FAILED(webview_.As(&webview3))
-                || FAILED(webview3->SetVirtualHostNameToFolderMapping(
-                    L"kazariplay.local", asset_root_.c_str(),
-                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW))) {
-            MessageBoxW(hwnd_, L"Web asset virtual host setup failed.",
-                        L"KazariPlay", MB_ICONERROR);
-            return;
-        }
-        if (FAILED(webview_->Navigate(L"https://kazariplay.local/index.html"))) {
-            MessageBoxW(hwnd_, L"Web asset navigation failed.",
-                        L"KazariPlay", MB_ICONERROR);
-            return;
-        }
+        return;
     }
-    ready_ = true;
+    ComPtr<ICoreWebView2_3> webview3;
+    if (FAILED(webview_.As(&webview3))
+            || FAILED(webview3->SetVirtualHostNameToFolderMapping(
+                L"kazariplay.local", asset_root_.c_str(),
+                COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW))) {
+        MessageBoxW(hwnd_, L"Web asset virtual host setup failed.",
+                    L"KazariPlay", MB_ICONERROR);
+        return;
+    }
+    if (FAILED(webview_->Navigate(L"https://kazariplay.local/index.html"))) {
+        MessageBoxW(hwnd_, L"Web asset navigation failed.",
+                    L"KazariPlay", MB_ICONERROR);
+    }
+}
+
+void WebViewHost::postBackendMessage(const std::string& message) {
+    if (!webview_) return;
+    try {
+        const auto value = nlohmann::json::parse(message);
+        if (value.value("type", "") == "eval") {
+            const std::wstring code = widen(value.value("code", ""));
+            webview_->ExecuteScript(code.c_str(), nullptr);
+            return;
+        }
+        const std::wstring json = widen(message);
+        webview_->PostWebMessageAsJson(json.c_str());
+    } catch (const std::exception&) {
+    }
 }
 
 bool WebViewHost::setupVisuals() {

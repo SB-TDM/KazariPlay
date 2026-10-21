@@ -35,6 +35,7 @@ function init(): void {
   };
 
   const apiReady = function (): boolean {
+    if (window.__host && window.__host.ready) return true;
     const api = window.pywebview && window.pywebview.api;
     // 空对象 {} 不算就绪（_createApi 尚未填充）
     return !!(api && typeof api === 'object' && Object.keys(api).length > 0);
