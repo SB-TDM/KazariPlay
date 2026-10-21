@@ -60,8 +60,9 @@ COREWEBVIEW2_MOUSE_EVENT_KIND mouseKind(UINT message) {
 
 }  // namespace
 
-bool WebViewHost::initialize(HWND hwnd) {
+bool WebViewHost::initialize(HWND hwnd, const std::wstring& assetRoot) {
     hwnd_ = hwnd;
+    asset_root_ = assetRoot;
     dpi_ = GetDpiForWindow(hwnd_);
     auto handler = Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
         [this](HRESULT error, ICoreWebView2Environment* environment) -> HRESULT {
@@ -131,7 +132,24 @@ void WebViewHost::onComposition(HRESULT error, ICoreWebView2CompositionControlle
         MessageBoxW(hwnd_, L"WebView2 interface is unavailable.", L"KazariPlay", MB_ICONERROR);
         return;
     }
-    webview_->NavigateToString(kTestPage);
+    if (asset_root_.empty()) {
+        webview_->NavigateToString(kTestPage);
+    } else {
+        ComPtr<ICoreWebView2_3> webview3;
+        if (FAILED(webview_.As(&webview3))
+                || FAILED(webview3->SetVirtualHostNameToFolderMapping(
+                    L"kazariplay.local", asset_root_.c_str(),
+                    COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW))) {
+            MessageBoxW(hwnd_, L"Web asset virtual host setup failed.",
+                        L"KazariPlay", MB_ICONERROR);
+            return;
+        }
+        if (FAILED(webview_->Navigate(L"https://kazariplay.local/index.html"))) {
+            MessageBoxW(hwnd_, L"Web asset navigation failed.",
+                        L"KazariPlay", MB_ICONERROR);
+            return;
+        }
+    }
     ready_ = true;
 }
 

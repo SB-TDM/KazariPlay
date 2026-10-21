@@ -41,7 +41,8 @@ bool Window::create(HINSTANCE instance, WebViewHost* webview) {
     const int y = monitor.rcWork.top + (workHeight - height) / 2;
 
     hwnd_ = CreateWindowExW(
-        0, kClassName, L"KazariPlay WinHost", WS_OVERLAPPEDWINDOW,
+        0, kClassName, L"KazariPlay WinHost",
+        WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
         x, y, width, height, nullptr, nullptr, instance, this);
     if (!hwnd_) {
         return false;

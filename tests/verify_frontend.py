@@ -12,13 +12,15 @@ import os
 import json
 import re
 import sys
+import tempfile
 from html import escape
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "src", "kazari_play"))
 
 import main  # noqa: E402
-from version import DISPLAY_VERSION, VERSION, WINDOW_TITLE
+from ui.web_asset_stager import AssetIdentity, stage_assets  # noqa: E402
+from version import DISPLAY_VERSION, PRODUCT_LINE, VERSION, WINDOW_TITLE  # noqa: E402
 
 
 def run():
@@ -90,6 +92,29 @@ def run():
     missing = sorted(r for r in refs if r not in id_set)
     if missing:
         errors.append(f"JS 引用但 HTML 缺失的 id: {missing}")
+
+    # ---------- 3. WinHost staging 产物 ----------
+    with tempfile.TemporaryDirectory(prefix="kazariplay-verify-stage-") as temp:
+        staged_root = os.path.join(temp, "web")
+        stage_assets(
+            assets,
+            staged_root,
+            AssetIdentity(DISPLAY_VERSION, PRODUCT_LINE, WINDOW_TITLE),
+            "light",
+        )
+        with open(os.path.join(staged_root, "index.html"), encoding="utf-8") as stream:
+            staged = stream.read()
+        if any(marker in staged for marker in (
+                "<!-- PARTIALS -->", "<!-- SCRIPTS -->", "{{")):
+            errors.append("staging 页面残留模板标记")
+        if staged.count('<script src="js/') != len(main._JS_MANIFEST):
+            errors.append("staging 脚本数量与清单不一致")
+        if '<link rel="stylesheet" href="css/style.css">' not in staged:
+            errors.append("staging 缺少 CSS 入口")
+        if '<html lang="zh-CN" data-theme="light">' not in staged:
+            errors.append("staging 首帧浅色主题错误")
+        if not os.path.isfile(os.path.join(staged_root, "app_icon.png")):
+            errors.append("staging 缺少应用图标")
 
     if errors:
         print("verify_frontend FAILED:")

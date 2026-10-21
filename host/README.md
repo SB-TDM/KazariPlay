@@ -22,6 +22,8 @@ powershell -NoProfile -File scripts/build_host.ps1
 
 如果本机已有 SDK，可设置 `KAZARIPLAY_WEBVIEW2_SDK_ROOT` 指向包含 `build/native/include/WebView2.h` 的包目录；否则脚本先查找 NuGet 缓存，再通过 `packages.config` 恢复到 `host/.packages/`。
 
+开发期可把 `KAZARIPLAY_ASSET_ROOT` 指向 `scripts/build_web_assets.py --output <目录>` 生成的目录，让 Host 通过 `https://kazariplay.local/index.html` 加载装配后的页面；未设置时加载内置输入测试页。
+
 ## 当前状态
 
 当前只建立构建入口和条件目标。`src/main.cpp`、协议/窗口测试源码会在后续 Task 创建；在此之前，相应目标会显示为 skipped，不能用“配置成功”宣称 Host 已实现。

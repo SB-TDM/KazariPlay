@@ -36,6 +36,8 @@ import webview
 
 from core.games.game_manager import GameManager
 from ui.web_bridge import WebBridge
+from ui.web_assets_manifest import JS_MANIFEST as _JS_MANIFEST
+from ui.web_assets_manifest import PARTIAL_MANIFEST as _PARTIAL_MANIFEST
 from utils.infra.config import Config
 from utils.infra.logger import get_logger, set_level
 from version import DISPLAY_VERSION, PRODUCT_LINE, WINDOW_TITLE
@@ -60,41 +62,6 @@ def _icon_data_uri() -> str:
     except Exception:
         return ""
 
-
-# JS 模块加载清单（按依赖顺序，勿随意调整；每项对应 ui/web_assets/js/ 下的文件）
-# 顶部 let/const/function 在多个经典 <script> 块间共享，等价于"按文件拆分的单文件脚本"。
-_JS_MANIFEST = [
-    "state.js",        # 全局共享状态（无依赖，最先加载）
-    "icons.js",        # 内联 SVG 图标库（无依赖）
-    "core.js",         # bridge 代理 + 通用工具（esc/toast/loadCoverTo）
-    "ui.js",           # Sheet / 通用对话框 / 右键菜单基础设施
-    "window.js",       # 标题栏拖拽 / 缩放 / 最大化
-    "games.js",        # 游戏数据 / 筛选 / 整体渲染调度 + 卡片状态
-    "cards.js",        # 卡片 DOM 构建 / 增量渲染（懒加载）/ 右键菜单
-    "detail.js",       # 详情底部抽屉
-    "screenshots.js",  # 截图卡片 / 预览 / 右键管理
-    "collections.js",  # 收藏夹树 / 收藏夹管理抽屉
-    "manage_games.js", # 管理游戏对话框（批量勾选收藏夹内游戏）
-    "batch.js",        # 批量选择模式
-    "form.js",         # 编辑 / 添加表单 + 元数据候选
-    "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
-    "updater.js",      # 应用内更新（关于页接线 / 更新弹层 / 启动检查）
-    "home.js",         # 主页视图（问候/继续游玩/统计/收藏夹快捷，默认视图）
-    "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
-]
-
-# HTML 分块清单（各窗口/对话框独立文件，注入到 index.html 的 <!-- PARTIALS --> 标记处；
-# 顺序即 DOM 顺序，全部 .overlay 同为 z-index:100，靠 DOM 顺序决定层叠）
-_PARTIAL_MANIFEST = [
-    "detail.html",      # 详情抽屉 + 截图预览 + 截图右键菜单
-    "collections.html", # 收藏夹管理 + 管理游戏对话框
-    "form.html",        # 编辑 / 添加表单
-    "settings.html",    # 设置窗口
-    "update.html",      # 应用内更新弹层
-    "relocate.html",    # 批量重新定位预览对话框
-    "meta_apply.html",  # 元数据候选字段选择对话框
-    "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）
-]
 
 
 def _load_html(initial_theme: str = "light") -> str:

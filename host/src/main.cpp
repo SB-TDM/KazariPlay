@@ -1,6 +1,7 @@
 #include "webview.hpp"
 #include "window.hpp"
 
+#include <iterator>
 #include <objbase.h>
 #include <windows.h>
 
@@ -11,13 +12,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
+    wchar_t assetRoot[MAX_PATH * 4]{};
+    GetEnvironmentVariableW(L"KAZARIPLAY_ASSET_ROOT", assetRoot,
+                            static_cast<DWORD>(std::size(assetRoot)));
+
     WebViewHost webview;
     Window window;
     if (!window.create(instance, &webview)) {
         CoUninitialize();
         return 1;
     }
-    if (!webview.initialize(window.hwnd())) {
+    if (!webview.initialize(window.hwnd(), assetRoot)) {
         CoUninitialize();
         return 1;
     }

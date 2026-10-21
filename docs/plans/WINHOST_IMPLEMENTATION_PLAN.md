@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0–4 已实现；Task 5 原生窗口/WebView2 初始化与构建已完成，实机交互待验收（2026-10-21）；Task 6–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–6 已实现（2026-10-21）；Task 5 的贴靠/DPI/IME 实机交互待验收，Task 7–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -341,11 +341,11 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 5。**文件：** 新增 `ui/web_assets_manifest.py`、`ui/web_asset_stager.py`、`tests/test_web_asset_stager.py`、`scripts/build_web_assets.py`；修改 `main.py` 清单引用、`tests/verify_frontend.py`、Host webview 模块。
 
-- [ ] 从 main.py 提取唯一清单，实现 3.3 的完整装配；不要让 stager import main.py/webview。
-- [ ] 生成有序外部 script、保留 CSS import/layer、复制相对图片；测试浅色/暗色/版本/中文路径/带空格路径/资源缺失/只读源目录。
-- [ ] Host 映射测试生成目录，先用测试桥验证现有 UI 静态结构；测试页面必须与生产入口隔离，不能把桩数据混入正式启动。
-- [ ] 迁移前端组装门禁，浏览器验证 CSS/JS 实际加载、图片路径及首帧背景；文件存在检查不能替代浏览器加载检查。
-- [ ] 运行 stager 单测、前端 typecheck/build 和 `python tests/verify_frontend.py`。
+- [x] 从 main.py 提取唯一清单，实现 3.3 的完整装配；stager 不 import main.py/webview。
+- [x] 生成有序外部 script、保留 CSS import/layer、复制相对图片；测试浅色/暗色/版本/中文路径/带空格路径/资源缺失；只读源目录未单独模拟。
+- [x] Host 映射测试生成目录并实际加载现有静态 UI；真实桥接和动态业务数据留到 Task 7。
+- [x] 迁移前端组装门禁，浏览器实际加载 CSS/JS、图标和深色首帧；已用真实 Host 截图确认页面结构。
+- [x] 运行 stager 单测、前端 typecheck/build 和 `python tests/verify_frontend.py`。
 
 **完成条件：** 完整 UI 能由虚拟主机加载，无残留模板/丢失 partial/脚本顺序错误，首帧主题符合配置。
 

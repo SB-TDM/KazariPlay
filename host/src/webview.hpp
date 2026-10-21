@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 #include <dcomp.h>
 #include <wrl/client.h>
 #include <wrl/event.h>
@@ -10,7 +12,7 @@
 
 class WebViewHost {
 public:
-    bool initialize(HWND hwnd);
+    bool initialize(HWND hwnd, const std::wstring& assetRoot);
     void resize(RECT client);
     void focus();
     void setDpi(UINT dpi);
@@ -23,6 +25,7 @@ private:
     bool setupVisuals();
 
     HWND hwnd_ = nullptr;
+    std::wstring asset_root_;
     UINT dpi_ = 96;
     bool ready_ = false;
     Microsoft::WRL::ComPtr<ICoreWebView2Environment> environment_;
