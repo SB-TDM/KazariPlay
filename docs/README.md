@@ -69,7 +69,7 @@
 |---|---|
 | [CPP_REWRITE_PLAN.md](plans/CPP_REWRITE_PLAN.md) | C++ 全栈重写方案，未实施；当前项目仍使用 Python + pywebview |
 | [TAURI_MIGRATION_PLAN.md](plans/TAURI_MIGRATION_PLAN.md) | Tauri + Python sidecar 方案，未实施 |
-| [WINHOST_IMPLEMENTATION_PLAN.md](plans/WINHOST_IMPLEMENTATION_PLAN.md) | C++ WinHost + WebView2 + Python sidecar 实施方案，未实施；已归档供后续修订与分支开发 |
+| [WINHOST_IMPLEMENTATION_PLAN.md](plans/WINHOST_IMPLEMENTATION_PLAN.md) | C++ WinHost + WebView2 + Python 后端方案，审查修订完成、未实施；含协议并发、页面装配、原生输入、双进程更新与 Task 0–11 验收计划 |
 
 ## archive/ — 历史记录
 
