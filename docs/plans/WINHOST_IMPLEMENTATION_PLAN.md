@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0 构建入口与 Task 1 协议已实现（2026-10-21）；Task 2–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0 构建入口、Task 1–2 帧协议已实现（2026-10-21）；Task 3–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -290,12 +290,12 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 ### Task 2：C++ 帧与跨语言向量
 
-**依赖：** Task 0、1。**文件：** 新增 `host/src/protocol.hpp`、`host/src/protocol_test.cpp`；修改 CMake。
+**依赖：** Task 0、1。**文件：** 新增 `host/src/protocol.hpp`、`host/src/protocol_test.cpp`、`tests/test_host_protocol_cpp.py`；修改 CMake。
 
-- [ ] 实现 `host::encodeFrame(json)`、`host::decodeFrame(std::string&) -> optional<json>`，使用现有 json.hpp；不足一帧不消耗。
-- [ ] 使用 Task 1 的黄金向量和分段/Unicode/连续帧向量，校验异常与上限；C++ 发送内容由 Python 解码，Python 发送内容由 C++ 解码。
-- [ ] 测试用显式失败返回或测试框架断言，不能仅靠 Release 下被 `NDEBUG` 禁用的 `assert`。
-- [ ] 运行 `powershell -NoProfile -File scripts/build_host.ps1 -ProtocolOnly -Target host_protocol_test -Test`。脚本内部使用 `ctest --test-dir host/build -C Release --output-on-failure`，不假设 exe 在 build 根目录。
+- [x] 实现 `host::encodeFrame(json)`、`host::decodeFrame(std::string&) -> optional<json>`，使用现有 json.hpp；不足一帧不消耗。
+- [x] 使用 Task 1 的黄金向量和分段/Unicode/连续帧向量，校验异常与上限；C++ 发送内容由 Python 解码，Python 发送内容由 C++ 解码。
+- [x] 测试用显式失败返回或测试框架断言，不能仅靠 Release 下被 `NDEBUG` 禁用的 `assert`。
+- [x] 运行 `powershell -NoProfile -File scripts/build_host.ps1 -ProtocolOnly -Target host_protocol_test -Test`。脚本内部使用 `ctest --test-dir host/build -C Release --output-on-failure`，不假设 exe 在 build 根目录。
 
 **完成条件：** 两端向量语义一致、测试失败会返回非零；不需要启动 WebView2。
 
