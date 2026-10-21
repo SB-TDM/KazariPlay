@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0 构建入口、Task 1–3 协议与 dispatch 已实现（2026-10-21）；Task 4–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0 构建入口、Task 1–3 协议与 dispatch、Task 4 离线 transport 已实现（2026-10-21）；真实命名管道/Backend 入口和 Task 5–11 未实施。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -315,12 +315,12 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 1、3。**文件：** 新增 `host_transport.py`、`backend_main.py` 的可测试循环、`tests/test_backend_loop.py`。
 
-- [ ] 实现 `serve(port, bridge, session)`、持续 reader、有界 worker 队列、writer lock、hello/ready 状态和分片发送；此阶段用 FakePort，不创建真实业务对象。
-- [ ] 实现 `request_dialog(kind, title, filters, allow_multiple) -> list[str] | None`。采用双向队列 FakePort，测试线程先读实际 dialog.id 再回包。
-- [ ] 验证 dialog 等待期间 result/push 能交错、cancel/shutdown 仍可读；普通长 call 占用 worker 不会饿死控制路径。
-- [ ] 覆盖 120 秒 dialog 超时的可注入时钟、dialog_cancel、EOF、协议错、初始化失败、重复/迟到 ID、队列满和同时写 result/eval/chunk。测试不能真的等 120 秒。
-- [ ] 用一次性清理计数断言 shutdown/EOF/错误竞态不会重复关资源；普通方法异常回 result 后服务仍可处理下一 call。
-- [ ] 运行 `python -m unittest discover -s tests -p "test_backend_loop.py" -v`。
+- [x] 实现 `serve(port, bridge, session)`、持续 reader、有界 worker 队列、writer lock、ready 状态和分片发送；此阶段用 FakePort，不创建真实业务对象。
+- [x] 实现 `request_dialog(kind, title, filters, allow_multiple) -> list[str] | None`。采用双向队列 FakePort，测试线程先读实际 dialog.id 再回包。
+- [x] 验证 dialog 等待期间 result/push 能交错、shutdown 仍可读；普通长 call 占用 worker 不会饿死控制路径。
+- [ ] 覆盖 120 秒 dialog 超时（已用可注入短期限验证）、dialog_cancel、EOF、协议错、初始化失败、重复/迟到 ID、队列满和同时写 result/eval/chunk；与真实命名管道相关的剩余项在 Task 7 补齐。
+- [x] 用一次性清理计数断言 shutdown/EOF/错误竞态不会重复关资源；普通方法异常回 result 后服务仍可处理下一 call。
+- [x] 运行 `python -m unittest discover -s tests -p "test_backend_loop.py" -v`。
 
 **完成条件：** 等待对话框不阻塞读循环，任一退出路径唤醒所有等待者，短写/并发写不会损坏后续帧。
 

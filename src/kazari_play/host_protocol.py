@@ -69,12 +69,8 @@ def decode_frame(buf: bytearray) -> dict | None:
     return msg
 
 
-def build_result_frames(message: dict) -> list[bytes]:
-    """编码逻辑 result；超过单帧上限时拆为 result_chunk。
-
-    分片数据是完整 result 消息 JSON 的连续 UTF-8 字节，Host 重组后可
-    按普通 result 消息交给页面。
-    """
+def build_result_messages(message: dict) -> list[dict]:
+    """把逻辑 result 转换为一个普通 result 或一组 result_chunk 消息。"""
     if not isinstance(message, dict) or message.get("type") != "result":
         raise ProtocolError("result message required")
     if not isinstance(message.get("id"), int) or isinstance(message.get("id"), bool):
@@ -83,19 +79,24 @@ def build_result_frames(message: dict) -> list[bytes]:
     if len(body) > MAX_RESULT_BYTES:
         raise ProtocolError("result too large")
     if len(body) <= MAX_FRAME:
-        return [encode_frame(message)]
+        return [message]
 
     count = (len(body) + RESULT_CHUNK_BYTES - 1) // RESULT_CHUNK_BYTES
-    frames = []
+    messages = []
     for index in range(count):
         start = index * RESULT_CHUNK_BYTES
         chunk = body[start:start + RESULT_CHUNK_BYTES]
-        frames.append(encode_frame({
+        messages.append({
             "type": "result_chunk",
             "id": message["id"],
             "index": index,
             "count": count,
             "total_bytes": len(body),
             "data": base64.b64encode(chunk).decode("ascii"),
-        }))
-    return frames
+        })
+    return messages
+
+
+def build_result_frames(message: dict) -> list[bytes]:
+    """编码逻辑 result；超过单帧上限时拆为 result_chunk。"""
+    return [encode_frame(item) for item in build_result_messages(message)]
