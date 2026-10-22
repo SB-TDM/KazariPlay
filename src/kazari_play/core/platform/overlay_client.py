@@ -8,6 +8,10 @@ import threading
 import time
 from ctypes import wintypes
 
+import win32api
+import win32con
+import win32job
+
 from utils.infra.config import Config
 from utils.infra.logger import get_logger
 
@@ -74,6 +78,7 @@ class OverlayClient:
         self._stop_read = threading.Event()
         self._read_failed = threading.Event()
         self._exe_is_x64 = True   # 当前 overlay 进程位数（x64=bin/，x86=bin32/）
+        self._job = None          # overlay 专属 Job；关闭句柄时兜底终止
 
     @property
     def pipe_path(self) -> str:
@@ -129,6 +134,46 @@ class OverlayClient:
         self._read_thread = None
         self._proc = None
         self._pipe_handle = None
+        self._close_job()
+
+    def _close_job(self):
+        if self._job is not None:
+            try:
+                win32api.CloseHandle(self._job)
+            except Exception:
+                pass
+            self._job = None
+
+    def _attach_job(self, pid: int) -> None:
+        """把 overlay 放进专属 Job；句柄关闭时由内核兜底回收。"""
+        job = None
+        process = None
+        try:
+            job = win32job.CreateJobObject(None, "")
+            info = win32job.QueryInformationJobObject(
+                job, win32job.JobObjectExtendedLimitInformation)
+            info["BasicLimitInformation"]["LimitFlags"] |= 0x2000  # KILL_ON_JOB_CLOSE
+            win32job.SetInformationJobObject(
+                job, win32job.JobObjectExtendedLimitInformation, info)
+            process = win32api.OpenProcess(
+                win32con.PROCESS_SET_QUOTA | win32con.PROCESS_TERMINATE,
+                False, int(pid))
+            win32job.AssignProcessToJobObject(job, process)
+            self._job = job
+            job = None
+        except Exception as exc:
+            logger.warning("overlay Job 绑定失败: %s", exc)
+            if job is not None:
+                try:
+                    win32api.CloseHandle(job)
+                except Exception:
+                    pass
+        finally:
+            if process is not None:
+                try:
+                    win32api.CloseHandle(process)
+                except Exception:
+                    pass
 
     def _ensure_process(self, is_x64: bool = True) -> bool:
         with self._proc_lock:
@@ -145,6 +190,7 @@ class OverlayClient:
                 flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
                 self._proc = subprocess.Popen(
                     [exe, self._pipe_name], creationflags=flags)
+                self._attach_job(self._proc.pid)
                 self._exe_is_x64 = is_x64
                 time.sleep(0.3)
                 return True

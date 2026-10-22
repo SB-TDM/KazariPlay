@@ -78,6 +78,7 @@ if(KAZARIPLAY_BUILD_HOST)
             ole32
             oleaut32
             shlwapi
+            shell32
             user32
             gdi32
         )

@@ -37,7 +37,7 @@ LOCK_FILE = "_update.lock"
 
 # 程序文件白名单（替换集 = 这些条目；助手由"新版本"的代码执行，清单随新版本走）
 PROGRAM_WHITELIST = {
-    "KazariPlay.exe", "_internal",
+    "KazariPlay.exe", "KazariPlayBackend.exe", "_internal",
     "LICENSE", "THIRD_PARTY.md", "RELEASE_NOTES.md", "TRIAL_README.txt",
     "BUILD_INFO.json", "run_develop.cmd",
 }
@@ -298,6 +298,7 @@ def _restore(backup_root: str, target: str) -> None:
     备份可能是硬链接：当目标文件与备份条目仍是同一个文件（替换尚未发生）时跳过，
     避免 copy2 的 SameFileError，并保持重复恢复的幂等性。
     """
+    backup_names = set(os.listdir(backup_root))
     for name in os.listdir(backup_root):
         src = os.path.join(backup_root, name)
         dst = os.path.join(target, name)
@@ -311,6 +312,15 @@ def _restore(backup_root: str, target: str) -> None:
             except OSError:
                 pass
             shutil.copy2(src, dst)
+    for name in PROGRAM_WHITELIST:
+        if name in backup_names:
+            continue
+        stale = os.path.join(target, name)
+        if os.path.isfile(stale):
+            try:
+                os.remove(stale)
+            except OSError as e:
+                logger.warning("回滚清理新程序文件失败（忽略）：%s（%s）", stale, e)
 
 
 # ---------- 进程 ----------
@@ -419,7 +429,7 @@ def _estimate_program_size(target: str) -> int:
 
 def apply_update(pid: int, target: str, source: str, data_dir: str,
                  launch: Optional[Callable[[str], object]] = None,
-                 wait_timeout: float = 30.0) -> int:
+                 wait_timeout: float = 30.0, backend_pid: int = 0) -> int:
     """执行替换；返回 0=成功（已拉起新版）、1=失败（已回滚/未开始，已尝试拉起旧版）"""
     launch = launch or _launch_default
     target = os.path.abspath(target)
@@ -475,6 +485,8 @@ def apply_update(pid: int, target: str, source: str, data_dir: str,
         try:
             if pid:
                 wait_process_exit(pid, timeout=wait_timeout)
+            if backend_pid and backend_pid != pid:
+                wait_process_exit(backend_pid, timeout=wait_timeout)
         except Exception as e:
             return abort(f"更新中止：无法结束旧进程（{e}）")
         finally:
@@ -569,9 +581,13 @@ def _spawn_rollback_helper(target: str, data_dir: str) -> bool:
     if not exe:
         logger.error("回滚助手不可用：解压缓存缺失或已清理")
         return False
+    host_pid = int(os.environ.get("KAZARIPLAY_HOST_PID", "0") or 0)
+    pid = host_pid or os.getpid()
+    backend_pid = os.getpid() if host_pid else 0
     try:
         subprocess.Popen(
-            [exe, "--apply-rollback", "--pid", str(os.getpid()),
+            [exe, "--apply-rollback", "--pid", str(pid),
+             "--backend-pid", str(backend_pid),
              "--target", os.path.abspath(target), "--data-dir", os.path.abspath(data_dir)],
             cwd=os.path.dirname(exe),
             creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)
@@ -584,7 +600,7 @@ def _spawn_rollback_helper(target: str, data_dir: str) -> bool:
 
 
 def rollback_update(pid: int, target: str, data_dir: str,
-                    wait_timeout: float = 30.0) -> int:
+                    wait_timeout: float = 30.0, backend_pid: int = 0) -> int:
     """回滚助手主体：等待当前进程退出 → 从程序备份恢复 → 拉起旧版
 
     返回 0=已恢复并拉起旧版；1=恢复失败（状态与备份保留）；2=无需回滚
@@ -604,6 +620,8 @@ def rollback_update(pid: int, target: str, data_dir: str,
     try:
         if pid:
             wait_process_exit(pid, timeout=wait_timeout)
+        if backend_pid and backend_pid != pid:
+            wait_process_exit(backend_pid, timeout=wait_timeout)
         _restore(old_dir, target)
         if not os.path.isfile(old_exe):
             raise RuntimeError("恢复后未找到 KazariPlay.exe")
@@ -631,18 +649,19 @@ def rollback_update(pid: int, target: str, data_dir: str,
         return 1
 
 
-def _parse_args(argv: List[str]) -> Tuple[int, str, str]:
+def _parse_args(argv: List[str]) -> Tuple[int, str, str, int]:
     def _arg(name: str, default: str = "") -> str:
         try:
             return argv[argv.index(name) + 1]
         except (ValueError, IndexError):
             return default
-    return int(_arg("--pid", "0") or 0), _arg("--target", ""), _arg("--data-dir", "")
+    return (int(_arg("--pid", "0") or 0), _arg("--target", ""),
+            _arg("--data-dir", ""), int(_arg("--backend-pid", "0") or 0))
 
 
 def run_apply_update(argv: List[str]) -> int:
-    """`--apply-update` 入口：解析参数并执行；source = 助手自身所在解压目录"""
-    pid, target, data_dir = _parse_args(argv)
+    """`--apply-update` 入口：解析参数并执行；source = 助手自身所在解压目�?"""
+    pid, target, data_dir, backend_pid = _parse_args(argv)
     if not target or not data_dir:
         logger.error("更新助手参数缺失（--target/--data-dir）")
         return 2
@@ -653,15 +672,16 @@ def run_apply_update(argv: List[str]) -> int:
         logger.error("更新助手：安装目录已有其它更新任务，放弃")
         return 2
     try:
-        logger.info("更新助手启动：pid=%s target=%s", pid, target)
-        return apply_update(pid, target, source, data_dir)
+        logger.info("更新助手启动：pid=%s backend_pid=%s target=%s",
+                    pid, backend_pid, target)
+        return apply_update(pid, target, source, data_dir, backend_pid=backend_pid)
     finally:
         _release_install_lock(lock)
 
 
 def run_apply_rollback(argv: List[str]) -> int:
-    """`--apply-rollback` 入口：由启动自愈拉起，等待当前进程退出后恢复旧版并重启"""
-    pid, target, data_dir = _parse_args(argv)
+    """`--apply-rollback` 入口：由启动自愈拉起，等待当前进程退出后恢复旧版并重�?"""
+    pid, target, data_dir, backend_pid = _parse_args(argv)
     if not target or not data_dir:
         logger.error("回滚助手参数缺失（--target/--data-dir）")
         return 2
@@ -670,15 +690,17 @@ def run_apply_rollback(argv: List[str]) -> int:
         logger.error("回滚助手：安装目录已有其它更新任务，放弃")
         return 2
     try:
-        logger.info("回滚助手启动：pid=%s target=%s", pid, target)
-        return rollback_update(pid, target, data_dir)
+        logger.info("回滚助手启动：pid=%s backend_pid=%s target=%s",
+                    pid, backend_pid, target)
+        return rollback_update(pid, target, data_dir, backend_pid=backend_pid)
     finally:
         _release_install_lock(lock)
 
 
 # ---------- 应用侧：发起更新 ----------
 
-def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int) -> Tuple[bool, str]:
+def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int,
+                backend_pid: int = 0) -> Tuple[bool, str]:
     """应用（旧版）侧：写"更新中"标记并拉起助手进程（分离）；随后调用方自行退出"""
     exe = os.path.join(extract_dir, "KazariPlay.exe")
     if not os.path.isfile(exe):
@@ -695,6 +717,7 @@ def begin_apply(extract_dir: str, target: str, data_dir: str, pid: int) -> Tuple
     try:
         subprocess.Popen(
             [exe, "--apply-update", "--pid", str(int(pid)),
+             "--backend-pid", str(int(backend_pid)),
              "--target", os.path.abspath(target), "--data-dir", os.path.abspath(data_dir)],
             cwd=extract_dir,
             creationflags=getattr(subprocess, "DETACHED_PROCESS", 0)

@@ -1019,7 +1019,13 @@ class WebBridge:
                 return self._update_payload({"ok": False, "msg": "当前运行方式不支持自动更新"})
             if not self._claim_update_apply():
                 return self._update_payload({"ok": True, "msg": "更新已在进行中…"})
-            ok, msg = update_apply.begin_apply(extract_dir, target, get_app_data_dir(), os.getpid())
+            host_pid = int(getattr(self, "_host_pid", 0) or 0)
+            backend_pid = os.getpid()
+            ok, msg = update_apply.begin_apply(
+                extract_dir, target, get_app_data_dir(),
+                host_pid or backend_pid,
+                backend_pid if host_pid else 0,
+            )
             if not ok:
                 self._release_update_apply()
                 return self._update_payload({"ok": False, "msg": msg})

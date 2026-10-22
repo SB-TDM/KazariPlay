@@ -663,7 +663,7 @@ def test_bridge_single_entry_repeat_trigger():
     b._update_applied = False
     calls = []
 
-    def fake_begin(extract_dir, target, data_dir, pid):
+    def fake_begin(extract_dir, target, data_dir, pid, backend_pid=0):
         calls.append(1)
         return True, "ok"
 

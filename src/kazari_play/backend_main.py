@@ -299,6 +299,13 @@ def build_bridge(data_dir: Path, preview: bool = False):
 
 
 def main(argv=None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
+    if "--apply-update" in raw_argv:
+        from utils.update.update_apply import run_apply_update
+        return run_apply_update(raw_argv)
+    if "--apply-rollback" in raw_argv:
+        from utils.update.update_apply import run_apply_rollback
+        return run_apply_rollback(raw_argv)
     parser = argparse.ArgumentParser()
     parser.add_argument("pipe")
     parser.add_argument("--host-pid", type=int, default=0)
@@ -342,6 +349,9 @@ def main(argv=None) -> int:
                 pass
 
     bridge.on_host_shutdown = shutdown
+    bridge._host_pid = args.host_pid
+    if args.host_pid:
+        os.environ["KAZARIPLAY_HOST_PID"] = str(args.host_pid)
     ready = {
         "type": "ready",
         "protocol": 1,
