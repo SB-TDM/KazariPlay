@@ -26,6 +26,23 @@ std::wstring widenUtf8(const std::string& value) {
 }
 }  // namespace
 
+namespace {
+bool activateExistingInstance() {
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        HWND existing = FindWindowW(L"KazariPlayHost", nullptr);
+        if (existing) {
+            if (IsIconic(existing)) {
+                ShowWindow(existing, SW_RESTORE);
+            }
+            SetForegroundWindow(existing);
+            return true;
+        }
+        Sleep(100);
+    }
+    return false;
+}
+}  // namespace
+
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -33,9 +50,22 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
+    HANDLE instanceMutex = CreateMutexW(nullptr, FALSE, L"Local\\KazariPlay.WinHost");
+    if (!instanceMutex) {
+        CoUninitialize();
+        return 1;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        const bool activated = activateExistingInstance();
+        CloseHandle(instanceMutex);
+        CoUninitialize();
+        return activated ? 0 : 1;
+    }
+
     WebViewHost webview;
     Window window;
     if (!window.create(instance, &webview)) {
+        CloseHandle(instanceMutex);
         CoUninitialize();
         return 1;
     }
@@ -66,12 +96,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     if (!backend.start(window.hwnd(), python, script, workdir, backendHandler)) {
         MessageBoxW(window.hwnd(), L"Python backend did not start or become ready.",
                     L"KazariPlay", MB_ICONERROR);
+        CloseHandle(instanceMutex);
         CoUninitialize();
         return 1;
     }
     const std::string assetRootUtf8 = backend.ready().value("asset_root", "");
     if (!webview.initialize(window.hwnd(), widenUtf8(assetRootUtf8), &backend)) {
         backend.stop();
+        CloseHandle(instanceMutex);
         CoUninitialize();
         return 1;
     }
@@ -83,6 +115,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         DispatchMessageW(&message);
     }
     backend.stop();
+    CloseHandle(instanceMutex);
     CoUninitialize();
     return static_cast<int>(message.wParam);
 }

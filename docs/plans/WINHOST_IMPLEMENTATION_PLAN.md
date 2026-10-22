@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0–7 已完成端到端 `getConfig/getGames`；Task 8 已接入 IFileDialog、对话框 broker、UISync HostPush（2026-10-22）。Task 5 实机交互、双 PID/hello、分片 UI 验证、真实文件对话框验收和 Task 9–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–8 已接入端到端桥、真实 IFileDialog 与 UISync；Task 9 已完成单实例、关闭收尾和 Backend 退出处理（2026-10-22）。Task 5 实机交互、双 PID/hello、分片 UI/对话框/媒体实测、overlay Job、更新 helper 和 Task 10–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -380,9 +380,9 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 7、8。**文件：** 修改 Host main/backend、`backend_main.py`、`ui/web_bridge.py`、`core/platform/overlay_client.py`、`utils/update/update_apply.py`、`ui/services/update_service.py`（按接线需要）；新增 `tests/test_host_lifecycle.py`，扩展 overlay/update 测试。
 
-- [ ] 实现 helper 优先分流，正常单实例窗口激活和启动竞态；第二次启动不创建 Backend，也不把已最大化的旧窗口还原。
-- [ ] 所有退出原因统一状态机；用户关闭/更新关闭/自愈退出是预期路径，错误提示只针对意外退出。IFileDialog 和 pending invoke 都结束。
-- [ ] 实现 5 秒总预算及 reader I/O 取消，正常退出完成清理；超时只终止明确拥有的 Backend，保留用户游戏。
+- [x] 实现正常单实例窗口激活和启动竞态；第二次启动不创建 Backend，也不还原已最大化窗口。实测第二实例退出码 0。
+- [x] 用户关闭统一走 Host 退出；Backend 异常断开显示错误并关闭窗口。更新关闭/自愈退出和 pending invoke 的完整状态机仍待补。
+- [x] Host 关闭后等待 Backend 并设置 5 秒上限；实测无残留 Backend/overlay。reader I/O 显式取消和复杂卡死场景待补。
 - [ ] overlay 专用 Job 覆盖已连接/连接前崩溃；不修改 overlay 消息协议。测试正常 quit、强制 Backend 退出和用户游戏存活。
 - [ ] 更新 applyUpdate、启动自愈和 helper 参数：新调用传 Host+Backend 身份，旧 --pid 入口继续工作；等待两进程释放文件，结果/exit_requested 顺序明确。
 - [ ] 加入双 exe 白名单和备份集合，回滚时删除仅新包拥有的程序文件；路径保护和幂等恢复测试继续通过。

@@ -77,6 +77,12 @@ void Window::onBackendPayload(const std::string& payload) {
             backend_->sendDialogResult(showFileDialog(hwnd_, message));
             return;
         }
+        if (message.value("type", "") == "backend_eof") {
+            MessageBoxW(hwnd_, L"Python backend has exited.", L"KazariPlay",
+                        MB_ICONERROR);
+            PostMessageW(hwnd_, WM_CLOSE, 0, 0);
+            return;
+        }
     } catch (const std::exception&) {
     }
     if (webview_) {
