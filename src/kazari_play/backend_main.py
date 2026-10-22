@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import ctypes
 import os
+import queue
 import sys
 import threading
 import time
@@ -43,6 +44,11 @@ class PipePort:
             wintypes.HANDLE, wintypes.LPCVOID, wintypes.DWORD,
             ctypes.POINTER(wintypes.DWORD), wintypes.LPVOID]
         kernel32.WriteFile.restype = wintypes.BOOL
+        kernel32.PeekNamedPipe.argtypes = [
+            wintypes.HANDLE, wintypes.LPVOID, wintypes.DWORD,
+            ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(wintypes.DWORD),
+            wintypes.LPVOID]
+        kernel32.PeekNamedPipe.restype = wintypes.BOOL
         kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel32.CloseHandle.restype = wintypes.BOOL
         return kernel32
@@ -55,17 +61,23 @@ class PipePort:
                 return message
             if self._closed:
                 return None
+            available = wintypes.DWORD()
+            if not kernel32.PeekNamedPipe(
+                    wintypes.HANDLE(self.handle), None, 0, None,
+                    ctypes.byref(available), None):
+                return None
+            if available.value == 0:
+                time.sleep(0.01)
+                continue
             buf = ctypes.create_string_buffer(65536)
             read = wintypes.DWORD()
             ok = kernel32.ReadFile(
-                wintypes.HANDLE(self.handle), buf, 65536,
+                wintypes.HANDLE(self.handle), buf,
+                min(65536, available.value),
                 ctypes.byref(read), None)
-            if not ok:
+            if not ok or not read.value:
                 return None
-            data = buf.raw[:read.value]
-            if not data:
-                return None
-            self._buffer.extend(data)
+            self._buffer.extend(buf.raw[:read.value])
 
     def write_frame(self, message):
         data = encode_frame(message)
@@ -116,6 +128,155 @@ def connect_pipe(name: str, timeout: float = 15.0):
         except (pywintypes.error, OSError):
             time.sleep(0.1)
     raise TimeoutError(f"could not connect to WinHost pipe: {name}")
+
+
+class HostPush:
+    """把 UISync 的 EvaluateScript 请求写回 Host。"""
+
+    def __init__(self, port):
+        self.port = port
+
+    def evaluate_js(self, code):
+        try:
+            self.port.write_frame({"type": "eval", "code": str(code)})
+        except Exception:
+            pass
+
+
+class BackendRuntime:
+    """单读者 + 顺序 dispatch；读线程负责对话框回包。"""
+
+    def __init__(self, port, bridge, ready, on_shutdown):
+        self.port = port
+        self.bridge = bridge
+        self.ready = ready
+        self.on_shutdown = on_shutdown
+        self.messages = queue.Queue()
+        self.dialogs = {}
+        self.dialog_seq = 0
+        self.dialog_lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.reader = threading.Thread(target=self._read_loop, daemon=True)
+        self.push = HostPush(port)
+
+    def run(self):
+        self.port.write_frame(self.ready)
+        self.reader.start()
+        try:
+            while True:
+                message = self.messages.get()
+                if message is None:
+                    break
+                if message.get("type") != "call":
+                    continue
+                self._handle_call(message)
+        finally:
+            self.stop_event.set()
+            try:
+                self.on_shutdown()
+            except Exception:
+                pass
+            try:
+                self.port.write_frame({"type": "shutdown_complete"})
+            except Exception:
+                pass
+            try:
+                self.port.close()
+            except Exception:
+                pass
+            self.reader.join(timeout=2)
+
+    def _read_loop(self):
+        try:
+            while not self.stop_event.is_set():
+                message = self.port.read_frame()
+                if message is None:
+                    break
+                kind = message.get("type")
+                if kind == "dialog_result":
+                    self._resolve_dialog(message)
+                elif kind == "shutdown":
+                    self.messages.put(None)
+                    return
+                elif kind == "call":
+                    self.messages.put(message)
+        finally:
+            self.messages.put(None)
+
+    def _handle_call(self, message):
+        call_id = message.get("id")
+        try:
+            result = dispatch(self.bridge, message.get("method"), message.get("args"))
+            response = {"type": "result", "id": call_id, "ok": True, "result": result}
+        except DispatchError as exc:
+            response = {
+                "type": "result", "id": call_id, "ok": False,
+                "error": {"code": exc.code, "message": exc.message},
+            }
+        except ProtocolError as exc:
+            response = {
+                "type": "result", "id": call_id, "ok": False,
+                "error": {"code": "protocol", "message": str(exc)},
+            }
+        except Exception as exc:
+            response = {
+                "type": "result", "id": call_id, "ok": False,
+                "error": {"code": "method_failed",
+                          "message": f"{type(exc).__name__}: {exc}"},
+            }
+        try:
+            self.port.write_frame(response)
+        except Exception:
+            pass
+
+    def request_dialog(self, kind, title, filters=None, allow_multiple=False):
+        if self.stop_event.is_set():
+            raise RuntimeError("backend is stopping")
+        with self.dialog_lock:
+            self.dialog_seq += 1
+            dialog_id = self.dialog_seq
+            wait = {"event": threading.Event(), "paths": None, "error": None}
+            self.dialogs[dialog_id] = wait
+        try:
+            self.port.write_frame({
+                "type": "dialog",
+                "id": dialog_id,
+                "kind": kind,
+                "title": title,
+                "allow_multiple": bool(allow_multiple),
+                "filters": filters or [],
+            })
+        except Exception:
+            with self.dialog_lock:
+                self.dialogs.pop(dialog_id, None)
+            raise
+        if not wait["event"].wait(120.0):
+            with self.dialog_lock:
+                self.dialogs.pop(dialog_id, None)
+            try:
+                self.port.write_frame({"type": "dialog_cancel", "id": dialog_id})
+            except Exception:
+                pass
+            raise TimeoutError("file dialog timed out")
+        if wait["error"] is not None:
+            raise RuntimeError(wait["error"])
+        return wait["paths"]
+
+    def _resolve_dialog(self, message):
+        dialog_id = message.get("id")
+        with self.dialog_lock:
+            wait = self.dialogs.pop(dialog_id, None)
+        if wait is None:
+            return
+        if not message.get("ok"):
+            wait["paths"] = []
+        else:
+            paths = message.get("paths")
+            if not isinstance(paths, list) or any(not isinstance(p, str) for p in paths):
+                wait["error"] = "invalid dialog result"
+            else:
+                wait["paths"] = paths
+        wait["event"].set()
 
 
 def build_bridge(data_dir: Path, preview: bool = False):
@@ -189,40 +350,12 @@ def main(argv=None) -> int:
         "theme": str(cfg.get("theme", "light") or "light"),
         "asset_root": str(stage_root),
     }
-    def serve_sync():
-        port.write_frame(ready)
-        while True:
-            message = port.read_frame()
-            if message is None:
-                return
-            kind = message.get("type")
-            if kind == "shutdown":
-                shutdown()
-                try:
-                    port.write_frame({"type": "shutdown_complete"})
-                except Exception:
-                    pass
-                return
-            if kind != "call":
-                continue
-            call_id = message.get("id")
-            try:
-                result = dispatch(bridge, message.get("method"), message.get("args"))
-                response = {"type": "result", "id": call_id, "ok": True, "result": result}
-            except DispatchError as exc:
-                response = {
-                    "type": "result", "id": call_id, "ok": False,
-                    "error": {"code": exc.code, "message": exc.message},
-                }
-            except ProtocolError as exc:
-                response = {
-                    "type": "result", "id": call_id, "ok": False,
-                    "error": {"code": "protocol", "message": str(exc)},
-                }
-            port.write_frame(response)
+    runtime = BackendRuntime(port, bridge, ready, shutdown)
+    bridge._ui.bind_window(runtime.push)
+    bridge._dialog_provider = runtime.request_dialog
 
     try:
-        serve_sync()
+        runtime.run()
     except Exception as exc:
         logger.error("WinHost Backend 失败: %s", exc)
         try:

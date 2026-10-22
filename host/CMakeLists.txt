@@ -56,6 +56,7 @@ if(KAZARIPLAY_BUILD_HOST)
             src/window.cpp
             src/window_geometry.cpp
             src/webview.cpp
+            src/dialog.cpp
         )
         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/backend.cpp")
             list(APPEND HOST_SOURCES src/backend.cpp)

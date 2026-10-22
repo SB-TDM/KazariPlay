@@ -159,6 +159,10 @@ bool BackendProcess::sendCall(int id, const std::string& method,
     });
 }
 
+bool BackendProcess::sendDialogResult(const nlohmann::json& result) {
+    return writeFrame(result);
+}
+
 bool BackendProcess::sendShutdown() {
     return writeFrame({{"type", "shutdown"}, {"reason", "user"}});
 }

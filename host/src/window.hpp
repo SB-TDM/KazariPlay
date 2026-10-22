@@ -5,6 +5,7 @@
 #include <string>
 
 class WebViewHost;
+class BackendProcess;
 
 struct CaptionRects {
     RECT titlebar{};
@@ -25,6 +26,7 @@ public:
     void setCaptionRects(const CaptionRects& rects);
     bool isMaximized() const { return maximized_; }
     void applyDpi(UINT dpi);
+    void setBackend(BackendProcess* backend) { backend_ = backend; }
     void onBackendPayload(const std::string& payload);
 
 private:
@@ -35,6 +37,7 @@ private:
 
     HWND hwnd_ = nullptr;
     WebViewHost* webview_ = nullptr;
+    BackendProcess* backend_ = nullptr;
     CaptionRects captions_{};
     UINT dpi_ = 96;
     bool maximized_ = false;

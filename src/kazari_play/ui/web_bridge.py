@@ -303,6 +303,7 @@ class WebBridge:
         self._cover_store = cover_store or CoverStore()
         self._cover_service = cover_service
         self._window = None          # 由 create_window 后绑定
+        self._dialog_provider = None # WinHost 注入：kind/title/filters/allow_multiple -> paths
         self._ui = UISync()          # 界面更新总线（全部前端推送经它合并发出）
         self._overlay_client = None  # C++ 游戏内 toast 客户端（懒加载）
         self._drag_anchor = None
@@ -509,9 +510,12 @@ class WebBridge:
         games = [g for g in (self.manager.get_game(i) for i in ids) if g]
         if not games:
             return json.dumps({"ok": False, "msg": "没有可定位的游戏"}, ensure_ascii=False)
-        if self._window is None:
-            return json.dumps({"ok": False, "msg": ""}, ensure_ascii=False)
-        folders = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        if self._dialog_provider is not None:
+            folders = self._dialog_provider("folder", "选择目标目录", [], False)
+        else:
+            if self._window is None:
+                return json.dumps({"ok": False, "msg": ""}, ensure_ascii=False)
+            folders = self._window.create_file_dialog(webview.FOLDER_DIALOG)
         if isinstance(folders, str):
             folders = [folders]
         folders = [f for f in (folders or []) if f]
@@ -694,9 +698,12 @@ class WebBridge:
 
     def scanFolder(self) -> str:
         """选择游戏文件夹（支持多选）并后台扫描"""
-        if self._window is None:
-            return json.dumps({"ok": False, "msg": ""})
-        folders = self._window.create_file_dialog(webview.FOLDER_DIALOG, allow_multiple=True)
+        if self._dialog_provider is not None:
+            folders = self._dialog_provider("folder", "选择游戏文件夹", [], True)
+        else:
+            if self._window is None:
+                return json.dumps({"ok": False, "msg": ""})
+            folders = self._window.create_file_dialog(webview.FOLDER_DIALOG, allow_multiple=True)
         if isinstance(folders, str):
             folders = [folders]
         folders = [f for f in (folders or []) if f]
@@ -832,11 +839,17 @@ class WebBridge:
         }, ensure_ascii=False)
 
     def selectExe(self) -> str:
-        if self._window is None:
-            return ""
-        files = self._window.create_file_dialog(
-            webview.OPEN_DIALOG,
-            file_types=("可执行文件 (*.exe)", "所有文件 (*.*)"))
+        if self._dialog_provider is not None:
+            files = self._dialog_provider("file", "选择可执行文件", [
+                {"label": "可执行文件", "patterns": ["*.exe"]},
+                {"label": "所有文件", "patterns": ["*.*"]},
+            ], False)
+        else:
+            if self._window is None:
+                return ""
+            files = self._window.create_file_dialog(
+                webview.OPEN_DIALOG,
+                file_types=("可执行文件 (*.exe)", "所有文件 (*.*)"))
         if isinstance(files, (list, tuple)) and files:
             return files[0]
         return files if isinstance(files, str) else ""
@@ -1212,11 +1225,17 @@ class WebBridge:
 
     # ---------- 封面更换 ----------
     def pickCover(self) -> str:
-        if self._window is None:
-            return ""
-        files = self._window.create_file_dialog(
-            webview.OPEN_DIALOG,
-            file_types=("图片 (*.jpg;*.jpeg;*.png;*.webp)", "所有文件 (*.*)"))
+        if self._dialog_provider is not None:
+            files = self._dialog_provider("file", "选择封面", [
+                {"label": "图片", "patterns": ["*.jpg", "*.jpeg", "*.png", "*.webp"]},
+                {"label": "所有文件", "patterns": ["*.*"]},
+            ], False)
+        else:
+            if self._window is None:
+                return ""
+            files = self._window.create_file_dialog(
+                webview.OPEN_DIALOG,
+                file_types=("图片 (*.jpg;*.jpeg;*.png;*.webp)", "所有文件 (*.*)"))
         path = ""
         if isinstance(files, (list, tuple)) and files:
             path = files[0]

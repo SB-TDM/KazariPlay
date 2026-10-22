@@ -21,6 +21,7 @@ public:
                const std::wstring& script, const std::wstring& workdir,
                MessageHandler handler, int timeoutMs = 15000);
     bool sendCall(int id, const std::string& method, const nlohmann::json& args);
+    bool sendDialogResult(const nlohmann::json& result);
     bool sendShutdown();
     void stop();
     const nlohmann::json& ready() const { return ready_; }

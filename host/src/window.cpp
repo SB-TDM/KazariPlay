@@ -1,5 +1,7 @@
 #include "window.hpp"
 
+#include "backend.hpp"
+#include "dialog.hpp"
 #include "webview.hpp"
 
 #include <algorithm>
@@ -69,6 +71,14 @@ void Window::applyDpi(UINT dpi) {
 }
 
 void Window::onBackendPayload(const std::string& payload) {
+    try {
+        const auto message = nlohmann::json::parse(payload);
+        if (message.value("type", "") == "dialog" && backend_) {
+            backend_->sendDialogResult(showFileDialog(hwnd_, message));
+            return;
+        }
+    } catch (const std::exception&) {
+    }
     if (webview_) {
         webview_->postBackendMessage(payload);
     }

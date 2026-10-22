@@ -32,11 +32,35 @@ constexpr wchar_t kBridgeScript[] = LR"JS(
     }
   };
   Object.defineProperty(window, '__host', {value: host, configurable: false});
+  const chunks = new Map();
   window.chrome.webview.addEventListener('message', function(event) {
     const message = event.data;
-    if (!message || message.type !== 'result') return;
-    host._settle(message.id, !!message.ok,
-      message.ok ? message.result : message.error);
+    if (!message) return;
+    if (message.type === 'result') {
+      host._settle(message.id, !!message.ok,
+        message.ok ? message.result : message.error);
+      return;
+    }
+    if (message.type !== 'result_chunk') return;
+    let state = chunks.get(message.id);
+    if (!state) {
+      state = {parts: new Array(message.count), received: 0, total: message.total_bytes};
+      chunks.set(message.id, state);
+    }
+    if (!state.parts[message.index]) state.received += 1;
+    state.parts[message.index] = message.data;
+    if (state.received !== message.count) return;
+    chunks.delete(message.id);
+    try {
+      const binary = atob(state.parts.join(''));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      const inner = JSON.parse(new TextDecoder().decode(bytes));
+      host._settle(inner.id, !!inner.ok,
+        inner.ok ? inner.result : inner.error);
+    } catch (e) {
+      host._settle(message.id, false, String(e));
+    }
   });
   document.addEventListener('DOMContentLoaded', function() {
     window.chrome.webview.postMessage({type:'ui_ready'});

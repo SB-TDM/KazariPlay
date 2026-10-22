@@ -62,6 +62,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
             delete payload;
         }
     };
+    window.setBackend(&backend);
     if (!backend.start(window.hwnd(), python, script, workdir, backendHandler)) {
         MessageBoxW(window.hwnd(), L"Python backend did not start or become ready.",
                     L"KazariPlay", MB_ICONERROR);

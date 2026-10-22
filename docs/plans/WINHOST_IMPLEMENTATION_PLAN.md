@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0–7 已实现端到端一次 `getConfig/getGames` 调用（2026-10-22）；Task 5 的贴靠/DPI/IME、双 PID/hello、分片重组和 Task 8–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–7 已完成端到端 `getConfig/getGames`；Task 8 已接入 IFileDialog、对话框 broker、UISync HostPush（2026-10-22）。Task 5 实机交互、双 PID/hello、分片 UI 验证、真实文件对话框验收和 Task 9–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -367,10 +367,10 @@ Backend cleanup 幂等：拒绝排队调用并唤醒 dialog 等待 → 置 scan/
 
 **依赖：** Task 4、7。**文件：** 修改 `ui/web_bridge.py`、`ui/sync.py`、Host backend/webview、`tests/test_backend_loop.py`、`tests/test_ui_sync.py`、`tests/test_p1_reliability.py`。
 
-- [ ] 将四处选择方法接入 request_dialog：scanFolder 多选目录、previewRelocate 单目录、selectExe 单文件、pickCover 单图片；业务返回值与取消行为不变。
-- [ ] Host UI 线程用 IFileOpenDialog、FOS_PICKFOLDERS/FOS_ALLOWMULTISELECT、结构化 filters、GetResults；取消返回空 paths，COM 错误返回明确 dialog 错误。用 Host HWND 作 owner。
-- [ ] 在 WebView 回调之外通过投递消息打开模态框，避免 WebView2 不支持的同步重入；timeout/shutdown 能关闭仍打开的框。允许一个活动框，其它请求有界排队。
-- [ ] WebBridge 绑定 HostPush，UISync 保留合并与 payload 转义；修改旧 FakeWindow/FakeDialog 测试为新适配器，验证无窗口也可执行业务。
+- [x] 将四处选择方法接入 request_dialog：scanFolder 多选目录、previewRelocate 单目录、selectExe 单文件、pickCover 单图片；旧 pywebview 路径保留。
+- [x] Host UI 线程用 IFileOpenDialog、FOS_PICKFOLDERS/FOS_ALLOWMULTISELECT、结构化 filters、GetResults；取消返回空 paths；真实交互尚未验收。
+- [x] 在 WebView 回调之外通过投递消息打开模态框，避免 WebView2 同步重入；后端等待与取消已有；真实对话框的 timeout/shutdown 交互待验。
+- [x] WebBridge 绑定 HostPush，UISync 保留合并与 payload 转义；新增 `test_backend_runtime.py` 验证对话框回包与 eval 推送。
 - [ ] 验证一次评分/收藏/扫描会刷新页面；取消选择不改库，多个目录实际扫描都执行，取消扫描能响应。
 - [ ] 验证虚拟主机页面下封面 HTTP、失败 base64、接近 8 MiB 截图原图、大于单帧的 JSON 返回；不得通过降低现有媒体限制让测试变小。
 
