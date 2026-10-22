@@ -11,9 +11,21 @@
 namespace {
 constexpr wchar_t kClassName[] = L"KazariPlayHost";
 constexpr UINT kBackendMessage = WM_APP + 20;
+constexpr UINT kBackendReady = WM_APP + 21;
+constexpr UINT kBackendFailed = WM_APP + 22;
 
 int dip(int value, int dpi) {
     return MulDiv(value, dpi, 96);
+}
+
+std::wstring widen(const std::string& value) {
+    if (value.empty()) return {};
+    const int length = MultiByteToWideChar(
+        CP_UTF8, 0, value.data(), static_cast<int>(value.size()), nullptr, 0);
+    std::wstring out(length, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.data(), static_cast<int>(value.size()),
+                        out.data(), length);
+    return out;
 }
 
 }  // namespace
@@ -196,6 +208,19 @@ LRESULT Window::handleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
     }
+    case kBackendReady: {
+        auto* payload = reinterpret_cast<std::string*>(lParam);
+        if (payload) {
+            if (webview_) webview_->loadAssets(widen(*payload));
+            delete payload;
+        }
+        return 0;
+    }
+    case kBackendFailed:
+        MessageBoxW(hwnd_, L"Python backend did not start or become ready.",
+                    L"KazariPlay", MB_ICONERROR);
+        DestroyWindow(hwnd_);
+        return 0;
     case WM_ERASEBKGND:
         return 1;
     case WM_PAINT: {

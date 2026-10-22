@@ -1,6 +1,6 @@
 # KazariPlay WinHost 实施计划
 
-> **状态：Task 0–9 已接入端到端桥、真实 IFileDialog、UISync 实测、单实例/关闭、overlay Job 和更新 helper/双 PID 等待（2026-10-22）。Task 5 实机贴靠/DPI/IME、双 PID/hello、分片 UI/媒体实测、冻结包更新和 Task 10–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
+> **状态：Task 0–9 已接入端到端桥、真实 IFileDialog、UISync 实测、单实例/关闭、overlay Job 和更新 helper/双 PID 等待（2026-10-22）。已优化虚拟主机首次导航：`.local` 约 2.06s → `appassets.example` 约 0.16s。Task 5 实机贴靠/DPI/IME、双 PID/hello、分片 UI/媒体实测、冻结包更新和 Task 10–11 未完成。** 工作分支为 `feature/winhost`；核对基线为 `35b6574`（1.2.0 代码）和 `ad25100`（原计划归档）。下文是目标设计与实施任务，不代表当前构建已采用 WinHost；实机验收项保持未勾选。
 
 **目标：** 用薄 C++ 窗口宿主替换 pywebview，保留现有粉色标题栏外观，把拖拽、缩放、贴靠和最大化交还 Windows；Python 继续承载业务。
 
@@ -90,7 +90,7 @@ KazariPlay/
 4. 用 Backend Config 的初始主题生成 HTML。明暗首帧、WebView 默认背景色一致；禁用“先 light 再修正”的路径。
 5. 无占位符、脚本顺序正确、partial/id 完整、资源均存在才发送 `ready`。Host 只映射它自己指定的 staging 根，拒绝 Backend 返回不同根或重解析点越界。
 
-Host 使用 `https://kazariplay.local/index.html` 和 `SetVirtualHostNameToFolderMapping`。页面加载该目录的 JS/CSS/图片；既有 `127.0.0.1` 封面 URL、base64 回退均要实测，不能假设新 HTTPS origin 下图片行为与内联 HTML 相同。
+Host 使用 `https://appassets.example/index.html` 和 `SetVirtualHostNameToFolderMapping`。页面加载该目录的 JS/CSS/图片；既有 `127.0.0.1` 封面 URL、base64 回退均要实测，不能假设新 HTTPS origin 下图片行为与内联 HTML 相同。早期使用 `kazariplay.local` 实测首次导航约 2.06 秒（`.local` 的 mDNS/网络路径），改为 `appassets.example` 后同机实测 DCL 约 0.16 秒；该 hostname 是内部虚拟主机名，不对用户暴露。
 
 `tests/verify_frontend.py` 改为验证 staging 产物，保留版本、脚本顺序、CSS layer、HTML id、图标和暗色首帧检查；去掉“必须内联 CSS/JS”的旧断言。`scripts/build_web_assets.py` 只创建临时装配产物用于构建校验；最终包仍携带模板/资源，由 Backend 按用户主题生成运行目录。
 

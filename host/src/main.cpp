@@ -6,6 +6,7 @@
 #include <objbase.h>
 #include <shellapi.h>
 #include <string>
+#include <thread>
 #include <vector>
 #include <windows.h>
 
@@ -174,26 +175,32 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         }
     };
     window.setBackend(&backend);
-    if (!backend.start(window.hwnd(), python, script, workdir, backendHandler)) {
-        MessageBoxW(window.hwnd(), L"Python backend did not start or become ready.",
-                    L"KazariPlay", MB_ICONERROR);
-        CloseHandle(instanceMutex);
-        CoUninitialize();
-        return 1;
-    }
-    const std::string assetRootUtf8 = backend.ready().value("asset_root", "");
-    if (!webview.initialize(window.hwnd(), widenUtf8(assetRootUtf8), &backend)) {
-        backend.stop();
+    if (!webview.initialize(window.hwnd(), L"", &backend, false)) {
         CloseHandle(instanceMutex);
         CoUninitialize();
         return 1;
     }
     window.show();
 
+    std::thread backendThread([&]() {
+        if (!backend.start(window.hwnd(), python, script, workdir, backendHandler)) {
+            PostMessageW(window.hwnd(), WM_APP + 22, 0, 0);
+            return;
+        }
+        auto* assetRoot = new std::string(backend.ready().value("asset_root", ""));
+        if (!PostMessageW(window.hwnd(), WM_APP + 21, 0,
+                          reinterpret_cast<LPARAM>(assetRoot))) {
+            delete assetRoot;
+        }
+    });
+
     MSG message{};
     while (GetMessageW(&message, nullptr, 0, 0) > 0) {
         TranslateMessage(&message);
         DispatchMessageW(&message);
+    }
+    if (backendThread.joinable()) {
+        backendThread.join();
     }
     backend.stop();
     CloseHandle(instanceMutex);

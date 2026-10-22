@@ -15,7 +15,9 @@ class BackendProcess;
 
 class WebViewHost {
 public:
-    bool initialize(HWND hwnd, const std::wstring& assetRoot, BackendProcess* backend);
+    bool initialize(HWND hwnd, const std::wstring& assetRoot,
+                    BackendProcess* backend, bool navigateNow = true);
+    void loadAssets(const std::wstring& assetRoot);
     void resize(RECT client);
     void focus();
     void setDpi(UINT dpi);
@@ -35,6 +37,9 @@ private:
     BackendProcess* backend_ = nullptr;
     UINT dpi_ = 96;
     bool ready_ = false;
+    bool script_ready_ = false;
+    bool navigation_ready_ = false;
+    bool navigation_started_ = false;
     Microsoft::WRL::ComPtr<ICoreWebView2Environment> environment_;
     Microsoft::WRL::ComPtr<ICoreWebView2Environment3> environment3_;
     Microsoft::WRL::ComPtr<ICoreWebView2CompositionController> composition_;

@@ -132,10 +132,11 @@ COREWEBVIEW2_MOUSE_EVENT_KIND mouseKind(UINT message) {
 }  // namespace
 
 bool WebViewHost::initialize(HWND hwnd, const std::wstring& assetRoot,
-                             BackendProcess* backend) {
+                             BackendProcess* backend, bool navigateNow) {
     hwnd_ = hwnd;
     asset_root_ = assetRoot;
     backend_ = backend;
+    navigation_ready_ = navigateNow;
     dpi_ = GetDpiForWindow(hwnd_);
     auto handler = Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
         [this](HRESULT error, ICoreWebView2Environment* environment) -> HRESULT {
@@ -206,7 +207,18 @@ void WebViewHost::onComposition(HRESULT error, ICoreWebView2CompositionControlle
         return;
     }
     installBridge();
+    if (!navigation_ready_ && webview_) {
+        webview_->Navigate(L"about:blank");
+    }
     ready_ = true;
+}
+
+void WebViewHost::loadAssets(const std::wstring& assetRoot) {
+    asset_root_ = assetRoot;
+    navigation_ready_ = true;
+    if (script_ready_ && webview_ && !navigation_started_) {
+        navigate();
+    }
 }
 
 void WebViewHost::installBridge() {
@@ -241,16 +253,22 @@ void WebViewHost::installBridge() {
     auto script_handler =
         Callback<ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler>(
             [this](HRESULT, LPCWSTR) -> HRESULT {
-                navigate();
+                script_ready_ = true;
+                if (navigation_ready_ && !navigation_started_) navigate();
                 return S_OK;
             });
     if (FAILED(webview_->AddScriptToExecuteOnDocumentCreated(
             kBridgeScript, script_handler.Get()))) {
-        navigate();
+        script_ready_ = true;
+        if (navigation_ready_ && !navigation_started_) navigate();
     }
 }
 
 void WebViewHost::navigate() {
+    if (!navigation_ready_ || !webview_ || navigation_started_) {
+        return;
+    }
+    navigation_started_ = true;
     if (asset_root_.empty()) {
         webview_->NavigateToString(kTestPage);
         return;
@@ -258,13 +276,13 @@ void WebViewHost::navigate() {
     ComPtr<ICoreWebView2_3> webview3;
     if (FAILED(webview_.As(&webview3))
             || FAILED(webview3->SetVirtualHostNameToFolderMapping(
-                L"kazariplay.local", asset_root_.c_str(),
+                L"appassets.example", asset_root_.c_str(),
                 COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW))) {
         MessageBoxW(hwnd_, L"Web asset virtual host setup failed.",
                     L"KazariPlay", MB_ICONERROR);
         return;
     }
-    if (FAILED(webview_->Navigate(L"https://kazariplay.local/index.html"))) {
+    if (FAILED(webview_->Navigate(L"https://appassets.example/index.html"))) {
         MessageBoxW(hwnd_, L"Web asset navigation failed.",
                     L"KazariPlay", MB_ICONERROR);
     }
