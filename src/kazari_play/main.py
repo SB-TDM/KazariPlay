@@ -309,7 +309,7 @@ def main():
     _start_screenshot_hotkey(bridge)
 
     sw, sh = _screen_size()
-    w, h = int(sw * 0.75), int(sh * 0.8083333333333333)
+    w, h = int(sw * 0.818), int(sh * 0.8083333333333333)
     win = webview.create_window(
         WINDOW_TITLE,
         html=_load_html(str(cfg.get("theme", "light") or "light")),
