@@ -229,16 +229,86 @@
 #settingsOverlay .switch input:checked + .track .thumb { left: 21px; }
 #settingsOverlay .switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--glow-soft); }
 
-#settingsOverlay .dlg-content .hotkey {
-  width: 190px;
-  text-align: left;
-  color: var(--pink-deep);
-  font-weight: 600;
-  letter-spacing: .01em;
-  cursor: text;
+#settingsOverlay .hotkey-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
 }
-#settingsOverlay .dlg-content .hotkey.hint { color: var(--text-disabled); font-weight: 400; }
-#settingsOverlay .dlg-content .hotkey.conflict { color: #ff6f81; border-color: #ff6f81; }
+#settingsOverlay .hotkey-card {
+  position: relative;
+  padding: 13px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  cursor: pointer;
+  transition: border-color .2s, background .2s, box-shadow .2s, transform .2s var(--bounce);
+}
+#settingsOverlay .hotkey-card:hover { background: var(--bg-hover); border-color: var(--pink); transform: translateY(-1px); }
+#settingsOverlay .hotkey-card:focus-within,
+#settingsOverlay .hotkey-card.is-capturing { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
+#settingsOverlay .hotkey-card.is-conflict { border-color: #ff6f81; box-shadow: 0 0 0 3px rgba(255, 111, 129, .14); }
+#settingsOverlay .hk-top { display: flex; align-items: center; gap: 9px; }
+#settingsOverlay .hk-icon {
+  width: 30px; height: 30px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: var(--bg-hover);
+  color: var(--pink-deep);
+}
+#settingsOverlay .hk-icon svg { width: 17px; height: 17px; }
+#settingsOverlay .hk-info { min-width: 0; }
+#settingsOverlay .hk-name { font-size: 12.5px; font-weight: 700; color: var(--text); }
+#settingsOverlay .hk-desc { margin-top: 2px; font-size: 10.5px; color: var(--text-disabled); }
+#settingsOverlay .hk-value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  margin-top: 11px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--bg-soft);
+}
+#settingsOverlay .dlg-content .hotkey-card .hotkey-input {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  cursor: pointer;
+}
+#settingsOverlay .hk-keys { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; pointer-events: none; }
+#settingsOverlay .hk-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid var(--border-soft);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--pink-deep);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+#settingsOverlay .hk-plus { color: var(--text-disabled); font-size: 10px; }
+#settingsOverlay .hk-edit { margin-left: auto; color: var(--text-disabled); font-size: 10.5px; pointer-events: none; }
+#settingsOverlay .hotkey-card.is-capturing .hk-edit { color: var(--pink-deep); }
+#settingsOverlay .hotkey-card.is-capturing .hk-keys { color: var(--text-sub); font-weight: 400; }
+#settingsOverlay .hotkey-card.is-conflict .hk-keys { color: #ff6f81; }
 
 #settingsOverlay .theme-cards { display: flex; gap: 12px; margin-top: 10px; }
 #settingsOverlay .theme-card {

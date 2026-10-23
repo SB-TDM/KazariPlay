@@ -46,6 +46,50 @@
       .map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(' + ');
   }
 
+  const HOTKEY_IDS = ['setHkHide', 'setHkFull', 'setHkMute', 'setHkShot'] as const;
+
+  function renderHotkey(el: HTMLInputElement): void {
+    const card = el.closest('.hotkey-card') as HTMLElement | null;
+    const host = card?.querySelector<HTMLElement>(`[data-hotkey-keys="${el.id}"]`);
+    if (!card || !host) return;
+    const hint = el.classList.contains('hint');
+    const conflict = el.classList.contains('conflict');
+    card.classList.toggle('is-capturing', hint);
+    card.classList.toggle('is-conflict', conflict);
+    const edit = card.querySelector<HTMLElement>('.hk-edit');
+    if (edit) edit.textContent = hint ? '录制中…' : conflict ? '快捷键冲突' : '点击修改';
+    host.replaceChildren();
+    if (hint) {
+      host.textContent = '请按下组合键…';
+      return;
+    }
+    if (conflict) {
+      host.textContent = '冲突，请换一个';
+      return;
+    }
+    const text = el.value.trim();
+    if (!text) {
+      host.textContent = '未设置';
+      return;
+    }
+    text.split('+').map((s) => s.trim()).filter(Boolean).forEach((part, index) => {
+      if (index > 0) {
+        const plus = document.createElement('span');
+        plus.className = 'hk-plus';
+        plus.textContent = '+';
+        host.appendChild(plus);
+      }
+      const key = document.createElement('span');
+      key.className = 'hk-key';
+      key.textContent = part;
+      host.appendChild(key);
+    });
+  }
+
+  function renderAllHotkeys(): void {
+    HOTKEY_IDS.forEach((id) => renderHotkey($(id) as HTMLInputElement));
+  }
+
   function open(): void {
     settingsSession++;
     stopHotkeyCapture(true);
@@ -100,9 +144,11 @@
       ($('setProxyUrl') as HTMLInputElement).value = String(net.proxy_url || '');
       updateProxyMode();
       const hk = cfg.hotkeys || {};
-      ($('setHkHide') as HTMLInputElement).value = fmtKey(hk.emergency_hide) || 'Ctrl + F12';      ($('setHkFull') as HTMLInputElement).value = fmtKey(hk.fullscreen_toggle) || 'F11';
+      ($('setHkHide') as HTMLInputElement).value = fmtKey(hk.emergency_hide) || 'Ctrl + F12';
+      ($('setHkFull') as HTMLInputElement).value = fmtKey(hk.fullscreen_toggle) || 'F11';
       ($('setHkMute') as HTMLInputElement).value = fmtKey(hk.mute_toggle) || 'Ctrl + M';
       ($('setHkShot') as HTMLInputElement).value = fmtKey(hk.screenshot) || 'F12';
+      renderAllHotkeys();
       ($('setCfgPath')).textContent = '配置目录：' + ((cfg.path as string) || '%APPDATA%\\KazariPlay');
       if (!themePicked) {   // 用户在等待期间已自行选择主题时不覆盖
         savedTheme = (cfg.theme as string) || 'light';
@@ -269,6 +315,7 @@
       cap.el.value = cap.prev;
     }
     cap.el.classList.remove('hint', 'conflict');
+    renderHotkey(cap.el);
   }
 
   function bindHotkey(el: HTMLInputElement): void {
@@ -280,6 +327,7 @@
       const prev = el.value;
       el.classList.add('hint');
       el.value = '请按下组合键…';
+      renderHotkey(el);
       const cap = {
         el: el,
         prev: prev,
@@ -299,15 +347,22 @@
             el.value = '冲突，请换一个';
             el.classList.remove('hint');
             el.classList.add('conflict');
+            renderHotkey(el);
             if (cap.timer !== null) clearTimeout(cap.timer);
             cap.timer = setTimeout(() => {
               cap.timer = null;
-              if (hotkeyCapture === cap) { el.value = '请按下组合键…'; el.classList.add('hint'); el.classList.remove('conflict'); }
+              if (hotkeyCapture === cap) {
+                el.value = '请按下组合键…';
+                el.classList.add('hint');
+                el.classList.remove('conflict');
+                renderHotkey(el);
+              }
             }, 1200);
             return;
           }
           el.value = combo;
           el.classList.remove('hint');
+          renderHotkey(el);
           document.removeEventListener('keydown', cap.handler);
           hotkeyCapture = null;
         },
@@ -379,6 +434,7 @@
       });
     };
     ['setHkHide', 'setHkFull', 'setHkMute', 'setHkShot'].forEach((id) => bindHotkey($(id) as HTMLInputElement));
+    renderAllHotkeys();
   });
 
   // Esc 关闭最上层统一由 ui.closeTopSheet 处理（含本窗口），不再单独注册监听

@@ -65,13 +65,55 @@
           </div>
         </div>
         <div class="page" id="set-hotkey" style="display:none">
-          <div class="page-head"><h4>快捷键</h4><p>点击输入框后按下组合键；保存后立即生效。</p></div>
+          <div class="page-head"><h4>快捷键</h4><p>点击卡片后按下组合键；保存后立即生效。</p></div>
           <div class="group">
             <div class="g-head"><span class="g-dot"></span><div><div class="g-title">全局快捷键</div><div class="g-sub">在其他窗口也能触发</div></div></div>
-            <div class="form-row"><label class="label" for="setHkHide">紧急隐藏</label><div class="field"><input type="text" id="setHkHide" class="hotkey" readonly aria-label="紧急隐藏快捷键"></div></div>
-            <div class="form-row"><label class="label" for="setHkFull">全屏切换</label><div class="field"><input type="text" id="setHkFull" class="hotkey" readonly aria-label="全屏切换快捷键"></div></div>
-            <div class="form-row"><label class="label" for="setHkMute">游戏静音</label><div class="field"><input type="text" id="setHkMute" class="hotkey" readonly aria-label="游戏静音快捷键"></div></div>
-            <div class="form-row"><label class="label" for="setHkShot">游戏截图</label><div class="field"><input type="text" id="setHkShot" class="hotkey" readonly aria-label="游戏截图快捷键"></div></div>
+            <div class="hotkey-grid">
+              <div class="hotkey-card" data-hotkey-card="setHkHide">
+                <div class="hk-top">
+                  <span class="hk-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.8 8s2.1-3.4 6.2-3.4S14.2 8 14.2 8 12.1 11.4 8 11.4 1.8 8 1.8 8Z"/><circle cx="8" cy="8" r="1.8"/><path d="M2.4 2.4 13.6 13.6"/></svg></span>
+                  <div class="hk-info"><div class="hk-name">紧急隐藏</div><div class="hk-desc">立即切到伪装场景</div></div>
+                </div>
+                <div class="hk-value">
+                  <input type="text" id="setHkHide" class="hotkey-input" readonly aria-label="紧急隐藏快捷键">
+                  <span class="hk-keys" data-hotkey-keys="setHkHide"></span>
+                  <span class="hk-edit">点击修改</span>
+                </div>
+              </div>
+              <div class="hotkey-card" data-hotkey-card="setHkFull">
+                <div class="hk-top">
+                  <span class="hk-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg></span>
+                  <div class="hk-info"><div class="hk-name">全屏切换</div><div class="hk-desc">在游戏窗口切换全屏</div></div>
+                </div>
+                <div class="hk-value">
+                  <input type="text" id="setHkFull" class="hotkey-input" readonly aria-label="全屏切换快捷键">
+                  <span class="hk-keys" data-hotkey-keys="setHkFull"></span>
+                  <span class="hk-edit">点击修改</span>
+                </div>
+              </div>
+              <div class="hotkey-card" data-hotkey-card="setHkMute">
+                <div class="hk-top">
+                  <span class="hk-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h3l4-3v10l-4-3H2z"/><path d="M11 6.2 14 9.8M14 6.2 11 9.8"/></svg></span>
+                  <div class="hk-info"><div class="hk-name">游戏静音</div><div class="hk-desc">快速静音当前游戏</div></div>
+                </div>
+                <div class="hk-value">
+                  <input type="text" id="setHkMute" class="hotkey-input" readonly aria-label="游戏静音快捷键">
+                  <span class="hk-keys" data-hotkey-keys="setHkMute"></span>
+                  <span class="hk-edit">点击修改</span>
+                </div>
+              </div>
+              <div class="hotkey-card" data-hotkey-card="setHkShot">
+                <div class="hk-top">
+                  <span class="hk-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.8" y="4.2" width="12.4" height="9" rx="2"/><path d="M5.5 4.2 6.6 2.5h2.8l1.1 1.7"/><circle cx="8" cy="8.7" r="2.2"/></svg></span>
+                  <div class="hk-info"><div class="hk-name">游戏截图</div><div class="hk-desc">保存当前游戏画面</div></div>
+                </div>
+                <div class="hk-value">
+                  <input type="text" id="setHkShot" class="hotkey-input" readonly aria-label="游戏截图快捷键">
+                  <span class="hk-keys" data-hotkey-keys="setHkShot"></span>
+                  <span class="hk-edit">点击修改</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="page" id="set-disguise" style="display:none">
