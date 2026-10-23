@@ -296,7 +296,7 @@
   transition: background .2s, border-color .2s;
 }
 #settingsOverlay .theme-card.on .lbl::after {
-  content: "鉁?;
+  content: "✓";
   display: grid;
   place-items: center;
   border-color: transparent;
