@@ -13,6 +13,98 @@
 // ============================================================
 
 declare global {
+  interface SettingsHotkeyValues {
+    emergency_hide: string;
+    fullscreen_toggle: string;
+    mute_toggle: string;
+    screenshot: string;
+  }
+
+  interface SettingsCoverDownload {
+    preferred_source: string;
+    timeout: number;
+    max_concurrent: number;
+  }
+
+  interface SettingsMetadataSourceConfig {
+    shionlib_api_key: string;
+    kungal_concurrency: number;
+  }
+
+  interface SettingsNetwork {
+    proxy_mode: string;
+    proxy_url: string;
+  }
+
+  interface SettingsConfig {
+    cover_size?: string;
+    log_level?: string;
+    disguise_scene?: string;
+    show_console?: boolean;
+    cover_download?: Partial<SettingsCoverDownload>;
+    metadata_sources?: Partial<SettingsMetadataSourceConfig>;
+    network?: Partial<SettingsNetwork>;
+    hotkeys?: Partial<SettingsHotkeyValues>;
+    theme?: string;
+    path?: string;
+  }
+
+  interface SettingsFormValues {
+    cover_size: string;
+    log_level: string;
+    disguise_scene: string;
+    show_console: boolean;
+    cover_download: SettingsCoverDownload;
+    metadata_sources: SettingsMetadataSourceConfig;
+    network: SettingsNetwork;
+  }
+
+  interface SettingsModelApi {
+    parse(raw: unknown): SettingsConfig | null;
+    fmtKey(value: unknown): string;
+    defaults: SettingsHotkeyValues;
+    hotkeys(cfg: SettingsConfig): SettingsHotkeyValues;
+  }
+
+  interface SettingsThemeApi {
+    beginLoad(): void;
+    applyLoaded(theme: string): void;
+    initTheme(theme: string): void;
+    pickTheme(theme: string): void;
+    applyTheme(theme: string): void;
+    current(): string;
+  }
+
+  interface SettingsHotkeysApi {
+    bindAll(): void;
+    load(values: SettingsHotkeyValues): void;
+    read(): SettingsHotkeyValues;
+    stop(restore: boolean): void;
+  }
+
+  interface SettingsFieldsApi {
+    bind(isCurrent: () => boolean): void;
+    load(cfg: SettingsConfig): void;
+    read(): SettingsFormValues;
+  }
+
+  interface SettingsSourcesApi {
+    load(isCurrent: () => boolean): void;
+    readChecked(): string[] | null;
+  }
+
+  interface SettingsKitApi {
+    model: SettingsModelApi;
+    theme: SettingsThemeApi;
+    hotkeys: SettingsHotkeysApi;
+    fields: SettingsFieldsApi;
+    sources: SettingsSourcesApi;
+  }
+
+  interface Window {
+    SettingsKit: SettingsKitApi;
+  }
+
   /** 设置窗口（settings.ts 暴露；app.ts / core.ts 消费） */
   interface SettingsApi {
     open(): void;
