@@ -137,12 +137,22 @@
 
 ---
 
-## settings.ts — 设置窗口（自包含 IIFE）
+## settings 模块组 — 设置窗口
 
-**定位**：设置窗口逻辑；暴露 `window.Settings`。
-**依赖**：core（bridge/toast）。
-**结构**：`(function(){ ... })()`，导出 `window.Settings = { open, close, pickTheme, applyTheme, initTheme }`。
-**定义**：`applyTheme(t)`（加 `.theme-switch` 全局禁用 transition 防重排痕迹，设 `dataset.theme`）、`initTheme(t)`（启动初始主题；用户已显式选择则不覆盖）、`markThemeCard`、`fmtKey`、`open/close`（各自的会话代际使在途保存失效）、`loadConfig`（`getConfig` 填表；代际校验 + `themePicked` 保护，迟到回包不覆盖新选择）、`loadMetaSources`、`pickTheme`（即时预览并标记 themePicked）、`save()`（点击时定格完整快照与会话代际；`saveConfigs`/热键重注册/元数据源均用快照值；失败保留窗口与输入，重复提交由按钮禁用与请求代际约束）、`takenHotkeys`/`bindHotkey`（单一活动捕获目标，失焦/关闭/保存统一 `stopHotkeyCapture` 并恢复原值）、`setReset`。
+**定位**：设置窗口按职责拆分；只对其它模块暴露 `window.Settings`。
+**依赖**：core（bridge/toast）、ui（Sheet / 确认框）。
+
+**文件**：
+- `settings-model.ts`：配置 DTO、主题/热键默认值、`fmtKey`、热键回填
+- `settings-theme.ts`：主题状态、`applyTheme/initTheme/pickTheme`、主题卡同步
+- `settings-hotkeys.ts`：快捷键录制、键帽渲染、冲突检测、失焦/关闭恢复
+- `settings-fields.ts`：常规、元数据、代理表单与连接测试
+- `settings-sources.ts`：元数据源列表、空状态、已勾选来源
+- `settings.ts`：外壳与门面：打开/关闭、Tab、加载配置、保存编排、重置、`window.Settings`
+
+**公开 API**：`window.Settings = { open, close, pickTheme, applyTheme, initTheme }`，与拆分前保持一致。
+
+**约束**：模块通过 `window.SettingsKit` 通信，不引入 ES module；新增文件必须按顺序登记到 `main.py::_JS_MANIFEST` 的 `settings.js` 之前。设置页 CSS 仍由 `features/settings.css` 统一承载，选择器限定在 `#settingsOverlay` 下。
 
 ---
 

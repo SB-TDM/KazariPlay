@@ -77,7 +77,12 @@ _JS_MANIFEST = [
     "manage_games.js", # 管理游戏对话框（批量勾选收藏夹内游戏）
     "batch.js",        # 批量选择模式
     "form.js",         # 编辑 / 添加表单 + 元数据候选
-    "settings.js",     # 设置窗口（自包含 IIFE，暴露 window.Settings）
+    "settings-model.js", # 设置配置模型 / 默认值
+    "settings-theme.js", # 设置主题状态与预览
+    "settings-hotkeys.js", # 设置快捷键录制与键帽
+    "settings-sources.js", # 设置元数据源列表
+    "settings-fields.js", # 设置表单字段与代理测试
+    "settings.js",     # 设置窗口外壳（暴露 window.Settings）
     "updater.js",      # 应用内更新（关于页接线 / 更新弹层 / 启动检查）
     "home.js",         # 主页视图（问候/继续游玩/统计/收藏夹快捷，默认视图）
     "app.js",          # 启动引导（最后加载，负责粘合各模块与全局事件）
