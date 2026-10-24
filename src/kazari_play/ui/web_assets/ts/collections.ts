@@ -25,7 +25,11 @@ function renderCollectionTree(): void {
     open: App.ui.state.openGroupId,
     tree: App.ui.state.collectionTree.map(g => ({
       id: g.id, name: g.name, count: g.game_count || 0,
-      children: (g.children || []).map(c => ({ id: c.id, name: c.name, count: c.game_count || 0 })),
+      color: g.color || '', icon: g.icon || '',
+      children: (g.children || []).map(c => ({
+        id: c.id, name: c.name, count: c.game_count || 0,
+        color: c.color || '', icon: c.icon || '',
+      })),
     })),
   });
   if (sig === _collectionTreeSig) return;
@@ -35,7 +39,9 @@ function renderCollectionTree(): void {
   all.className = 'collection-item collection-all' + (allActive ? ' active' : '');
   all.setAttribute('role', 'button');
   all.tabIndex = 0;
-  all.innerHTML = `<span class="name">全部作品</span>
+  all.innerHTML = `<span class="toggle-spacer" aria-hidden="true"></span>
+    <span class="collection-mark collection-mark-all">${ICON.collection}</span>
+    <span class="name">全部作品</span>
     <span class="count">${(App.data.games || []).length}</span>`;
   all.onclick = showAllWorks;
   all.onkeydown = (e: KeyboardEvent) => {
@@ -49,6 +55,12 @@ function renderCollectionTree(): void {
   bindCollectionItems();
 }
 
+function collectionMark(node: CollectionTreeNode, small: boolean = false): string {
+  const color = node.color || chipColor(node.name);
+  const icon = node.icon ? esc(node.icon) : '';
+  return `<span class="collection-mark${small ? ' small' : ''}" style="background:${esc(color)}">${icon}</span>`;
+}
+
 function renderCollectionGroup(group: CollectionTreeNode): HTMLElement {
   const el = document.createElement('div');
   el.className = 'collection-group';
@@ -56,7 +68,8 @@ function renderCollectionGroup(group: CollectionTreeNode): HTMLElement {
   const hasChildren = (group.children || []).length > 0;
   el.innerHTML = `
     <div class="collection-group-header ${App.ui.state.collectionId === group.id ? 'active' : ''}" data-id="${group.id}">
-      ${hasChildren ? `<button class="toggle ${open ? 'open' : ''}" title="${open ? '收起' : '展开'}">${open ? ICON.chevronDown : ICON.chevronRight}</button>` : ''}
+      ${hasChildren ? `<button class="toggle ${open ? 'open' : ''}" title="${open ? '收起' : '展开'}">${open ? ICON.chevronDown : ICON.chevronRight}</button>` : '<span class="toggle-spacer" aria-hidden="true"></span>'}
+      ${collectionMark(group)}
       <span class="name">${esc(group.name)}</span>
       <span class="count">${group.game_count || 0}</span>
     </div>
@@ -89,6 +102,7 @@ function toggleExpand(group: CollectionTreeNode): void {
 function renderCollectionCategory(cat: CollectionTreeNode): string {
   return `
     <div class="collection-item ${App.ui.state.collectionId === cat.id ? 'active' : ''}" data-id="${cat.id}">
+      ${collectionMark(cat, true)}
       <span class="name">${esc(cat.name)}</span>
       <span class="count">${cat.game_count || 0}</span>
     </div>`;
@@ -240,7 +254,134 @@ function openCollectionManager(): void {
   showSheet('collectionOverlay');
 }
 
+const COLLECTION_COLORS = [
+  '#ff8fab', '#ff6f91', '#c4b5fd', '#9ad3ff',
+  '#7fd8be', '#ffd97d', '#ffc9a0', '#d8a7ff',
+];
+
+let colorPopover: HTMLElement | null = null;
+let colorPopoverCleanup: (() => void) | null = null;
+
+function closeCollectionColorPicker(): void {
+  if (colorPopover) {
+    colorPopover.remove();
+    colorPopover = null;
+  }
+  if (colorPopoverCleanup) {
+    colorPopoverCleanup();
+    colorPopoverCleanup = null;
+  }
+}
+
+function positionColorPopover(anchor: HTMLElement): void {
+  if (!colorPopover) return;
+  const rect = anchor.getBoundingClientRect();
+  const popRect = colorPopover.getBoundingClientRect();
+  const margin = 10;
+  let left = Math.min(rect.left, window.innerWidth - popRect.width - margin);
+  let top = rect.bottom + 8;
+  left = Math.max(margin, left);
+  if (top + popRect.height > window.innerHeight - margin) {
+    top = rect.top - popRect.height - 8;
+  }
+  top = Math.max(margin, top);
+  colorPopover.style.left = left + 'px';
+  colorPopover.style.top = top + 'px';
+  colorPopover.classList.add('show');
+}
+
+function applyCollectionColor(collectionId: number, color: string): void {
+  const node = findCollectionNode(collectionId);
+  const game = App.data.currentGame;
+  const previous = node?.color || (game?.collections || []).find((item) => item.id === collectionId)?.color || '';
+
+  const setColor = (next: string): void => {
+    if (node) node.color = next;
+    if (game) {
+      game.collections = game.collections.map((item) =>
+        item.id === collectionId ? { ...item, color: next } : item);
+    }
+    renderCollectionTree();
+    renderGameCollections();
+    if (document.getElementById('detailOverlay')?.classList.contains('show')) renderDetailTags();
+  };
+
+  setColor(color);
+  bridge.updateCollection(collectionId, JSON.stringify({ color }), function (_s: unknown, failed?: boolean) {
+    if (failed) {
+      setColor(previous);
+      toast('颜色更新失败');
+      return;
+    }
+    toast(color ? '已更新颜色' : '已恢复自动颜色');
+  });
+}
+
+function openCollectionColorPicker(anchor: HTMLElement, collectionId: number): void {
+  closeCollectionColorPicker();
+  const node = findCollectionNode(collectionId);
+  const pop = document.createElement('div');
+  pop.className = 'collection-color-popover';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', '选择收藏夹颜色');
+
+  const title = document.createElement('div');
+  title.className = 'color-popover-title';
+  title.textContent = '收藏夹颜色';
+
+  const palette = document.createElement('div');
+  palette.className = 'color-palette';
+  COLLECTION_COLORS.forEach((color) => {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'color-swatch' + ((node?.color || '').toLowerCase() === color ? ' on' : '');
+    swatch.style.background = color;
+    swatch.setAttribute('aria-label', '颜色 ' + color);
+    swatch.setAttribute('aria-pressed', (node?.color || '').toLowerCase() === color ? 'true' : 'false');
+    swatch.addEventListener('click', function (e) {
+      e.stopPropagation();
+      closeCollectionColorPicker();
+      applyCollectionColor(collectionId, color);
+    });
+    palette.appendChild(swatch);
+  });
+
+  const auto = document.createElement('button');
+  auto.type = 'button';
+  auto.className = 'color-auto' + (!node?.color ? ' on' : '');
+  auto.textContent = '自动颜色';
+  auto.setAttribute('aria-pressed', !node?.color ? 'true' : 'false');
+  auto.addEventListener('click', function (e) {
+    e.stopPropagation();
+    closeCollectionColorPicker();
+    applyCollectionColor(collectionId, '');
+  });
+
+  pop.append(title, palette, auto);
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  document.body.appendChild(pop);
+  colorPopover = pop;
+  positionColorPopover(anchor);
+
+  const onDocClick = (e: MouseEvent): void => {
+    if (colorPopover && !colorPopover.contains(e.target as Node)) closeCollectionColorPicker();
+  };
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeCollectionColorPicker();
+  };
+  document.addEventListener('click', onDocClick);
+  document.addEventListener('keydown', onKey, true);
+  colorPopoverCleanup = (): void => {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKey, true);
+  };
+}
+
 function renderGameCollections(): void {
+  closeCollectionColorPicker();
   const sec = document.getElementById('gameCollectionSection')!;
   if (!App.data.currentGame) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
@@ -260,16 +401,23 @@ function renderGameCollections(): void {
   }
   all.forEach(col => {
     const selected = curIds.has(col.id);
-    const row = document.createElement('button');
-    row.type = 'button';
+    const row = document.createElement('div');
     row.className = 'collection-option' + (selected ? ' on' : '');
+    row.tabIndex = 0;
     row.setAttribute('role', 'checkbox');
     row.setAttribute('aria-checked', selected ? 'true' : 'false');
     row.setAttribute('aria-label', col.label + (selected ? '，已加入' : '，未加入'));
-    const mark = document.createElement('span');
+    const mark = document.createElement('button');
+    mark.type = 'button';
     mark.className = 'collection-option-mark';
     mark.style.background = col.color || chipColor(col.label);
     mark.textContent = col.icon || '';
+    mark.setAttribute('aria-label', '修改「' + col.label + '」的颜色');
+    mark.setAttribute('aria-haspopup', 'dialog');
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openCollectionColorPicker(mark, col.id);
+    });
     const name = document.createElement('span');
     name.className = 'collection-option-name';
     name.textContent = col.label;
@@ -278,7 +426,7 @@ function renderGameCollections(): void {
     check.setAttribute('aria-hidden', 'true');
     check.textContent = selected ? '✓' : '';
     row.append(mark, name, check);
-    row.onclick = () => {
+    const toggle = (): void => {
       const g = App.data.currentGame!;
       const next = new Set(curIds);
       if (next.has(col.id)) next.delete(col.id); else next.add(col.id);
@@ -289,6 +437,12 @@ function renderGameCollections(): void {
       toast(had ? '已移除收藏夹' : '已加入收藏夹');
       renderGameCollections();
     };
+    row.onclick = toggle;
+    row.addEventListener('keydown', (e) => {
+      if (e.target !== row || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      toggle();
+    });
     t.appendChild(row);
   });
 }
@@ -300,5 +454,11 @@ document.getElementById('btnNewCollection')!.onclick = () => {
     cb: function (name) { if (name && name.trim()) bridge.createCollection(name.trim(), 0, '', ''); }
   });
 };
-document.getElementById('collectionClose')!.onclick = () => closeSheet('collectionOverlay');
-document.getElementById('collectionDone')!.onclick = () => closeSheet('collectionOverlay');
+document.getElementById('collectionClose')!.onclick = () => {
+  closeCollectionColorPicker();
+  closeSheet('collectionOverlay');
+};
+document.getElementById('collectionDone')!.onclick = () => {
+  closeCollectionColorPicker();
+  closeSheet('collectionOverlay');
+};
