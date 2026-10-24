@@ -267,13 +267,31 @@ def _backup_program(target: str, backup_root: str) -> None:
 
 # ---------- 替换 / 回滚 ----------
 
-def _copy_new_files(plan: List[Tuple[str, str]]) -> None:
-    """逐文件先写 .new 再原子替换，保证任何时刻目标文件要么旧要么新（完整）"""
+def _copy_new_files(plan: List[Tuple[str, str]], attempts: int = 5) -> None:
+    """逐文件先写 .new 再原子替换，保证任何时刻目标文件要么旧要么新（完整）
+
+    杀软扫描/残留句柄会让 os.replace 短暂返回 WinError 5/32，这里退避重试；
+    最终失败清理 .new 后抛出，交由回滚处理。
+    """
     for src, dst in plan:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         tmp = dst + ".new"
-        shutil.copy2(src, tmp)
-        os.replace(tmp, dst)
+        last_error = None
+        for i in range(attempts):
+            try:
+                shutil.copy2(src, tmp)
+                os.replace(tmp, dst)
+                last_error = None
+                break
+            except OSError as e:
+                last_error = e
+                time.sleep(0.2 * (i + 1))
+        if last_error is not None:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise last_error
 
 
 def _remove_stale(target: str, plan: List[Tuple[str, str]]) -> None:
@@ -292,25 +310,86 @@ def _remove_stale(target: str, plan: List[Tuple[str, str]]) -> None:
                     logger.warning("清理旧文件失败（忽略）：%s（%s）", path, e)
 
 
-def _restore(backup_root: str, target: str) -> None:
-    """从程序备份整目录恢复（镜像）：目录整体替换，文件复制覆盖
+def _rel_key(rel_dir: str, name: str) -> str:
+    rel = name if rel_dir == "." else os.path.join(rel_dir, name)
+    return os.path.normcase(os.path.normpath(rel))
 
-    备份可能是硬链接：当目标文件与备份条目仍是同一个文件（替换尚未发生）时跳过，
-    避免 copy2 的 SameFileError，并保持重复恢复的幂等性。
+
+def _merge_restore(src_dir: str, dst_dir: str) -> None:
+    """把备份目录镜像到目标：覆盖/补齐备份文件，删除目标中多出的残留
+
+    不依赖整目录删除（rmtree 可能因瞬时占用失败），因此可重复执行、幂等。
     """
-    for name in os.listdir(backup_root):
+    for base, _dirs, files in os.walk(src_dir):
+        rel = os.path.relpath(base, src_dir)
+        tgt = dst_dir if rel == "." else os.path.join(dst_dir, rel)
+        os.makedirs(tgt, exist_ok=True)
+        for f in files:
+            s = os.path.join(base, f)
+            d = os.path.join(tgt, f)
+            try:
+                if os.path.exists(d) and os.path.samefile(s, d):
+                    continue
+            except OSError:
+                pass
+            shutil.copy2(s, d)
+    keep = set()
+    for base, _dirs, files in os.walk(src_dir):
+        rel = os.path.relpath(base, src_dir)
+        for f in files:
+            keep.add(_rel_key(rel, f))
+    for base, _dirs, files in os.walk(dst_dir, topdown=False):
+        rel = os.path.relpath(base, dst_dir)
+        for f in files:
+            if _rel_key(rel, f) in keep:
+                continue
+            path = os.path.join(base, f)
+            try:
+                os.remove(path)
+            except OSError as e:
+                logger.warning("回滚清理残留失败（忽略）：%s（%s）", path, e)
+        if rel != "." and not os.listdir(base):
+            try:
+                os.rmdir(base)
+            except OSError:
+                pass
+
+
+def _verify_restore(backup_root: str, target: str) -> None:
+    """恢复后校验：备份中白名单内的文件必须都回到目标，否则视为回滚失败"""
+    missing = []
+    for name in PROGRAM_WHITELIST:
+        src = os.path.join(backup_root, name)
+        dst = os.path.join(target, name)
+        if os.path.isfile(src):
+            if not os.path.isfile(dst):
+                missing.append(name)
+        elif os.path.isdir(src):
+            for base, _dirs, files in os.walk(src):
+                rel = os.path.relpath(base, src)
+                for f in files:
+                    rel_file = f if rel == "." else os.path.join(rel, f)
+                    if not os.path.isfile(os.path.join(dst, rel_file)):
+                        missing.append(os.path.join(name, rel_file))
+    if missing:
+        raise RuntimeError("回滚恢复不完整，缺少：" + "、".join(missing[:3]))
+
+
+def _restore(backup_root: str, target: str) -> None:
+    """从程序备份恢复（镜像）：覆盖旧文件并清理半替换残留，最后校验完整性"""
+    for name in PROGRAM_WHITELIST:
         src = os.path.join(backup_root, name)
         dst = os.path.join(target, name)
         if os.path.isdir(src):
-            shutil.rmtree(dst, ignore_errors=True)
-            shutil.copytree(src, dst)
-        else:
+            _merge_restore(src, dst)
+        elif os.path.isfile(src):
             try:
                 if os.path.exists(dst) and os.path.samefile(src, dst):
                     continue
             except OSError:
                 pass
             shutil.copy2(src, dst)
+    _verify_restore(backup_root, target)
 
 
 # ---------- 进程 ----------

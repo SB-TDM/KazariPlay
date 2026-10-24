@@ -3,6 +3,14 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.2.2（2026-10-24）— 修复自动更新替换/回滚
+- 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.2.2`。
+- 复现：1.2.0 → 1.2.1 真实更新在 `_internal\base_library.zip` 替换时遇到 `WinError 5`，回滚又在 `_internal` 遇到 `WinError 183`，安装目录只剩半空 `_internal`（用户机器实测）。
+- `_copy_new_files`：`copy2` + `os.replace` 遇到瞬时占用退避重试（默认 5 次），最终失败清理 `.new` 后抛出，交由回滚。
+- `_restore`：改为按 `PROGRAM_WHITELIST` 镜像恢复（`_merge_restore`：覆盖/补齐备份文件、删除目标残留），不再依赖 `rmtree(ignore_errors=True)`；恢复后 `_verify_restore` 校验备份文件全部回位，不完整即报错并保留备份与状态。
+- `v1.2.1` GitHub Release 标记为 pre-release（退出 `latest`），1.2.0 用户直接升级到 1.2.2。
+- 新增回归：替换瞬时占用重试、永久失败清理 `.new`、半替换镜像恢复、恢复不完整校验。
+
 ## 1.2.1（2026-10-24）— 收藏夹改色与桥接层可靠性
 - 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.2.1`。
 - 收藏夹侧栏右键新增「更改颜色」（8 色 + 自动），分组与子分类共用详情页色板；保存走 `updateCollection`，失败回滚。

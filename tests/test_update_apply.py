@@ -772,10 +772,105 @@ def test_cleanup_ready_cache_and_extract():
         print("[清理-就绪 zip/解压目录/确认全清] OK")
 
 
+def test_copy_new_files_retries_transient_lock():
+    """替换时遇到瞬时占用（WinError 5/32）应退避重试，成功后不留 .new"""
+    d = Drill()
+    try:
+        dst = os.path.join(d.target, "KazariPlay.exe")
+        plan = [(os.path.join(d.source, "KazariPlay.exe"), dst)]
+        real_replace = os.replace
+        calls = {"n": 0}
+
+        def flaky(a, b):
+            calls["n"] += 1
+            if calls["n"] < 3:
+                raise PermissionError(13, "denied")
+            return real_replace(a, b)
+
+        with mock.patch.object(UA.os, "replace", side_effect=flaky), \
+             mock.patch.object(UA.time, "sleep"):
+            UA._copy_new_files(plan)
+        assert read_bytes(dst) == b"NEW-EXE"
+        assert not os.path.exists(dst + ".new")
+        print("[替换-瞬时占用重试] OK")
+    finally:
+        d.close()
+
+
+def test_copy_new_files_cleans_tmp_on_permanent_failure():
+    """重试耗尽后清理 .new 并抛出，交给回滚"""
+    d = Drill()
+    try:
+        dst = os.path.join(d.target, "KazariPlay.exe")
+        plan = [(os.path.join(d.source, "KazariPlay.exe"), dst)]
+        with mock.patch.object(UA.os, "replace", side_effect=PermissionError(13, "denied")), \
+             mock.patch.object(UA.time, "sleep"):
+            try:
+                UA._copy_new_files(plan)
+            except OSError:
+                pass
+            else:
+                raise AssertionError("永久失败必须抛出")
+        assert not os.path.exists(dst + ".new")
+        assert read_bytes(dst) == b"OLD-EXE", "失败时目标文件应保持旧版"
+        print("[替换-永久失败清理] OK")
+    finally:
+        d.close()
+
+
+def test_restore_mirrors_partial_replacement():
+    """回滚在 _internal 被半替换（含残留）时仍能镜像恢复，不因目录已存在失败"""
+    d = Drill()
+    try:
+        backup = os.path.join(d.root, "backup")
+        write_tree(backup, {"KazariPlay.exe": b"OLD-EXE",
+                            "_internal/common.dll": b"common-v1",
+                            "_internal/old.dll": b"old-dll"})
+        write_tree(d.target, {"_internal/base_library.zip": b"half-new"})
+        UA._restore(backup, d.target)
+        assert read_bytes(d.exe()) == b"OLD-EXE"
+        assert read_bytes(os.path.join(d.target, "_internal", "common.dll")) == b"common-v1"
+        assert read_bytes(os.path.join(d.target, "_internal", "old.dll")) == b"old-dll"
+        assert not os.path.exists(os.path.join(d.target, "_internal", "base_library.zip"))
+        print("[回滚-半替换镜像恢复] OK")
+    finally:
+        d.close()
+
+
+def test_restore_raises_when_incomplete():
+    """备份文件没能全部恢复时回滚必须报错，而不是假成功"""
+    d = Drill()
+    try:
+        backup = os.path.join(d.root, "backup")
+        write_tree(backup, {"_internal/python311.dll": b"dll"})
+        os.makedirs(os.path.join(d.target, "_internal"), exist_ok=True)
+        real_copy2 = shutil.copy2
+
+        def skip_dll(src, dst, *a, **k):
+            if str(dst).endswith("python311.dll"):
+                return   # 模拟静默漏恢复
+            return real_copy2(src, dst, *a, **k)
+
+        with mock.patch.object(UA.shutil, "copy2", side_effect=skip_dll):
+            try:
+                UA._restore(backup, d.target)
+            except RuntimeError as e:
+                assert "回滚恢复不完整" in str(e)
+            else:
+                raise AssertionError("恢复不完整必须报错")
+        print("[回滚-不完整校验] OK")
+    finally:
+        d.close()
+
+
 if __name__ == "__main__":
     test_apply_success()
     test_apply_links_program_backup()
     test_apply_backup_copy_fallback()
+    test_copy_new_files_retries_transient_lock()
+    test_copy_new_files_cleans_tmp_on_permanent_failure()
+    test_restore_mirrors_partial_replacement()
+    test_restore_raises_when_incomplete()
     test_rollback_retry_after_partial_restore()
     test_apply_rollback_on_failure()
     test_apply_refuses_data_in_package()

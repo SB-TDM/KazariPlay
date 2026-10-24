@@ -134,6 +134,7 @@
 | fixed (两版) | `applyCandidate` 保存顺序、返回值与封面下载阻塞 | `tests/test_p2_hardening.py` applyCandidate/setCover 回归 | `src/kazari_play/ui/web_bridge.py` 的 `applyCandidate` / `setCover` / `_download_cover_bg` | 候选/字段/数值校验，来源记录后置到保存成功之后，检查 `update_game` 与 `update_cover_path` 结果，来源 ID 变更计入 `changed`，封面后台下载且只接受 http(s)，失败提示 | 保存失败不写来源；封面不阻塞桥接请求；非法封面地址被拒绝 |
 | fixed (两版) | 封面线程池退出未关闭，活跃下载可能拖住退出 | `tests/test_p2_hardening.py` shutdown 回归；`tests/test_ui_sync.py` unbind 回归 | `src/kazari_play/ui/web_bridge.py` 的 `shutdown`、`src/kazari_play/ui/sync.py` 的 `unbind_window`、`src/kazari_play/main.py` 的 closing 回调 | 关闭窗口时取消封面下载、`shutdown(wait=False, cancel_futures=True)`、解绑推送 | 关窗不等待进行中的封面下载，退出后不再推送 |
 | fixed (两版) | 删除游戏后封面文件/缓存未统一清理；`web_bridge.py` 残留未用导入与乱码 docstring，`pywebview.d.ts` 重复声明 | `tests/test_p2_hardening.py` 单删封面清理回归；静态检查 | `src/kazari_play/ui/web_bridge.py` 的 `deleteGame` / `batchDelete` / `_purge_cover_cache`；`pywebview.d.ts` | 单删与批量删除统一删封面文件并失效 base64/缩略图缓存；清理 `shutil`、修复 docstring、去掉重复声明 | 删除后封面文件与缓存不残留；类型检查通过 |
+| fixed (两版) | 自动更新替换遇瞬时占用即失败，回滚又因 `_internal` 已存在报错，留下半空目录 | `tests/test_update_apply.py` 新增替换重试/永久失败清理/半替换镜像恢复/恢复校验；用户机器 1.2.0→1.2.1 实测复现 | `src/kazari_play/utils/update/update_apply.py` 的 `_copy_new_files` / `_restore` | 替换退避重试并清理 `.new`；回滚改为镜像恢复（覆盖+补齐+清理残留）+ 完整性校验，失败保留备份与状态；v1.2.1 退出 latest | 替换瞬时失败可自愈；回滚后安装目录与备份一致；失败不再留下半空 `_internal` |
 
 ### P2：稳定性与安全
 
