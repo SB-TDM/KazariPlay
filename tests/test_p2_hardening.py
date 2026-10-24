@@ -1,6 +1,7 @@
 """P2 桥接输入校验回归：非法 JSON / 未知字段 / 数组元素类型不得抛异常或部分写入。"""
 import json
 import unittest
+from unittest.mock import patch
 
 import test_p0_data_flow as base
 
@@ -44,6 +45,86 @@ class HardeningTests(base.DataFlowTests):
         tree = json.loads(self.bridge.getCollectionsTree())
         node = [c for c in tree[0]["children"] if c["id"] == cat["id"]][0]
         self.assertEqual(node["name"], "分类")
+
+    # ---------- applyCandidate / setCover ----------
+
+    def test_apply_candidate_rejects_bad_payload(self):
+        game = self.fixture("Hardening")
+        for cand in ("not json", "[]"):
+            with self.subTest(cand=cand):
+                self.assertFalse(json.loads(self.bridge.applyCandidate(
+                    game.id, cand, json.dumps(["title"])))["ok"])
+        self.assertFalse(json.loads(self.bridge.applyCandidate(
+            game.id, json.dumps({"title": "x"}), "{}"))["ok"])
+
+    def test_apply_candidate_tolerates_bad_numbers(self):
+        game = self.fixture("Hardening")
+        cand = {"title": "新标题", "rating": "abc", "length_minutes": "x",
+                "source": "vndb", "source_id": "v999"}
+        result = json.loads(self.bridge.applyCandidate(
+            game.id, json.dumps(cand), json.dumps(["title", "rating", "length_minutes"])))
+        self.assertTrue(result["ok"])
+        fresh = self.manager.get_game(game.id)
+        self.assertEqual(fresh.title, "新标题")
+        self.assertEqual(fresh.rating, game.rating)
+        self.assertEqual(fresh.length_minutes, game.length_minutes)
+
+    def test_apply_candidate_persists_source_id_without_other_changes(self):
+        game = self.fixture("Hardening")
+        result = json.loads(self.bridge.applyCandidate(
+            game.id, json.dumps({"source": "vndb", "source_id": "v999"})))
+        self.assertTrue(result["ok"])
+        self.assertEqual(self.manager.get_game(game.id).vndb_id, "v999")
+
+    def test_apply_candidate_save_failure_keeps_source_unrecorded(self):
+        game = self.fixture("Hardening")
+        cand = {"title": "新标题", "source": "vndb", "source_id": "v999"}
+        with patch.object(self.manager, "update_game", return_value=False):
+            result = json.loads(self.bridge.applyCandidate(
+                game.id, json.dumps(cand), json.dumps(["title"])))
+        self.assertFalse(result["ok"])
+        self.assertEqual(self.manager.get_game(game.id).title, game.title)
+        self.assertEqual(json.loads(self.bridge.getGameSources(game.id)), [])
+
+    def test_apply_candidate_queues_cover_without_blocking(self):
+        game = self.fixture("Hardening")
+        queued = []
+        cand = {"cover_url": "https://example.com/a.jpg",
+                "source": "vndb", "source_id": "v999"}
+        with patch.object(self.bridge, "_queue_cover",
+                          side_effect=lambda *a, **k: queued.append((a, k))):
+            result = json.loads(self.bridge.applyCandidate(
+                game.id, json.dumps(cand), json.dumps(["cover"])))
+        self.assertTrue(queued, "封面应入队后台下载")
+        self.assertEqual(queued[0][0][1], "https://example.com/a.jpg")
+        self.assertTrue(queued[0][1].get("force"))
+        self.assertIn("下载中", result["msg"])
+
+    def test_apply_candidate_rejects_non_http_cover(self):
+        game = self.fixture("Hardening")
+        queued = []
+        cand = {"title": "新标题", "cover_url": "file:///C:/x.jpg",
+                "source": "vndb", "source_id": "v999"}
+        with patch.object(self.bridge, "_queue_cover",
+                          side_effect=lambda *a, **k: queued.append(a)):
+            result = json.loads(self.bridge.applyCandidate(
+                game.id, json.dumps(cand), json.dumps(["title", "cover"])))
+        self.assertTrue(result["ok"])
+        self.assertFalse(queued, "非 http(s) 封面地址不得入队")
+        self.assertIn("封面", result["msg"])
+        self.assertEqual(self.manager.get_game(game.id).title, "新标题")
+
+    def test_set_cover_reports_db_write_failure(self):
+        from PIL import Image
+        from core.media.cover_store import CoverStore
+        game = self.fixture("Hardening")
+        self.bridge._cover_store = CoverStore(base_dir=str(self.root / "covers"))
+        src = self.root / "cover.png"
+        Image.new("RGB", (32, 32), "red").save(src)
+        with patch.object(self.manager.repository, "update_cover_path", return_value=False):
+            result = json.loads(self.bridge.setCover(game.id, str(src)))
+        self.assertFalse(result["ok"])
+        self.assertTrue(json.loads(self.bridge.setCover(game.id, str(src)))["ok"])
 
 
 if __name__ == '__main__':

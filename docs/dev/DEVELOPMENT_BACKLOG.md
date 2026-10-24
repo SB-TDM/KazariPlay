@@ -131,6 +131,7 @@
 | fixed (两版) | UISync 合并窗口内同域 payload 互相覆盖，丢失前一次事件 | `tests/test_ui_sync.py` 同域多次 invalidate 回归 | `src/kazari_play/ui/sync.py` 的 `invalidate` / `_emit` | `cover`/`screenshots` 按 gid 累积、`games_delta` 取并集去重、`toast` 队列化 | 同一窗口内两张封面、两条 toast、多个增量 id 全部送达 |
 | fixed (两版) | 收藏夹写接口丢弃 service 返回值，写库失败仍提示成功 | `tests/test_p1_reliability.py` 仓库返回 False/None 回归；`tests/test_bridge_contract.cjs` 解析用例 | `src/kazari_play/ui/web_bridge.py` 的 9 个收藏夹写接口 | 统一返回 `{ok,msg}`，前端经 `bridgeResult()` 判断后提示或回滚 | 写库失败时前端提示失败并回滚，不再假报成功 |
 | fixed (两版；`saveConfigs` 白名单未做) | 收藏夹写接口对 JSON / 字段 / 数组类型无校验，非法输入直接抛异常 | `tests/test_p2_hardening.py` 非法 JSON、未知字段、id 数组类型回归 | `src/kazari_play/ui/web_bridge.py` 的 `_load_*` 与收藏夹写接口 | 统一解析、`updateCollection` 字段白名单与类型校验、id 数组元素类型校验，非法输入返回 `{ok:false,msg}` | 非法入参不抛异常、不部分写入 |
+| fixed (两版) | `applyCandidate` 保存顺序、返回值与封面下载阻塞 | `tests/test_p2_hardening.py` applyCandidate/setCover 回归 | `src/kazari_play/ui/web_bridge.py` 的 `applyCandidate` / `setCover` / `_download_cover_bg` | 候选/字段/数值校验，来源记录后置到保存成功之后，检查 `update_game` 与 `update_cover_path` 结果，来源 ID 变更计入 `changed`，封面后台下载且只接受 http(s)，失败提示 | 保存失败不写来源；封面不阻塞桥接请求；非法封面地址被拒绝 |
 
 ### P2：稳定性与安全
 

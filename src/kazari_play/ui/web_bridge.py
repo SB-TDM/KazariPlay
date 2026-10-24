@@ -16,6 +16,7 @@ import threading
 import time
 from collections import OrderedDict
 from typing import Optional, Dict, Any
+from urllib.parse import urlparse
 
 import webview
 
@@ -73,6 +74,16 @@ def _load_int_ids(raw):
     if value is None or not all(isinstance(i, int) and not isinstance(i, bool) for i in value):
         return None
     return value
+
+
+def _is_safe_cover_url(url: str) -> bool:
+    """只允许 http(s) 绝对地址：候选数据不得把本地文件或自定义协议交给下载器"""
+    try:
+        parsed = urlparse(str(url or ""))
+    except ValueError:
+        return False
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
 
 _RESOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "resources")
@@ -1305,13 +1316,15 @@ class WebBridge:
         if not g or not path or not os.path.exists(path):
             return json.dumps({"ok": False, "msg": "封面文件不存在"}, ensure_ascii=False)
         try:
+            self._invalidate_cover_download(game_id)
             dest = self._cover_store.save_file(game_id, path)
             if not dest:
                 return json.dumps({"ok": False, "msg": "封面格式不支持或读取失败"},
                                   ensure_ascii=False)
-            self._invalidate_cover_download(game_id)
+            if not self.manager.repository.update_cover_path(game_id, dest):
+                logger.warning("封面路径写入失败: %s", game_id)
+                return json.dumps({"ok": False, "msg": "封面写入失败"}, ensure_ascii=False)
             g.cover_path = dest
-            self.manager.repository.update_cover_path(game_id, dest)
             try:
                 self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
             except Exception:
@@ -1372,83 +1385,94 @@ class WebBridge:
 
         fields_json：勾选要应用的字段 JSON 数组（如 ["title","cover"]）；
           仅这些字段被覆盖。为空字符串时退回旧行为（仅填充空白字段）。
+        封面改为入队后台下载，不阻塞本次桥接请求；下载完成后定向刷新该卡。
         """
-        from core.metadata.search import multi_source
-        try:
-            cand = json.loads(candidate_json)
-        except Exception:
-            cand = None
+        cand = _load_json(candidate_json, dict)
         g = self.manager.get_game(game_id)
         if not g or not cand:
             return json.dumps({"ok": False, "msg": "找不到游戏或候选数据", "changed": False}, ensure_ascii=False)
         selected = None
         if fields_json and fields_json.strip():
-            try:
-                selected = set(json.loads(fields_json))
-            except Exception:
-                selected = None
+            raw_fields = _load_json(fields_json, list)
+            if raw_fields is None:
+                return json.dumps({"ok": False, "msg": "字段参数格式错误", "changed": False},
+                                  ensure_ascii=False)
+            selected = {f for f in raw_fields if isinstance(f, str)}
 
         def want(field: str) -> bool:
             # 旧调用（未传 fields）：仅填空白；新调用：只应用被勾选的字段
             return (field in selected) if selected is not None else not getattr(g, field, None)
 
         changed = False
-        if cand.get("title") and want("title"):
-            g.title = cand["title"]
-            changed = True
-        if cand.get("description") and want("description"):
-            g.description = cand["description"]
-            changed = True
-        if cand.get("developer") and want("developer"):
-            g.developer = cand["developer"]
-            changed = True
-        if cand.get("released") and want("released"):
-            g.released = cand["released"]
-            changed = True
+        for field in ("title", "description", "developer", "released"):
+            value = cand.get(field)
+            if isinstance(value, str) and value and want(field):
+                setattr(g, field, value)
+                changed = True
         if cand.get("rating") and want("rating"):
             from utils.domain.rating_utils import normalize_rating
-            raw = float(cand["rating"])
-            g.rating = normalize_rating(raw if raw <= 5 else raw / 20) or 0
-            changed = True
-        if cand.get("length_minutes") and want("length_minutes"):
-            g.length_minutes = int(cand["length_minutes"])
-            changed = True
-        cover_failed = False
-        has_cover = bool(g.cover_path and os.path.isfile(g.cover_path))
-        if cand.get("cover_url") and ((selected is None and not has_cover) or "cover" in (selected or ())):
             try:
-                dest = self._cover_store.download(game_id, cand["cover_url"])
-                if dest:
-                    g.cover_path = dest
-                    changed = True
-                else:
-                    cover_failed = True
-            except Exception as e:
-                logger.error("下载封面失败: %s", e)
+                raw = float(cand["rating"])
+            except (TypeError, ValueError):
+                raw = 0
+            if raw > 0:
+                g.rating = normalize_rating(raw if raw <= 5 else raw / 20) or 0
+                changed = True
+        if cand.get("length_minutes") and want("length_minutes"):
+            try:
+                minutes = int(cand["length_minutes"])
+            except (TypeError, ValueError):
+                minutes = 0
+            if minutes > 0:
+                g.length_minutes = minutes
+                changed = True
+
+        cover_queued = False
+        cover_failed = False
+        cover_url = str(cand.get("cover_url") or "")
+        has_cover = bool(g.cover_path and os.path.isfile(g.cover_path))
+        if cover_url and ((selected is None and not has_cover) or "cover" in (selected or ())):
+            if _is_safe_cover_url(cover_url):
+                self._queue_cover(game_id, cover_url, "", force=True)
+                cover_queued = True
+                changed = True
+            else:
                 cover_failed = True
+
         # 记录候选来源 ID，后续批量匹配据此跳过已匹配项
         src = str(cand.get("source") or "").strip().lower()
         sid = str(cand.get("source_id") or "").strip()
         if src == "vndb" and sid and g.vndb_id != sid:
             g.vndb_id = sid
+            changed = True
         elif src == "bangumi" and sid and g.bangumi_id != sid:
             g.bangumi_id = sid
-        if src and sid:
-            self.manager.source_repo.upsert(game_id, src, sid, cand)
+            changed = True
+
         if changed:
             self.manager.unmatched_repo.delete(game_id)
             g.unmatched_reason = ""
-            self.manager.update_game(g)
-            if g.cover_path:
-                self.manager.repository.update_cover_path(game_id, g.cover_path)
-            try:
-                self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
-            except Exception:
-                pass
+            if not self.manager.update_game(g):
+                self.refresh_delta([game_id])
+                return json.dumps({"ok": False, "msg": "保存元数据失败", "changed": False},
+                                  ensure_ascii=False)
+            if g.cover_path and not self.manager.repository.update_cover_path(game_id, g.cover_path):
+                logger.warning("封面路径写入失败: %s", game_id)
+            if not cover_queued:
+                try:
+                    self._cover_pool.submit(self._cover_store.ensure_thumb, game_id)
+                except Exception:
+                    pass
             self.reloadCover(game_id)   # 单游戏元数据应用，只定向重载该卡封面
+        if src and sid:
+            self.manager.source_repo.upsert(game_id, src, sid, cand)
         self.refresh_delta([game_id])
         if cover_failed:
-            return json.dumps({"ok": True, "changed": changed, "msg": "部分字段已应用，封面下载失败"}, ensure_ascii=False)
+            return json.dumps({"ok": True, "changed": changed, "msg": "部分字段已应用，封面地址无效"},
+                              ensure_ascii=False)
+        if cover_queued:
+            return json.dumps({"ok": True, "changed": True, "msg": "已应用所选字段，封面下载中"},
+                              ensure_ascii=False)
         if not changed:
             return json.dumps({"ok": True, "changed": False, "msg": "没有可应用的字段"}, ensure_ascii=False)
         return json.dumps({"ok": True, "changed": True}, ensure_ascii=False)
@@ -1497,10 +1521,13 @@ class WebBridge:
             return 0
 
     # ---------- 封面异步下载（与匹配解耦，见 docs/archive/COVER_DOWNLOAD_OPTIMIZATION.md）----------
-    def _queue_cover(self, game_id: str, cover_url: str, dest: str):
-        """match_single 的封面回调：入队后台下载，不阻塞匹配流程"""
+    def _queue_cover(self, game_id: str, cover_url: str, dest: str, force: bool = False):
+        """match_single 的封面回调：入队后台下载，不阻塞匹配流程
+
+        force=True 时即使已有封面也重新下载（手动应用候选时用户已明确选择封面）。
+        """
         try:
-            self._cover_pool.submit(self._download_cover_bg, game_id, cover_url, dest)
+            self._cover_pool.submit(self._download_cover_bg, game_id, cover_url, dest, force)
         except Exception as e:
             logger.warning("封面入队失败: %s, %s", cover_url, e)
 
@@ -1526,13 +1553,13 @@ class WebBridge:
         if cancel is not None:
             cancel.set()
 
-    def _download_cover_bg(self, game_id: str, cover_url: str, dest: str):
+    def _download_cover_bg(self, game_id: str, cover_url: str, dest: str, force: bool = False):
         """后台下载封面（可配超时、不重试），上报进度；成功写库并定向刷新该卡"""
         self._set_cover_progress(game_id, 0.0)
         cancel = None
         try:
             game = self.manager.get_game(game_id)
-            if game and game.cover_path and os.path.isfile(game.cover_path):
+            if not force and game and game.cover_path and os.path.isfile(game.cover_path):
                 return
             with self._cover_state_lock:
                 generation = self._cover_generation.get(game_id, 0)
@@ -1549,13 +1576,19 @@ class WebBridge:
                 if self._cover_cancel.get(game_id) is cancel:
                     self._cover_cancel.pop(game_id, None)
             if not path or not current:
+                if force and not path and not (cancel and cancel.is_set()):
+                    self.notify("封面下载失败")
                 return
             latest = self.manager.get_game(game_id)
-            if latest and latest.cover_path and os.path.isfile(latest.cover_path):
+            if not force and latest and latest.cover_path and os.path.isfile(latest.cover_path):
                 return
-            self.manager.repository.update_cover_path(game_id, path)
+            if not self.manager.repository.update_cover_path(game_id, path):
+                logger.warning("封面路径写入失败: %s", game_id)
+                return
             self._cover_store.ensure_thumb(game_id)
             self.reloadCover(game_id)
+            if force:
+                self.notify("封面已更新")
         except Exception as e:
             logger.warning("封面后台下载失败: %s, %s", cover_url, e)
         finally:

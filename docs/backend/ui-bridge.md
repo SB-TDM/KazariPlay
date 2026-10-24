@@ -91,7 +91,7 @@
 ### 多源搜索 / 手动应用
 - `searchMetadata(keyword, sources_json="")`（→ `multi_source.search_metadata`）/ `getMetadataSources()` / `saveMetadataSources(sources_json)`（写 config 即时生效）
 - `testMetadataConnection(payload_json)`：按 `{mode, proxy_url}` 临时构建 opener，测试 VNDB / Bangumi / Kungal 连通性，不写配置
-- `applyCandidate(game_id, candidate_json, fields_json="")`：`fields_json` 非空 → 只应用**勾选字段**；为空 → 旧行为（仅填空字段）。封面下载到 `covers/{id}_ms.ext`。变更则 `update_game` + `reloadCover` + `refresh_delta`
+- `applyCandidate(game_id, candidate_json, fields_json="")`：`fields_json` 非空 → 只应用**勾选字段**；为空 → 旧行为（仅填空字段）。候选/字段入参先做类型校验；`rating`/`length_minutes` 非法值跳过而不抛异常。封面只接受 http(s) 地址，并**入队后台下载**（`_queue_cover(force=True)`，不阻塞本次请求，完成后推送封面与 toast）。`update_game` 失败返回 `{ok:false}` 且不写来源记录；来源 ID 变化单独计入 `changed`，无其他字段变化时也会持久化
 
 ### 截图
 - `updateScreenshotHotkey(hotkey)`：写配置 + 立即重注册（`utils.system.hotkeys`）
@@ -102,7 +102,7 @@
 - 操作：`deleteScreenshot` / `renameScreenshot` / `openScreenshotFolder`（explorer /select）/ `copyScreenshotToClipboard`（PIL→BMP→去 14 字节头→`CF_DIB`）
 
 ### 封面更换
-- `pickCover()`：选图，返回 `{path, preview}` / `setCover(game_id, path)`：拷到 `covers/{id}_manual.ext` → `update_game` → `reloadCover`
+- `pickCover()`：选图，返回 `{path, preview}` / `setCover(game_id, path)`：拷到 `covers/{id}_manual.ext` → `update_cover_path`（写库失败返回 `{ok:false}`）→ `reloadCover`
 
 ### 刷新封装（供内部与少数外部调用）
 - `refresh()` → `games`；`refresh_delta(ids)` → `games_delta`；`notify(msg)` → `toast`

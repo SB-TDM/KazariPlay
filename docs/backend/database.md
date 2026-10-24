@@ -132,5 +132,5 @@
 GameManager ─▶ GameRepository / TagRepository / CollectionRepository
                       └────────────▶ DatabaseManager（单例）
 WebBridge（写）──▶ GameManager / *_repo
-封面下载完成写库：web_bridge._download_cover_bg ─▶ repository.update_game
+封面下载完成写库：web_bridge._download_cover_bg ─▶ repository.update_cover_path
 ```
