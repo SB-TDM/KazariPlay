@@ -3,6 +3,17 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.2.1（2026-10-24）— 收藏夹改色与桥接层可靠性
+- 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.2.1`。
+- 收藏夹侧栏右键新增「更改颜色」（8 色 + 自动），分组与子分类共用详情页色板；保存走 `updateCollection`，失败回滚。
+- 收藏夹 9 个写接口统一返回 `{ok, msg}`，前端经 `bridgeResult()` 判断后提示或回滚；`updateCollection` 增加字段白名单与类型校验，id 数组校验元素类型。
+- 界面收敛卡片以外的发光阴影：侧栏选中行/选中色标、设置页图标/侧栏项/主题卡/关于页 logo/保存按钮、右键菜单投影；选中与焦点改用 `outline`/边框提示，卡片光晕保留。
+- 修复 UISync 合并窗口内同域覆盖：`cover`/`screenshots` 按 gid 累积、`games_delta` 取并集去重、`toast` 队列化保序。
+- `applyCandidate`：候选/字段/数值校验，来源记录后置到保存成功之后，来源 ID 变更计入 `changed`，封面入队后台下载（不阻塞）且只接受 http(s)；`setCover` 检查 `update_cover_path` 结果。
+- 关闭窗口时 `WebBridge.shutdown()` 取消封面下载、`shutdown(wait=False, cancel_futures=True)` 并解绑推送；删除游戏清理封面文件与 base64/缩略图缓存。
+- `previewRelocate` 支持取消、拒绝并发扫描，前端显示「正在扫描…」并丢弃迟到结果；`saveConfigs` 增加 JSON 对象与默认配置白名单校验。
+- 新增 `tests/test_p2_hardening.py`；Python 15 项 + Node 4 项门禁、冻结包启动冒烟通过。
+
 ## 1.2.0（2026-10-21）— 元数据匹配与未匹配区
 - 批量匹配进度条改为“锚点预取 0-35% + 匹配 35-100%”两阶段；并发任务完成即时计数，避免完成后进度跳变。
 - 除卡片 `box-shadow` 光晕外，移除其余元素的 `box-shadow`；主页头部保持原圆角，其余卡片/统计/窗口圆角调低。

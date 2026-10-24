@@ -13,7 +13,7 @@ npm --prefix src/kazari_play/ui/web_assets ci
 npm --prefix src/kazari_play/ui/web_assets run build
 python src/kazari_play/main.py        # 在对应工作区根目录运行
 # develop 自测包（新目录；不写入现有用户数据，不对外发布）
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.0
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.1
 ```
 
 前端改动（改 `ts/` 后必须编译）：
@@ -63,7 +63,7 @@ python tests/smoke_overlay.py     # 原版截图 toast（需先编译 overlay）
 - 最新改动见 `docs/dev/CHANGELOG.md`；P0/P1/P2 本地修复与未验收项以 `docs/dev/DEVELOPMENT_BACKLOG.md` 为准
 - 前端已全量 TypeScript 迁移；截图内核 WGC 三级回退 + 双保存；扫描支持多选/进度/取消/跨文件夹去重
 - 游戏身份键 `identity = 引擎 | 归一化文件夹名`（`utils/domain/title_utils.py` 的 `for_identity=True`）：与搜索清洗分开，扫描按 `exe 路径` + `identity` 判重；修改时同步旧游戏 identity 回填
-- 当前正式版 `1.2.0`；核心号随 `main` 发布定稿，版本规则与历史映射见 `docs/dev/VERSIONING.md`，历史版本见 `RELEASE_NOTES.md`
+- 当前正式版 `1.2.1`；核心号随 `main` 发布定稿，版本规则与历史映射见 `docs/dev/VERSIONING.md`，历史版本见 `RELEASE_NOTES.md`
 - 元数据自动匹配（1.2.x 线）：VNDB/Bangumi/月幕多源并行 + 跨源一致性校验；中文标题/简介优先，`bangumi_id` 自动迁移；批量入口 force=True（用户评分不覆盖）。匹配结果分 `match / unmatched / retryable / skip`，未匹配区落 `unmatched_games`，网络失败只保留本次任务并支持「重试失败」。
 - 封面（1.2.x 线）：`covers/{id}.{ext}` + `thumbs/{id}_w512.jpg` 单文件模型；本地 HTTP 服务（127.0.0.1、持久 token/端口、immutable），失败回退 base64；启动迁移旧变体与清理。
 - 更新器（1.0.x）：通道切换 + 就绪缓存（启动本地探测自动提示，确认期间跳过）+ 硬链接程序备份 + 分阶段埋点；应用方式仅「立即重启更新」；设计见 `docs/dev/AUTO_UPDATE_SPEEDUP_PLAN.md`
