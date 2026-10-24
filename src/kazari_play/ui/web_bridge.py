@@ -380,6 +380,19 @@ class WebBridge:
         self._window = window
         self._ui.bind_window(window)
 
+    def shutdown(self) -> None:
+        """窗口关闭前释放后台资源：取消封面下载、关闭线程池、解绑前端推送"""
+        try:
+            with self._cover_state_lock:
+                cancels = list(self._cover_cancel.values())
+                self._cover_cancel.clear()
+            for cancel in cancels:
+                cancel.set()
+            self._cover_pool.shutdown(wait=False, cancel_futures=True)
+        except Exception as e:
+            logger.warning("关闭封面线程池失败: %s", e)
+        self._ui.unbind_window()
+
     # ---------- 数据 ----------
     def _cover_url(self, g: Game) -> str:
         if self._cover_service is None:

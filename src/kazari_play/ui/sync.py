@@ -74,6 +74,15 @@ class UISync:
         """绑定 pywebview 窗口（窗口创建后调用；未绑定或已关闭时推送静默跳过）"""
         self._window = window
 
+    def unbind_window(self) -> None:
+        """窗口关闭后解绑：丢弃待推送项并取消定时器，之后推送静默跳过"""
+        with self._lock:
+            self._window = None
+            self._pending = {}
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+
     def invalidate(self, domain: str, payload=None) -> None:
         """声明"什么数据变了"，稍后合并推送前端（可在任意线程调用）
 

@@ -126,6 +126,32 @@ class HardeningTests(base.DataFlowTests):
         self.assertFalse(result["ok"])
         self.assertTrue(json.loads(self.bridge.setCover(game.id, str(src)))["ok"])
 
+    def test_shutdown_cancels_cover_pool_and_unbinds_ui(self):
+        import threading
+        cancel = threading.Event()
+        self.bridge._cover_cancel["g1"] = cancel
+        calls = {}
+
+        class Pool:
+            def shutdown(self, wait=True, cancel_futures=False):
+                calls["wait"] = wait
+                calls["cancel_futures"] = cancel_futures
+
+        class Window:
+            def evaluate_js(self, js):
+                calls["js"] = js
+
+        self.bridge._cover_pool = Pool()
+        self.bridge.bind_window(Window())
+        self.bridge.shutdown()
+        self.assertTrue(cancel.is_set(), "退出时应取消进行中的封面下载")
+        self.assertEqual(calls.get("wait"), False)
+        self.assertTrue(calls.get("cancel_futures"))
+        self.assertIsNone(self.bridge._ui._window, "退出后应解绑前端推送")
+        self.bridge.refresh()
+        self.bridge._ui.flush_now()
+        self.assertNotIn("js", calls, "解绑后不应再推送前端")
+
 
 if __name__ == '__main__':
     unittest.main()

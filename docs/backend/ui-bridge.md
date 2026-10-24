@@ -15,7 +15,7 @@
 **机制**
 - `invalidate(domain, payload)`：任意线程可调；首条启动 `threading.Timer(_FLUSH_DELAY=50ms)`。`toast`（消息队列，顺序送达）、`cover` / `screenshots`（每个 gid 各推一次）、`games_delta`（id 并集去重）在窗口内**累积**，其余域 `_pending[domain] = payload`（**同域覆盖**，保留插入序）。
 - `_flush_scheduled` → `_emit(pending)`：把一批 pending 拼成**单个 IIFE** `(function(){...})()`，经 `_flush_lock` 串行 `window.evaluate_js(js)`。窗口未绑定/已关闭则静默跳过。
-- `bind_window(window)`：窗口创建后绑定。`flush_now()`：测试/退出前立即推送。
+- `bind_window(window)`：窗口创建后绑定。`unbind_window()`：窗口关闭前解绑并丢弃待推送项。`flush_now()`：测试/退出前立即推送。
 
 **事件域 → 前端入口 `window.__app.*`**（`_DOMAIN_JS`）
 | domain | 前端方法 | payload |
@@ -113,6 +113,7 @@
 - `_set_cover_progress(game_id, pct)`：更新 `_cover_states` 后推送**全量快照**（`pct=None` 表示移除）
 - `_download_cover_bg`：`vndb_client.download_cover(progress_cb=_pc)`；成功且库中 `cover_path` 仍空则写库 + `reloadCover`；成功/失败都移除进度；**不重试**
 - 线程池 `max_workers = cover_download.max_concurrent`（默认 4，**改后重启生效**）
+- `shutdown()`：窗口 `closing` 时调用——置位全部 `_cover_cancel`、`_cover_pool.shutdown(wait=False, cancel_futures=True)`、`_ui.unbind_window()`，避免活跃下载拖住退出
 
 ### 运行状态回调
 - `_on_game_start` → `running=id` + `refresh_delta`；`_on_game_exit` → `running=""` + `refresh_delta`

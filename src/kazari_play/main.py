@@ -324,9 +324,13 @@ def main():
     )
     bridge.bind_window(win)
 
-    # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时退出 overlay.exe，
-    # 避免独立 overlay 进程残留
+    # 窗口关闭（任意路径：✕ / Alt+F4 / 任务管理器 / 系统关闭）时释放后台资源：
+    # 取消封面下载、关闭线程池、解绑推送，并退出独立 overlay.exe
     def _on_window_closing():
+        try:
+            bridge.shutdown()
+        except Exception:
+            pass
         try:
             cover_service.stop()
         except Exception:

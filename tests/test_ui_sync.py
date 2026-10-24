@@ -122,6 +122,20 @@ def test_screenshots_merge():
     print("[screenshots_merge] OK")
 
 
+def test_unbind_window():
+    """解绑后丢弃待推送项，后续 invalidate 静默跳过"""
+    ui = UISync()
+    win = FakeWindow()
+    ui.bind_window(win)
+    ui.invalidate("toast", "a")
+    ui.unbind_window()
+    ui.flush_now()
+    ui.invalidate("games")
+    ui.flush_now()
+    assert win.calls == [], f"解绑后不应再推送: {win.calls}"
+    print("[unbind_window] OK")
+
+
 def test_no_window():
     ui = UISync()
     ui.invalidate("games")          # 未绑定窗口 → 静默跳过，不抛异常
@@ -158,6 +172,7 @@ def main():
     test_games_delta_merge()
     test_toast_queue()
     test_screenshots_merge()
+    test_unbind_window()
     test_no_window()
     test_multi_thread()
     print("UI_SYNC TEST PASS")
