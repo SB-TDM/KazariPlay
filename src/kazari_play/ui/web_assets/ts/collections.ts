@@ -83,7 +83,7 @@ function renderCollectionGroup(group: CollectionTreeNode): HTMLElement {
       if (e.target !== hdr) return;
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectCollection(group.id, group); }
     };
-  hdr.addEventListener('contextmenu', (e: MouseEvent) => { e.preventDefault(); showCollectionCtx(e.clientX, e.clientY, group); });
+  hdr.addEventListener('contextmenu', (e: MouseEvent) => { e.preventDefault(); showCollectionCtx(e.clientX, e.clientY, group, hdr); });
   // 小按钮：仅展开/收起子分类（手风琴），不筛选
   const tgl = el.querySelector('.toggle') as HTMLElement | null;
   if (tgl) {
@@ -121,7 +121,7 @@ function bindCollectionItems(): void {
     it.oncontextmenu = (e: MouseEvent) => {
       e.preventDefault();
       const node = findCollectionNode(cid);
-      if (node) showCollectionCtx(e.clientX, e.clientY, node);
+      if (node) showCollectionCtx(e.clientX, e.clientY, node, it);
     };
   });
 }
@@ -195,9 +195,11 @@ function clearCollectionFilter(): void {
 }
 
 // 收藏夹右键菜单（复用通用右键菜单，带图标）
-function showCollectionCtx(x: number, y: number, node: CollectionTreeNode): void {
+// anchor：右键所在行，供色板定位；色板延迟到本次点击结束后打开，避免被外部点击关闭
+function showCollectionCtx(x: number, y: number, node: CollectionTreeNode, anchor: HTMLElement): void {
   showContextMenu([
     { icon: ICON.controller, text: '管理游戏', action: () => openManageGames(node) },
+    { icon: ICON.palette, text: '更改颜色', action: () => setTimeout(() => openCollectionColorPicker(anchor, node.id), 0) },
     { icon: ICON.edit, text: '重命名', action: () => renameCollection(node) },
     { icon: ICON.trash, text: '删除', action: () => delCollection(node), danger: true },
   ], x, y, 180);

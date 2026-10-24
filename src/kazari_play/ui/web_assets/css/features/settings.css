@@ -20,7 +20,7 @@
   border: 1px solid var(--border-soft);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 18px 44px rgba(74, 57, 84, .18), 0 2px 8px rgba(255, 111, 145, .06);
+  box-shadow: 0 18px 44px rgba(74, 57, 84, .18);
   animation: settingsDialogIn .22s cubic-bezier(.2, .8, .2, 1);
 }
 #settingsOverlay.hiding .dialog.settings {
@@ -51,7 +51,6 @@
   border-radius: 14px;
   color: #fff;
   background: var(--grad-pink);
-  box-shadow: 0 8px 18px rgba(255, 111, 145, .25);
 }
 #settingsOverlay .dlg-icon .ic { width: 21px; height: 21px; }
 #settingsOverlay .dlg-head h3 { margin: 0; font-size: 20px; line-height: 1.2; font-weight: 700; color: var(--text); }
@@ -114,7 +113,6 @@
 #settingsOverlay .nav-item.active {
   color: #fff;
   background: var(--grad-pink);
-  box-shadow: 0 8px 18px rgba(255, 111, 145, .24);
 }
 #settingsOverlay .nav-item.active .nav-ic { background: rgba(255, 255, 255, .22); color: #fff; }
 #settingsOverlay .nav-item.active::before {
@@ -166,7 +164,6 @@
   margin-top: 5px;
   border-radius: 50%;
   background: var(--grad-pink);
-  box-shadow: 0 0 0 3px var(--glow-soft);
 }
 #settingsOverlay .g-title { font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--text); }
 #settingsOverlay .g-sub { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--text-sub); }
@@ -222,7 +219,7 @@
 #settingsOverlay .dlg-content input:not(.hotkey-input):hover,
 #settingsOverlay .dlg-content select:hover { border-color: var(--settings-border-hover); }
 #settingsOverlay .dlg-content input:not(.hotkey-input):focus,
-#settingsOverlay .dlg-content select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
+#settingsOverlay .dlg-content select:focus { border-color: var(--pink); }
 #settingsOverlay .dlg-content input:not(.hotkey-input):disabled { background: var(--bg-soft); color: var(--text-disabled); cursor: not-allowed; }
 #setProxyTest { height: 36px; flex: none; padding: 0 15px; }
 
@@ -245,7 +242,7 @@
 }
 #settingsOverlay .switch input:checked + .track { background: var(--grad-pink); }
 #settingsOverlay .switch input:checked + .track .thumb { left: 21px; }
-#settingsOverlay .switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--glow-soft); }
+#settingsOverlay .switch input:focus-visible + .track { outline: 2px solid var(--pink); outline-offset: 2px; }
 
 #settingsOverlay .hotkey-grid {
   display: grid;
@@ -264,8 +261,8 @@
 }
 #settingsOverlay .hotkey-card:hover { background: var(--bg-hover); border-color: var(--pink); transform: translateY(-1px); }
 #settingsOverlay .hotkey-card:focus-within,
-#settingsOverlay .hotkey-card.is-capturing { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
-#settingsOverlay .hotkey-card.is-conflict { border-color: var(--settings-danger); box-shadow: 0 0 0 3px rgba(255, 111, 129, .14); }
+#settingsOverlay .hotkey-card.is-capturing { border-color: var(--pink); }
+#settingsOverlay .hotkey-card.is-conflict { border-color: var(--settings-danger); }
 #settingsOverlay .hk-top { display: flex; align-items: center; gap: 9px; }
 #settingsOverlay .hk-icon {
   width: 30px; height: 30px; flex: none;
@@ -341,8 +338,8 @@
   font-family: var(--font);
   transition: transform .22s var(--bounce), border-color .2s, box-shadow .2s;
 }
-#settingsOverlay .theme-card:hover { transform: translateY(-2px); border-color: var(--pink); box-shadow: 0 8px 18px var(--glow-soft); }
-#settingsOverlay .theme-card.on { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
+#settingsOverlay .theme-card:hover { transform: translateY(-2px); border-color: var(--pink); }
+#settingsOverlay .theme-card.on { border-color: var(--pink); }
 #settingsOverlay .theme-card .sw {
   height: 88px;
   border-radius: 11px;
@@ -426,7 +423,6 @@
   font-family: var(--font-cute);
   font-size: 28px;
   font-weight: 700;
-  box-shadow: 0 10px 22px rgba(255, 111, 145, .25);
 }
 #settingsOverlay .a-name { font-family: var(--font-cute); font-size: 24px; font-weight: 700; color: var(--settings-ink); }
 #settingsOverlay .a-ver {
@@ -486,8 +482,7 @@
 }
 #settingsOverlay .dlg-foot .reset:hover { color: var(--settings-ink); }
 #settingsOverlay .dlg-foot .pill-btn { height: 36px; }
-#settingsOverlay .dlg-foot #setSave { min-width: 88px; box-shadow: 0 6px 14px rgba(255, 111, 145, .2); }
-#settingsOverlay .dlg-foot #setSave:disabled { box-shadow: none; }
+#settingsOverlay .dlg-foot #setSave { min-width: 88px; }
 
 :root[data-theme="dark"] #settingsOverlay {
   --settings-ink: var(--pink-deep);

@@ -225,7 +225,7 @@ function showContextMenu(entries: ContextMenuEntry[], x: number, y: number, widt
   if (px + w > vw - 8) px = vw - w - 8;
   if (py + mh > vh - 8) py = vh - mh - 8;
   px = Math.max(8, px); py = Math.max(8, py);
-  m.style.cssText = `position:fixed;left:${px}px;top:${py}px;display:block;z-index:90;background:var(--bg-panel);border:1.5px solid var(--border-soft);border-radius:12px;padding:5px;width:${w}px;box-shadow:0 10px 24px var(--glow-med);`;
+  m.style.cssText = `position:fixed;left:${px}px;top:${py}px;display:block;z-index:90;background:var(--bg-panel);border:1.5px solid var(--border-soft);border-radius:12px;padding:5px;width:${w}px;box-shadow:0 10px 24px rgba(74,57,84,.18);`;
   m.innerHTML = entries.map(e =>
     e === 'sep'
       ? '<div class="menu-sep"></div>'
