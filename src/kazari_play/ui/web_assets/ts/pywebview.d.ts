@@ -85,6 +85,8 @@ interface PyWebViewApi {
   mergeGames(source_id: string, target_id: string): Promise<string>;
   dismissUnmatched(game_id: string): Promise<string>;
   previewRelocate(ids_json: string): Promise<string>;
+  /** 取消正在进行的重新定位预览扫描；无任务时返回 false */
+  cancelRelocate(): Promise<boolean>;
   applyRelocate(mapping_json: string): Promise<string>;
   setRating(game_id: string, rating: number): Promise<boolean>;
 

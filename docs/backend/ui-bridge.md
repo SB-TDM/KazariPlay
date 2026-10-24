@@ -63,7 +63,7 @@
 - 批量：`batchAddTag`/`batchRemoveTag`/`batchMoveCategory`/`batchDelete`
 
 ### 批量重新定位（路径修正，不改 id）
-- `previewRelocate(ids_json)`：选目录 → `scanner.scan` → 按 `identity` 建索引 → 返回 `items[{id,title,old_exe,new_exe,status}]`，`status ∈ matched/missing/conflict`（多候选或目标 exe 已被别的卡占用 = conflict）
+- `previewRelocate(ids_json)`：选目录 → `scanner.scan(cancel_event=...)` → 按 `identity` 建索引 → 返回 `items[{id,title,old_exe,new_exe,status}]`，`status ∈ matched/missing/conflict`（多候选或目标 exe 已被别的卡占用 = conflict）。扫描期间前端显示「正在扫描…」，`relocateOk` 禁用；同一时间只允许一个预览扫描，重复请求返回「进行中」；`cancelRelocate()` 置位取消事件，取消后返回 `{ok:false,msg:"已取消重新定位扫描"}`
 - `applyRelocate(mapping_json)`：仅更新匹配项；处理自定义启动路径（folder 内则相对迁移）；冲突/文件缺失记入 `failures`；成功后 `refresh` + `notify`
 
 ### 收藏夹（V1.0）

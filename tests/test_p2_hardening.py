@@ -1,7 +1,10 @@
 """P2 桥接输入校验回归：非法 JSON / 未知字段 / 数组元素类型不得抛异常或部分写入。"""
 import json
 import os
+import threading
+import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import test_p0_data_flow as base
@@ -160,6 +163,35 @@ class HardeningTests(base.DataFlowTests):
         self.assertIsNone(self.manager.get_game(game.id))
         self.assertFalse(os.path.isfile(dest))
         self.assertNotIn(dest, wb._cover_cache)
+
+    def test_preview_relocate_can_be_cancelled(self):
+        game = self.fixture("Hardening")
+        self.bridge._window = SimpleNamespace(create_file_dialog=lambda *a: [str(self.root)])
+        entered = threading.Event()
+
+        def scan(folder, recursive=True, progress_cb=None, cancel_event=None):
+            entered.set()
+            for _ in range(500):
+                if cancel_event is not None and cancel_event.is_set():
+                    return []
+                time.sleep(0.01)
+            return []
+
+        results = {}
+        with patch.object(self.manager.scanner, "scan", side_effect=scan):
+            worker = threading.Thread(target=lambda: results.setdefault(
+                "reply", json.loads(self.bridge.previewRelocate(json.dumps([game.id])))))
+            worker.start()
+            self.assertTrue(entered.wait(3))
+            busy = json.loads(self.bridge.previewRelocate(json.dumps([game.id])))
+            self.assertFalse(busy["ok"])
+            self.assertIn("进行中", busy["msg"])
+            self.assertTrue(self.bridge.cancelRelocate())
+            worker.join(5)
+        self.assertFalse(worker.is_alive(), "取消后扫描线程应退出")
+        self.assertFalse(results["reply"]["ok"])
+        self.assertIn("取消", results["reply"]["msg"])
+        self.assertFalse(self.bridge.cancelRelocate(), "任务结束后不应再有可取消事件")
 
     def test_shutdown_cancels_cover_pool_and_unbinds_ui(self):
         import threading

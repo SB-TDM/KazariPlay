@@ -358,6 +358,8 @@ class WebBridge:
         self._vndb_cancel = threading.Event()   # VNDB 匹配取消信号（cancelMatch 置位，match_batch 循环检查）
         self._task_lock = threading.Lock()
         self._task_thread = None
+        self._relocate_cancel = None            # 重新定位预览扫描的取消事件
+        self._relocate_lock = threading.Lock()  # 同一时间只允许一个预览扫描
         # 更新任务占用：重复点击/重试的原子防护（见 AUTO_UPDATE_CODE_REVIEW UPD-REV-04）
         self._update_apply_lock = threading.Lock()
         self._update_apply_claimed = False
@@ -591,8 +593,18 @@ class WebBridge:
         folders = [f for f in (folders or []) if f]
         if not folders:
             return json.dumps({"ok": False, "msg": ""}, ensure_ascii=False)
-        # 扫描目标目录，按 identity 建索引
-        scanned = self.manager.scanner.scan(folders[0])
+        if not self._relocate_lock.acquire(blocking=False):
+            return json.dumps({"ok": False, "msg": "重新定位扫描进行中"}, ensure_ascii=False)
+        cancel = threading.Event()
+        self._relocate_cancel = cancel
+        try:
+            # 扫描目标目录，按 identity 建索引（可经 cancelRelocate 取消）
+            scanned = self.manager.scanner.scan(folders[0], cancel_event=cancel)
+        finally:
+            self._relocate_cancel = None
+            self._relocate_lock.release()
+        if cancel.is_set():
+            return json.dumps({"ok": False, "msg": "已取消重新定位扫描"}, ensure_ascii=False)
         by_identity = {}
         for g in scanned:
             if g.identity:
@@ -616,6 +628,14 @@ class WebBridge:
                 "old_exe": game.exe_path, "new_exe": new_exe, "status": status,
             })
         return json.dumps({"ok": True, "items": items}, ensure_ascii=False)
+
+    def cancelRelocate(self) -> bool:
+        """取消正在进行的重新定位预览扫描（无进行中任务时返回 False）"""
+        cancel = self._relocate_cancel
+        if cancel is None:
+            return False
+        cancel.set()
+        return True
 
     def applyRelocate(self, mapping_json: str) -> str:
         """应用重新定位：mapping=[{id,new_exe}]，仅更新匹配项，id 保持不变"""

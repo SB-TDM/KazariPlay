@@ -246,8 +246,15 @@ document.getElementById('btnBVndb')!.onclick = () => {
 // ---------- 批量重新定位（选目录 → 按 identity 匹配 → 预览确认）----------
 interface RelocateItem { id: string; title: string; old_exe: string; new_exe: string; status: string; }
 let relocateItems: RelocateItem[] = [];
+let relocateReq = 0;
+let relocateBusy = false;
 
 function closeRelocate(): void {
+  if (relocateBusy) {
+    relocateBusy = false;
+    relocateReq++;
+    bridge.cancelRelocate();
+  }
   document.getElementById('relocateOverlay')!.classList.remove('show');
 }
 
@@ -279,11 +286,23 @@ function renderRelocatePreview(items: RelocateItem[]): void {
 }
 
 document.getElementById('btnBRelocate')!.onclick = () => {
-  if (App.ui.state.selected.size === 0) return;
-  bridge.previewRelocate(JSON.stringify([...App.ui.state.selected]), function (res: unknown) {
+  if (App.ui.state.selected.size === 0 || relocateBusy) return;
+  const req = ++relocateReq;
+  const okBtn = document.getElementById('relocateOk') as HTMLButtonElement;
+  relocateBusy = true;
+  relocateItems = [];
+  okBtn.disabled = true;
+  document.getElementById('relocateSubText')!.textContent = '正在扫描目标目录…';
+  document.getElementById('relocateList')!.innerHTML = '';
+  document.getElementById('relocateOverlay')!.classList.add('show');
+  bridge.previewRelocate(JSON.stringify([...App.ui.state.selected]), function (res: unknown, failed?: boolean) {
+    if (req !== relocateReq) return;   // 用户已取消/关闭：丢弃迟到结果
+    relocateBusy = false;
+    okBtn.disabled = false;
+    if (failed) { closeRelocate(); toast('预览失败'); return; }
     let r: { ok?: boolean; msg?: string; items?: RelocateItem[] } = {};
     try { r = JSON.parse(String(res || '{}')); } catch (e) { }
-    if (!r.ok) { if (r.msg) toast(r.msg); return; }
+    if (!r.ok) { closeRelocate(); if (r.msg) toast(r.msg); return; }
     renderRelocatePreview(r.items || []);
   });
 };
