@@ -443,7 +443,10 @@ class WebBridge:
         return json.dumps(self._config_service.get_public_config(), ensure_ascii=False)
 
     def saveConfigs(self, data_json: str) -> str:
-        result = self._config_service.save(json.loads(data_json))
+        data = _load_json(data_json, dict)
+        if data is None:
+            return json.dumps({"ok": False, "msg": "配置参数格式错误"}, ensure_ascii=False)
+        result = self._config_service.save(data)
         return json.dumps(result, ensure_ascii=False)
 
     def resetConfig(self):

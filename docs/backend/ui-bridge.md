@@ -49,7 +49,7 @@
 ### 数据 / 配置
 - `getGames()`（JSON 数组）/ `getGame(id)` / `getCover(id)`（data URI）/ `getTags()` / `getCategories()`
 - `getConfig()`：剔除实验版键（translate/textractor/clean/subtitle/overlay.subtitle_enabled），附 `path`
-- `saveConfigs(data_json)`：**深合并**（保留表单未涉及的嵌套字段）后逐项 set + save
+- `saveConfigs(data_json)`：**深合并**（保留表单未涉及的嵌套字段）后逐项 set + save。入参必须是 JSON 对象；白名单只接受现有顶层键与现有嵌套子键，未知字段丢弃并记 warning，不写入 config
 - `resetConfig()` / `setTheme(theme)`（**即时持久化**，无需点保存）/ `getConfigPath()`
 
 ### 写操作

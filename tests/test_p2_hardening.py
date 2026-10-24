@@ -47,8 +47,24 @@ class HardeningTests(base.DataFlowTests):
         node = [c for c in tree[0]["children"] if c["id"] == cat["id"]][0]
         self.assertEqual(node["name"], "分类")
 
-    # ---------- applyCandidate / setCover ----------
+    def test_save_configs_rejects_bad_payload_and_unknown_keys(self):
+        for payload in ("not json", "[]"):
+            with self.subTest(payload=payload):
+                self.assertFalse(json.loads(self.bridge.saveConfigs(payload))["ok"])
 
+        self.assertTrue(json.loads(self.bridge.saveConfigs(json.dumps({"theme": "dark"})))["ok"])
+        self.assertEqual(self.bridge._cfg.get("theme"), "dark")
+
+        result = json.loads(self.bridge.saveConfigs(json.dumps({
+            "bogus_key": 1,
+            "network": {"proxy_mode": "direct", "bogus_nested": 1},
+        })))
+        self.assertTrue(result["ok"])
+        self.assertIsNone(self.bridge._cfg.get("bogus_key"))
+        self.assertIsNone(self.bridge._cfg.get("network.bogus_nested"))
+        self.assertEqual(self.bridge._cfg.get("network.proxy_mode"), "direct")
+
+    # ---------- applyCandidate / setCover ----------
     def test_apply_candidate_rejects_bad_payload(self):
         game = self.fixture("Hardening")
         for cand in ("not json", "[]"):
