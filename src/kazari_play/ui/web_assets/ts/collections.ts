@@ -248,30 +248,48 @@ function renderGameCollections(): void {
   const curIds = new Set((App.data.currentGame.collections || []).map(c => c.id));
   const t = document.getElementById('gameCollectionList')!;
   t.innerHTML = '';
-  // 全部分组 + 子分类（带完整路径），均可勾选
   const all = flattenCollectionTree().map(it => ({
     id: it.node.id, label: it.label, color: it.node.color, icon: it.node.icon,
   }));
+  if (all.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'collection-option-empty';
+    empty.textContent = '还没有收藏夹';
+    t.appendChild(empty);
+    return;
+  }
   all.forEach(col => {
     const selected = curIds.has(col.id);
-    const c = document.createElement('span');
-    c.className = 'chip' + (selected ? ' on' : '');
-    c.style.color = selected ? '' : '#4a4358';
-    c.style.background = selected ? '' : (col.color || chipColor(col.label));
-    c.textContent = (col.icon || '') + ' ' + col.label;
-    c.onclick = () => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'collection-option' + (selected ? ' on' : '');
+    row.setAttribute('role', 'checkbox');
+    row.setAttribute('aria-checked', selected ? 'true' : 'false');
+    row.setAttribute('aria-label', col.label + (selected ? '，已加入' : '，未加入'));
+    const mark = document.createElement('span');
+    mark.className = 'collection-option-mark';
+    mark.style.background = col.color || chipColor(col.label);
+    mark.textContent = col.icon || '';
+    const name = document.createElement('span');
+    name.className = 'collection-option-name';
+    name.textContent = col.label;
+    const check = document.createElement('span');
+    check.className = 'collection-option-check';
+    check.setAttribute('aria-hidden', 'true');
+    check.textContent = selected ? '✓' : '';
+    row.append(mark, name, check);
+    row.onclick = () => {
       const g = App.data.currentGame!;
       const next = new Set(curIds);
       if (next.has(col.id)) next.delete(col.id); else next.add(col.id);
       bridge.setGameCollections(String(g.id), JSON.stringify([...next]));
-      // 本地同步 currentGame.collections，立即反映选中态（后端 refresh 也会回写）
       const had = curIds.has(col.id);
       if (had) { g.collections = g.collections.filter(x => x.id !== col.id); }
       else { g.collections = g.collections.concat([{ id: col.id, name: col.label, color: col.color || '', icon: col.icon || '' }]); }
       toast(had ? '已移除收藏夹' : '已加入收藏夹');
       renderGameCollections();
     };
-    t.appendChild(c);
+    t.appendChild(row);
   });
 }
 

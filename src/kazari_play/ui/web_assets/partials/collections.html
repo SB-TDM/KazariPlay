@@ -2,14 +2,13 @@
 
 <!-- 收藏夹管理抽屉：当前游戏加入/退出收藏夹 -->
 <div class="overlay" id="collectionOverlay">
-  <div class="dialog tagmgr">
-    <div class="dlg-title"><span>收藏夹</span>
+  <div class="dialog tagmgr collection-manager">
+    <div class="dlg-title"><span>管理收藏夹</span>
       <button class="close-btn" id="collectionClose" aria-label="关闭"><svg class="ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg></button></div>
     <div id="gameCollectionSection">
-      <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span></div>
-      <div class="taglist" id="gameCollectionList"></div>
+      <div class="section-ttl"><span id="gameCollectionTitle">当前游戏</span><span class="section-hint">点击条目切换</span></div>
+      <div class="collection-choice-list" id="gameCollectionList"></div>
     </div>
-    <div class="section-ttl">点击收藏夹加入/退出</div>
     <div class="dlg-foot"><button class="pill-btn" id="collectionDone">完成</button></div>
   </div>
 </div>
