@@ -13,7 +13,7 @@
 **为什么存在**：此前散落 35+ 处 `refresh()`、多处 `evaluate_js`；本模块把「事件域 → 前端刷新策略」收敛为注册表 + 微延迟合并。
 
 **机制**
-- `invalidate(domain, payload)`：任意线程可调；`_pending[domain] = payload`（**同域覆盖**，保留插入序），首条启动 `threading.Timer(_FLUSH_DELAY=50ms)`。
+- `invalidate(domain, payload)`：任意线程可调；首条启动 `threading.Timer(_FLUSH_DELAY=50ms)`。`toast`（消息队列，顺序送达）、`cover` / `screenshots`（每个 gid 各推一次）、`games_delta`（id 并集去重）在窗口内**累积**，其余域 `_pending[domain] = payload`（**同域覆盖**，保留插入序）。
 - `_flush_scheduled` → `_emit(pending)`：把一批 pending 拼成**单个 IIFE** `(function(){...})()`，经 `_flush_lock` 串行 `window.evaluate_js(js)`。窗口未绑定/已关闭则静默跳过。
 - `bind_window(window)`：窗口创建后绑定。`flush_now()`：测试/退出前立即推送。
 
@@ -31,7 +31,7 @@
 | `toast` | `toast(msg)` | 消息文本 |
 | `running` | `setRunning(gid)` | game_id（空=无运行） |
 
-**关键约束**：域内 payload **覆盖**语义 → `cover_progress` 必须传「当前所有下载中状态快照」（见 web_bridge `_set_cover_progress`），否则多游戏进度互相覆盖，只剩最后一个。
+**关键约束**：`scan_progress` / `batch_progress` / `cover_progress` / `running` 为**覆盖**语义 → `cover_progress` 必须传「当前所有下载中状态快照」（见 web_bridge `_set_cover_progress`），否则多游戏进度互相覆盖，只剩最后一个。`toast` / `cover` / `screenshots` / `games_delta` 为累积语义：同一合并窗口内的每次调用都会送达前端。
 
 ---
 

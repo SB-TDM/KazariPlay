@@ -63,6 +63,65 @@ def test_timer_coalescing():
     print("[timer_coalescing] OK")
 
 
+def test_cover_merge():
+    """同一合并窗口内多次定向封面刷新不能互相覆盖"""
+    ui = UISync()
+    win = FakeWindow()
+    ui.bind_window(win)
+    ui.invalidate("cover", "g1")
+    ui.invalidate("cover", "g2")
+    ui.flush_now()
+    js = win.calls[0]
+    assert 'reloadCover("g1");' in js, f"g1 封面刷新丢失: {js}"
+    assert 'reloadCover("g2");' in js, f"g2 封面刷新丢失: {js}"
+    print("[cover_merge] OK")
+
+
+def test_games_delta_merge():
+    """同一合并窗口内多次增量刷新应合并为并集且去重"""
+    ui = UISync()
+    win = FakeWindow()
+    ui.bind_window(win)
+    ui.invalidate("games_delta", ["g1"])
+    ui.invalidate("games_delta", ["g2", "g1"])
+    ui.flush_now()
+    js = win.calls[0]
+    assert js.count("applyGamesDelta(") == 1, f"应合并为一次调用: {js}"
+    assert '"g1"' in js and '"g2"' in js, f"增量 id 丢失: {js}"
+    assert js.count('"g1"') == 1, f"增量 id 未去重: {js}"
+    print("[games_delta_merge] OK")
+
+
+def test_toast_queue():
+    """同一合并窗口内多条 toast 必须全部送达且保持顺序"""
+    ui = UISync()
+    win = FakeWindow()
+    ui.bind_window(win)
+    ui.invalidate("toast", "第一条")
+    ui.invalidate("toast", "第二条")
+    ui.flush_now()
+    js = win.calls[0]
+    assert js.count("window.__app.toast(") == 2, f"toast 被覆盖: {js}"
+    assert js.index("第一条") < js.index("第二条"), f"toast 顺序错乱: {js}"
+    print("[toast_queue] OK")
+
+
+def test_screenshots_merge():
+    """同一合并窗口内多次截图区刷新不能互相覆盖"""
+    ui = UISync()
+    win = FakeWindow()
+    ui.bind_window(win)
+    ui.invalidate("screenshots", "g1")
+    ui.invalidate("screenshots", "g2")
+    ui.invalidate("screenshots", None)
+    ui.flush_now()
+    js = win.calls[0]
+    assert 'refreshScreenshots("g1");' in js, f"g1 截图刷新丢失: {js}"
+    assert 'refreshScreenshots("g2");' in js, f"g2 截图刷新丢失: {js}"
+    assert 'refreshScreenshots(null);' not in js, f"空 game_id 不应推送: {js}"
+    print("[screenshots_merge] OK")
+
+
 def test_no_window():
     ui = UISync()
     ui.invalidate("games")          # 未绑定窗口 → 静默跳过，不抛异常
@@ -95,6 +154,10 @@ def test_multi_thread():
 def main():
     test_domain_mapping()
     test_timer_coalescing()
+    test_cover_merge()
+    test_games_delta_merge()
+    test_toast_queue()
+    test_screenshots_merge()
     test_no_window()
     test_multi_thread()
     print("UI_SYNC TEST PASS")

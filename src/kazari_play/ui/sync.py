@@ -51,6 +51,13 @@ _DOMAIN_JS = {
 }
 
 
+# 这些域的 payload 在合并窗口内必须累积：直接覆盖会丢掉前一次变化。
+#   toast        -> 全部保留（顺序送达）
+#   cover / screenshots -> 每个 game_id 各推一次
+#   games_delta  -> 取并集（去重保序），一次推送
+_ACCUMULATE = frozenset({"toast", "cover", "screenshots", "games_delta"})
+
+
 class UISync:
     """前端界面更新总线"""
 
@@ -58,7 +65,7 @@ class UISync:
         self._window = None
         self._lock = threading.Lock()        # 保护 _pending / _timer
         self._flush_lock = threading.Lock()  # 串行化 evaluate_js（多线程推送时）
-        self._pending = {}                   # domain -> payload（插入序即触发序）
+        self._pending = {}                   # domain -> payload（累积域为 list；插入序即触发序）
         self._timer = None
 
     # ---------- 对外接口 ----------
@@ -78,7 +85,16 @@ class UISync:
             logger.warning("未知界面更新域: %s", domain)
             return
         with self._lock:
-            self._pending[domain] = payload
+            if domain in _ACCUMULATE:
+                bucket = self._pending.setdefault(domain, [])
+                if domain == "games_delta":
+                    self._extend_unique(bucket, payload or [])
+                elif domain == "toast":
+                    bucket.append(payload)
+                elif payload:
+                    self._extend_unique(bucket, [payload])
+            else:
+                self._pending[domain] = payload
             if self._timer is None:
                 self._timer = threading.Timer(_FLUSH_DELAY, self._flush_scheduled)
                 self._timer.daemon = True
@@ -96,6 +112,13 @@ class UISync:
 
     # ---------- 内部实现 ----------
 
+    @staticmethod
+    def _extend_unique(bucket: list, items) -> None:
+        """按序追加并去重（保持首次出现的位置）"""
+        for item in items:
+            if item not in bucket:
+                bucket.append(item)
+
     def _flush_scheduled(self) -> None:
         """定时器到期：取走全部待处理项并推送"""
         with self._lock:
@@ -112,19 +135,22 @@ class UISync:
         statements = []
         for domain, payload in pending.items():
             if domain == "toast":
-                statements.append(
-                    f"window.__app && window.__app.toast("
-                    f"{json.dumps(payload, ensure_ascii=False)});")
+                for msg in payload:
+                    statements.append(
+                        f"window.__app && window.__app.toast("
+                        f"{json.dumps(msg, ensure_ascii=False)});")
             elif domain == "screenshots":
-                gid = json.dumps(payload or "", ensure_ascii=False)
-                statements.append(
-                    f"window.__app && window.__app.refreshScreenshots({gid});")
+                for gid in payload:
+                    statements.append(
+                        f"window.__app && window.__app.refreshScreenshots("
+                        f"{json.dumps(gid, ensure_ascii=False)});")
             elif domain == "cover":
-                gid = json.dumps(payload or "", ensure_ascii=False)
-                statements.append(
-                    f"window.__app && window.__app.reloadCover({gid});")
+                for gid in payload:
+                    statements.append(
+                        f"window.__app && window.__app.reloadCover("
+                        f"{json.dumps(gid, ensure_ascii=False)});")
             elif domain == "games_delta":
-                ids = json.dumps(list(payload or []), ensure_ascii=False)
+                ids = json.dumps(payload, ensure_ascii=False)
                 statements.append(
                     f"window.__app && window.__app.applyGamesDelta({ids});")
             elif domain == "scan_progress":
