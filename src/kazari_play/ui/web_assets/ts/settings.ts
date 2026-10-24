@@ -29,6 +29,8 @@
     });
     document.querySelectorAll<HTMLElement>('#settingsOverlay .page').forEach((page) =>
       page.style.display = page.id === 'set-' + target ? 'block' : 'none');
+    const content = document.querySelector<HTMLElement>('#settingsOverlay .dlg-content');
+    if (content) content.scrollTop = 0;
     if (persist) {
       try { localStorage.setItem('settings_tab', target); } catch (e) { }
     }

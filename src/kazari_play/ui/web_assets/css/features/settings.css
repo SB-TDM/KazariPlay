@@ -1,7 +1,13 @@
 /* Settings dialog: layout, navigation, controls, themes */
 
 #settingsOverlay.overlay.center { align-items: center; padding: 24px; }
-#settingsOverlay { background: rgba(47, 32, 58, .46); }
+#settingsOverlay {
+  --settings-ink: #c23d66;
+  --settings-border-hover: #ffc2d0;
+  --settings-switch-off: #d9cdd5;
+  --settings-danger: #ff6f81;
+  background: rgba(47, 32, 58, .46);
+}
 #settingsOverlay .dialog { border-radius: 20px; border-bottom: 1px solid var(--border-soft); }
 #settingsOverlay .dialog.settings {
   width: min(90vw, 900px);
@@ -44,7 +50,7 @@
   color: var(--text-sub);
   border: 1px solid var(--border-soft);
 }
-#settingsOverlay .dlg-head .close-btn:hover { background: #ffb3bd; color: #fff; }
+#settingsOverlay .dlg-head .close-btn:hover { background: var(--pink); color: #fff; }
 
 #settingsOverlay .dlg-body { flex: 1; display: flex; min-height: 0; }
 
@@ -91,8 +97,8 @@
   transition: background .2s, color .2s;
 }
 #settingsOverlay .nav-item .nav-ic svg { width: 16px; height: 16px; }
-#settingsOverlay .nav-item:hover { background: rgba(255, 255, 255, .72); color: var(--pink-deep); transform: translateX(2px); }
-#settingsOverlay .nav-item:hover .nav-ic { color: var(--pink-deep); }
+#settingsOverlay .nav-item:hover { background: rgba(255, 255, 255, .72); color: var(--settings-ink); transform: translateX(2px); }
+#settingsOverlay .nav-item:hover .nav-ic { color: var(--settings-ink); }
 #settingsOverlay .nav-item.active {
   color: #fff;
   background: var(--grad-pink);
@@ -151,7 +157,7 @@
   box-shadow: 0 0 0 3px var(--glow-soft);
 }
 #settingsOverlay .g-title { font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--text); }
-#settingsOverlay .g-sub { margin-top: 2px; font-size: 11px; line-height: 1.45; color: var(--text-disabled); }
+#settingsOverlay .g-sub { margin-top: 2px; font-size: 11.5px; line-height: 1.45; color: var(--text-sub); }
 
 #settingsOverlay .form-row {
   display: flex;
@@ -169,12 +175,12 @@
   color: var(--text-sub);
 }
 #settingsOverlay .form-row .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-#settingsOverlay .form-row .desc { font-size: 11px; line-height: 1.55; color: var(--text-disabled); }
+#settingsOverlay .form-row .desc { font-size: 11.5px; line-height: 1.55; color: var(--text-sub); }
 #settingsOverlay .form-row-note { min-height: 30px; padding-top: 2px; }
 #settingsOverlay .form-row-note .desc { padding-left: 0; }
 #settingsOverlay .form-row-note + .form-row { border-top: none; }
 
-#settingsOverlay .dlg-content input[type=text],
+#settingsOverlay .dlg-content input[type=text]:not(.hotkey-input),
 #settingsOverlay .dlg-content input[type=password],
 #settingsOverlay .dlg-content select {
   height: 36px;
@@ -189,7 +195,7 @@
   outline: none;
   transition: border-color .2s, box-shadow .2s, background .2s;
 }
-#settingsOverlay .dlg-content input[type=text] { width: min(100%, 330px); }
+#settingsOverlay .dlg-content input[type=text]:not(.hotkey-input) { width: min(100%, 330px); }
 #settingsOverlay .dlg-content input[type=password] { width: min(100%, 250px); }
 #settingsOverlay .dlg-content select {
   width: min(100%, 260px);
@@ -201,11 +207,11 @@
   background-position: right 11px center;
   background-size: 14px;
 }
-#settingsOverlay .dlg-content input:hover,
-#settingsOverlay .dlg-content select:hover { border-color: #ffc2d0; }
-#settingsOverlay .dlg-content input:focus,
+#settingsOverlay .dlg-content input:not(.hotkey-input):hover,
+#settingsOverlay .dlg-content select:hover { border-color: var(--settings-border-hover); }
+#settingsOverlay .dlg-content input:not(.hotkey-input):focus,
 #settingsOverlay .dlg-content select:focus { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
-#settingsOverlay .dlg-content input:disabled { background: var(--bg-soft); color: var(--text-disabled); cursor: not-allowed; }
+#settingsOverlay .dlg-content input:not(.hotkey-input):disabled { background: var(--bg-soft); color: var(--text-disabled); cursor: not-allowed; }
 #setProxyTest { height: 36px; flex: none; padding: 0 15px; }
 
 #settingsOverlay .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: none; cursor: pointer; }
@@ -213,7 +219,7 @@
 #settingsOverlay .switch .track {
   position: absolute; inset: 0;
   border-radius: 50px;
-  background: #d9cdd5;
+  background: var(--settings-switch-off);
   transition: background .25s var(--soft);
 }
 #settingsOverlay .switch .thumb {
@@ -247,7 +253,7 @@
 #settingsOverlay .hotkey-card:hover { background: var(--bg-hover); border-color: var(--pink); transform: translateY(-1px); }
 #settingsOverlay .hotkey-card:focus-within,
 #settingsOverlay .hotkey-card.is-capturing { border-color: var(--pink); box-shadow: 0 0 0 3px var(--glow-soft); }
-#settingsOverlay .hotkey-card.is-conflict { border-color: #ff6f81; box-shadow: 0 0 0 3px rgba(255, 111, 129, .14); }
+#settingsOverlay .hotkey-card.is-conflict { border-color: var(--settings-danger); box-shadow: 0 0 0 3px rgba(255, 111, 129, .14); }
 #settingsOverlay .hk-top { display: flex; align-items: center; gap: 9px; }
 #settingsOverlay .hk-icon {
   width: 30px; height: 30px; flex: none;
@@ -259,7 +265,7 @@
 #settingsOverlay .hk-icon svg { width: 17px; height: 17px; }
 #settingsOverlay .hk-info { min-width: 0; }
 #settingsOverlay .hk-name { font-size: 12.5px; font-weight: 700; color: var(--text); }
-#settingsOverlay .hk-desc { margin-top: 2px; font-size: 10.5px; color: var(--text-disabled); }
+#settingsOverlay .hk-desc { margin-top: 2px; font-size: 11px; color: var(--text-sub); }
 #settingsOverlay .hk-value {
   display: flex;
   align-items: center;
@@ -299,16 +305,16 @@
   border-bottom-width: 2px;
   border-radius: 6px;
   background: var(--bg-panel);
-  color: var(--pink-deep);
-  font-size: 11.5px;
+  color: var(--text);
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
 }
 #settingsOverlay .hk-plus { color: var(--text-disabled); font-size: 10px; }
-#settingsOverlay .hk-edit { margin-left: auto; color: var(--text-disabled); font-size: 10.5px; pointer-events: none; }
-#settingsOverlay .hotkey-card.is-capturing .hk-edit { color: var(--pink-deep); }
+#settingsOverlay .hk-edit { margin-left: auto; color: var(--text-sub); font-size: 11px; pointer-events: none; }
+#settingsOverlay .hotkey-card.is-capturing .hk-edit { color: var(--settings-ink); }
 #settingsOverlay .hotkey-card.is-capturing .hk-keys { color: var(--text-sub); font-weight: 400; }
-#settingsOverlay .hotkey-card.is-conflict .hk-keys { color: #ff6f81; }
+#settingsOverlay .hotkey-card.is-conflict .hk-keys { color: var(--settings-danger); }
 
 #settingsOverlay .theme-cards { display: flex; gap: 12px; margin-top: 10px; }
 #settingsOverlay .theme-card {
@@ -357,7 +363,7 @@
   font-weight: 700;
   color: var(--text);
 }
-#settingsOverlay .theme-card .lbl-sub { margin-left: auto; font-size: 10.5px; font-weight: 400; color: var(--text-disabled); }
+#settingsOverlay .theme-card .lbl-sub { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--text-sub); }
 #settingsOverlay .theme-card .lbl::after {
   content: "";
   width: 15px; height: 15px; flex: none;
@@ -381,8 +387,8 @@
   padding: 12px;
   border: 1px dashed var(--border-soft);
   border-radius: 10px;
-  color: var(--text-disabled);
-  font-size: 11px;
+  color: var(--text-sub);
+  font-size: 11.5px;
   text-align: center;
 }
 #setSrcList .src-opt { margin: 0; padding: 9px 11px; border-radius: 10px; }
@@ -410,7 +416,7 @@
   font-weight: 700;
   box-shadow: 0 10px 22px rgba(255, 111, 145, .25);
 }
-#settingsOverlay .a-name { font-family: var(--font-cute); font-size: 24px; font-weight: 700; color: var(--pink-deep); }
+#settingsOverlay .a-name { font-family: var(--font-cute); font-size: 24px; font-weight: 700; color: var(--settings-ink); }
 #settingsOverlay .a-ver {
   display: inline-flex;
   align-items: center;
@@ -422,7 +428,7 @@
   font-size: 11px;
 }
 #settingsOverlay .a-update { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 15px; flex-wrap: wrap; }
-#settingsOverlay .a-update-status { font-size: 11px; color: var(--text-disabled); }
+#settingsOverlay .a-update-status { font-size: 11.5px; color: var(--text-sub); }
 #settingsOverlay .about-meta { display: grid; gap: 7px; margin-top: 12px; }
 #settingsOverlay .meta-row {
   display: flex;
@@ -435,7 +441,7 @@
   font-size: 11.5px;
   color: var(--text-sub);
 }
-#settingsOverlay .meta-row > span:first-child { flex: none; width: 64px; color: var(--text-disabled); }
+#settingsOverlay .meta-row > span:first-child { flex: none; width: 64px; color: var(--text-sub); }
 #settingsOverlay .meta-row:last-child > span:last-child { color: var(--text-sub); }
 #settingsOverlay .meta-row code {
   flex: 1;
@@ -460,25 +466,31 @@
   padding: 6px 0;
   background: transparent;
   border: none;
-  color: var(--text-disabled);
+  color: var(--text-sub);
   font-size: 12px;
   font-family: var(--font);
   cursor: pointer;
   transition: color .2s;
 }
-#settingsOverlay .dlg-foot .reset:hover { color: var(--pink-deep); }
+#settingsOverlay .dlg-foot .reset:hover { color: var(--settings-ink); }
 #settingsOverlay .dlg-foot .pill-btn { height: 36px; }
 #settingsOverlay .dlg-foot #setSave { min-width: 88px; box-shadow: 0 6px 14px rgba(255, 111, 145, .2); }
 #settingsOverlay .dlg-foot #setSave:disabled { box-shadow: none; }
 
+:root[data-theme="dark"] #settingsOverlay {
+  --settings-ink: var(--pink-deep);
+  --settings-border-hover: var(--border-strong);
+  --settings-switch-off: #4a4358;
+  --settings-danger: #ff9caa;
+}
 :root[data-theme="dark"] #settingsOverlay .dlg-head { background: linear-gradient(180deg, var(--bg-soft), transparent); }
-:root[data-theme="dark"] #settingsOverlay .dlg-nav { background: linear-gradient(180deg, var(--bg-sidebar), #181320); }
+:root[data-theme="dark"] #settingsOverlay .dlg-nav { background: linear-gradient(180deg, var(--bg-sidebar), var(--bg)); }
 :root[data-theme="dark"] #settingsOverlay .nav-item .nav-ic { background: rgba(255, 255, 255, .06); }
 :root[data-theme="dark"] #settingsOverlay .nav-item:hover { background: rgba(255, 255, 255, .07); }
 :root[data-theme="dark"] #settingsOverlay .dlg-head .close-btn { background: rgba(255, 255, 255, .07); }
 :root[data-theme="dark"] #settingsOverlay .about-card { background: linear-gradient(180deg, var(--bg-soft), var(--bg-panel)); }
 
-@media (max-width: 720px) {
+@media (max-width: 980px) {
   #settingsOverlay.overlay.center { padding: 10px; }
   #settingsOverlay .dialog.settings { height: min(84vh, 700px); max-height: calc(100vh - 20px); border-radius: 16px; }
   #settingsOverlay .dlg-head { padding: 14px 16px; }
@@ -505,4 +517,15 @@
   #settingsOverlay .dlg-content input[type=text], #settingsOverlay .dlg-content select { width: 100%; max-width: none; }
   #settingsOverlay .theme-cards { flex-direction: column; }
   #settingsOverlay .dlg-foot { padding: 10px 16px 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #settingsOverlay .page { animation: none; }
+  #settingsOverlay .nav-item,
+  #settingsOverlay .theme-card,
+  #settingsOverlay .hotkey-card,
+  #settingsOverlay .switch .track,
+  #settingsOverlay .switch .thumb,
+  #settingsOverlay .dlg-content input,
+  #settingsOverlay .dlg-content select { transition: none; }
 }
