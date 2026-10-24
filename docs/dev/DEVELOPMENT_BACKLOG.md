@@ -130,7 +130,7 @@
 | fixed (两版) | Overlay 停止时存在挂起 I/O 与线程生命周期风险 | 真实管道/进程/句柄及 C++ 挂起 I/O 回归 | `overlay/src/pipe_server.cpp:49`、`src/kazari_play/core/platform/overlay_client.py:112` | 取消并等待 I/O/线程完成，所属连接单独释放 | 未连接停止、重连、位数切换、杀死恢复均通过 |
 | fixed (两版) | UISync 合并窗口内同域 payload 互相覆盖，丢失前一次事件 | `tests/test_ui_sync.py` 同域多次 invalidate 回归 | `src/kazari_play/ui/sync.py` 的 `invalidate` / `_emit` | `cover`/`screenshots` 按 gid 累积、`games_delta` 取并集去重、`toast` 队列化 | 同一窗口内两张封面、两条 toast、多个增量 id 全部送达 |
 | fixed (两版) | 收藏夹写接口丢弃 service 返回值，写库失败仍提示成功 | `tests/test_p1_reliability.py` 仓库返回 False/None 回归；`tests/test_bridge_contract.cjs` 解析用例 | `src/kazari_play/ui/web_bridge.py` 的 9 个收藏夹写接口 | 统一返回 `{ok,msg}`，前端经 `bridgeResult()` 判断后提示或回滚 | 写库失败时前端提示失败并回滚，不再假报成功 |
-| fixed (两版；`saveConfigs` 白名单未做) | 收藏夹写接口对 JSON / 字段 / 数组类型无校验，非法输入直接抛异常 | `tests/test_p2_hardening.py` 非法 JSON、未知字段、id 数组类型回归 | `src/kazari_play/ui/web_bridge.py` 的 `_load_*` 与收藏夹写接口 | 统一解析、`updateCollection` 字段白名单与类型校验、id 数组元素类型校验，非法输入返回 `{ok:false,msg}` | 非法入参不抛异常、不部分写入 |
+| fixed (两版) | 收藏夹写接口对 JSON / 字段 / 数组类型无校验，非法输入直接抛异常 | `tests/test_p2_hardening.py` 非法 JSON、未知字段、id 数组类型回归 | `src/kazari_play/ui/web_bridge.py` 的 `_load_*` 与收藏夹写接口 | 统一解析、`updateCollection` 字段白名单与类型校验、id 数组元素类型校验，非法输入返回 `{ok:false,msg}` | 非法入参不抛异常、不部分写入 |
 | fixed (两版) | `applyCandidate` 保存顺序、返回值与封面下载阻塞 | `tests/test_p2_hardening.py` applyCandidate/setCover 回归 | `src/kazari_play/ui/web_bridge.py` 的 `applyCandidate` / `setCover` / `_download_cover_bg` | 候选/字段/数值校验，来源记录后置到保存成功之后，检查 `update_game` 与 `update_cover_path` 结果，来源 ID 变更计入 `changed`，封面后台下载且只接受 http(s)，失败提示 | 保存失败不写来源；封面不阻塞桥接请求；非法封面地址被拒绝 |
 | fixed (两版) | 封面线程池退出未关闭，活跃下载可能拖住退出 | `tests/test_p2_hardening.py` shutdown 回归；`tests/test_ui_sync.py` unbind 回归 | `src/kazari_play/ui/web_bridge.py` 的 `shutdown`、`src/kazari_play/ui/sync.py` 的 `unbind_window`、`src/kazari_play/main.py` 的 closing 回调 | 关闭窗口时取消封面下载、`shutdown(wait=False, cancel_futures=True)`、解绑推送 | 关窗不等待进行中的封面下载，退出后不再推送 |
 | fixed (两版) | 删除游戏后封面文件/缓存未统一清理；`web_bridge.py` 残留未用导入与乱码 docstring，`pywebview.d.ts` 重复声明 | `tests/test_p2_hardening.py` 单删封面清理回归；静态检查 | `src/kazari_play/ui/web_bridge.py` 的 `deleteGame` / `batchDelete` / `_purge_cover_cache`；`pywebview.d.ts` | 单删与批量删除统一删封面文件并失效 base64/缩略图缓存；清理 `shutil`、修复 docstring、去掉重复声明 | 删除后封面文件与缓存不残留；类型检查通过 |
@@ -143,6 +143,9 @@
 | fixed (实验版；原版不适用) | 自定义 AI 地址允许 HTTP 明文发送 API Key | `overlay/src/ai_translator.cpp:236-301` | 所有端点仅允许 HTTPS，网络操作前拒绝 HTTP，禁止自动重定向，无网络与源码 GUI 回归通过 |
 | fixed (实验版；原版不适用) | AI/Hook 日志写入游戏原文和响应片段 | `overlay/src/ai_translator.cpp:191-193,327-329`、`overlay/src/main.cpp:504-513` | 只记录长度/状态/错误码，覆盖稳定器与内建线程，实际日志哨兵和调用审计通过 |
 | fixed (实验版；原版不适用) | `smoke_translation.py` 的 CSS 检查没有展开 `@import` | `tests/smoke_translation.py:47-59` | 测试复用 `_load_html()` 或显式展开 CSS，再恢复全绿门禁 |
+| fixed (两版) | `saveConfigs` 接受任意顶层/嵌套字段，非法 JSON 直接抛异常 | `src/kazari_play/ui/web_bridge.py` 的 `saveConfigs`、`src/kazari_play/ui/services/config_service.py` 的 `save` | 入参必须是 JSON 对象；按现有配置做顶层/嵌套白名单，未知字段丢弃并记 warning；`tests/test_p2_hardening.py` 覆盖 |
+| fixed (两版) | `previewRelocate` 同步扫描无取消入口，重复点击可并发扫描 | `src/kazari_play/ui/web_bridge.py` 的 `previewRelocate` / `cancelRelocate`、`src/kazari_play/ui/web_assets/ts/batch.ts` | 扫描传入取消事件，单飞锁拒绝并发；前端先展示「正在扫描…」、禁用确认，关闭/取消时置位并丢弃迟到结果；`tests/test_p2_hardening.py` 覆盖 |
+| pending (设计待定) | `get_public_config()` 把 Shionlib API key 与代理地址交给渲染进程 | `src/kazari_play/ui/services/config_service.py:14-21` | 设置页需要回填；若要脱敏需同时改保存语义（避免把占位符写回），单独设计后再动 |
 
 此前 HTTP 是已有配置能力及其风险，不表示已发生密钥泄露。2026-10-06 用户确认所有端点仅使用 HTTPS，不保留本地 HTTP 例外；实验现有配置不强制改写，旧 HTTP 地址在新请求层被拒绝。离线翻译门禁已在 P0 恢复，继续隔离本机配置和真实 API Key。
 
