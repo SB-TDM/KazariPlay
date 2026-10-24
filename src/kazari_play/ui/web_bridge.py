@@ -44,6 +44,36 @@ def _write_result(ok: bool, msg: str = "") -> str:
     """写接口统一返回 {ok, msg} JSON：业务失败与桥接失败（Promise reject）分开"""
     return json.dumps({"ok": bool(ok), "msg": "" if ok else msg}, ensure_ascii=False)
 
+
+_COLLECTION_FIELDS = frozenset({"name", "parent_id", "icon", "color", "sort_order"})
+_COLLECTION_TEXT_FIELDS = ("name", "icon", "color")
+_COLLECTION_INT_FIELDS = ("parent_id", "sort_order")
+
+
+def _load_json(raw, expected_type):
+    """解析前端传入的 JSON；非法或顶层类型不符时返回 None"""
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if isinstance(value, expected_type) else None
+
+
+def _load_str_ids(raw):
+    """解析 game_id 数组；非数组或元素不是字符串时返回 None"""
+    value = _load_json(raw, list)
+    if value is None or not all(isinstance(i, str) for i in value):
+        return None
+    return value
+
+
+def _load_int_ids(raw):
+    """解析收藏夹 id 数组；非数组或元素不是整数时返回 None"""
+    value = _load_json(raw, list)
+    if value is None or not all(isinstance(i, int) and not isinstance(i, bool) for i in value):
+        return None
+    return value
+
 _RESOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "resources")
 
@@ -609,7 +639,19 @@ class WebBridge:
 
     def updateCollection(self, collection_id: int, data_json: str) -> str:
         """更新收藏夹（name/parent_id/icon/color/sort_order）；返回 {ok, msg}"""
-        result = self._collection_service.update(collection_id, json.loads(data_json))
+        data = _load_json(data_json, dict)
+        if data is None:
+            return _write_result(False, "收藏夹参数格式错误")
+        unknown = set(data) - _COLLECTION_FIELDS
+        if unknown:
+            return _write_result(False, "不支持的字段: " + "、".join(sorted(unknown)))
+        wrong = [f for f in _COLLECTION_TEXT_FIELDS
+                 if data.get(f) is not None and not isinstance(data[f], str)]
+        wrong += [f for f in _COLLECTION_INT_FIELDS
+                  if data.get(f) is not None and not isinstance(data[f], int)]
+        if wrong:
+            return _write_result(False, "字段类型错误: " + "、".join(wrong))
+        result = self._collection_service.update(collection_id, data)
         self.refresh()
         return _write_result(bool(result), "收藏夹更新失败")
 
@@ -627,26 +669,37 @@ class WebBridge:
 
     def addGamesToCollection(self, ids_json: str, collection_id: int) -> str:
         """批量添加游戏到收藏夹；返回 {ok, msg}"""
-        ok = self._collection_service.add_games(json.loads(ids_json), collection_id)
+        ids = _load_str_ids(ids_json)
+        if ids is None:
+            return _write_result(False, "游戏 ID 参数格式错误")
+        ok = self._collection_service.add_games(ids, collection_id)
         self.refresh()
         return _write_result(ok, "加入收藏夹失败")
 
     def removeGamesFromCollection(self, ids_json: str, collection_id: int) -> str:
         """从收藏夹批量移除游戏；返回 {ok, msg}"""
-        ok = self._collection_service.remove_games(json.loads(ids_json), collection_id)
+        ids = _load_str_ids(ids_json)
+        if ids is None:
+            return _write_result(False, "游戏 ID 参数格式错误")
+        ok = self._collection_service.remove_games(ids, collection_id)
         self.refresh()
         return _write_result(ok, "移出收藏夹失败")
 
     def setGameCollections(self, game_id: str, collection_ids_json: str) -> str:
         """设置游戏所属的收藏夹列表（整体替换）；返回 {ok, msg}"""
-        ok = self._collection_service.set_game_collections(
-            game_id, json.loads(collection_ids_json))
+        ids = _load_int_ids(collection_ids_json)
+        if ids is None:
+            return _write_result(False, "收藏夹 ID 参数格式错误")
+        ok = self._collection_service.set_game_collections(game_id, ids)
         self.refresh_delta([game_id])
         return _write_result(ok, "更新收藏夹归属失败")
 
     def setCollectionGames(self, collection_id: int, ids_json: str) -> bool:
         """整体替换某收藏夹的游戏列表 + 排序（管理游戏对话框用）"""
-        ok = self._collection_service.set_games(collection_id, json.loads(ids_json))
+        ids = _load_str_ids(ids_json)
+        if ids is None:
+            return False
+        ok = self._collection_service.set_games(collection_id, ids)
         self.refresh()
         return ok
 
@@ -663,13 +716,19 @@ class WebBridge:
 
     def batchMoveToCollection(self, ids_json: str, collection_id: int) -> str:
         """批量移动游戏到收藏夹（替代原 batchMoveCategory）；返回 {ok, msg}"""
-        ok = self._collection_service.batch_add(json.loads(ids_json), collection_id)
+        ids = _load_str_ids(ids_json)
+        if ids is None:
+            return _write_result(False, "游戏 ID 参数格式错误")
+        ok = self._collection_service.batch_add(ids, collection_id)
         self.refresh()
         return _write_result(ok, "移动到收藏夹失败")
 
     def batchRemoveFromCollection(self, ids_json: str, collection_id: int) -> str:
         """批量从收藏夹移除游戏（替代原 batchRemoveTag 的收藏夹用法）；返回 {ok, msg}"""
-        ok = self._collection_service.batch_remove(json.loads(ids_json), collection_id)
+        ids = _load_str_ids(ids_json)
+        if ids is None:
+            return _write_result(False, "游戏 ID 参数格式错误")
+        ok = self._collection_service.batch_remove(ids, collection_id)
         self.refresh()
         return _write_result(ok, "移出收藏夹失败")
 
