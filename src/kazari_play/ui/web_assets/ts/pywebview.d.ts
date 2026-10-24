@@ -58,17 +58,18 @@ interface PyWebViewApi {
   // ---- 收藏夹 ----
   getCollectionsTree(): Promise<string>;
   createCollection(name: string, parent_id: number, icon: string, color: string): Promise<string>;
-  updateCollection(collection_id: number, data_json: string): Promise<unknown>;
-  deleteCollection(collection_id: number): Promise<unknown>;
-  reorderCollection(collection_id: number, new_sort_order: number): Promise<unknown>;
-  addGamesToCollection(ids_json: string, collection_id: number): Promise<unknown>;
-  removeGamesFromCollection(ids_json: string, collection_id: number): Promise<unknown>;
-  setGameCollections(game_id: string, collection_ids_json: string): Promise<unknown>;
+  // 写接口统一返回 {ok, msg} JSON 字符串；业务失败时 ok=false 并带提示
+  updateCollection(collection_id: number, data_json: string): Promise<string>;
+  deleteCollection(collection_id: number): Promise<string>;
+  reorderCollection(collection_id: number, new_sort_order: number): Promise<string>;
+  addGamesToCollection(ids_json: string, collection_id: number): Promise<string>;
+  removeGamesFromCollection(ids_json: string, collection_id: number): Promise<string>;
+  setGameCollections(game_id: string, collection_ids_json: string): Promise<string>;
   setCollectionGames(collection_id: number, ids_json: string): Promise<boolean>;
   getGamesInCollection(collection_id: number): Promise<string>;
-  moveGameInCollection(collection_id: number, game_id: string, new_sort_order: number): Promise<unknown>;
-  batchMoveToCollection(ids_json: string, collection_id: number): Promise<unknown>;
-  batchRemoveFromCollection(ids_json: string, collection_id: number): Promise<unknown>;
+  moveGameInCollection(collection_id: number, game_id: string, new_sort_order: number): Promise<string>;
+  batchMoveToCollection(ids_json: string, collection_id: number): Promise<string>;
+  batchRemoveFromCollection(ids_json: string, collection_id: number): Promise<string>;
 
   // ---- 扫描 / VNDB 匹配 ----
   scanFolder(): Promise<string>;

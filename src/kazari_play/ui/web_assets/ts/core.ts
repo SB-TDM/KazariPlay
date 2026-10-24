@@ -37,6 +37,17 @@ const bridge = new Proxy({} as Record<string, (...args: unknown[]) => Promise<un
   },
 });
 
+// 写接口统一返回 {ok,msg} JSON：解析失败按失败处理，避免后端写库失败时前端仍提示成功。
+// 桥接层失败（调用没到达后端）由回调第二参 failed 标记，调用方仍需单独判断。
+function bridgeResult(res: unknown): { ok: boolean; msg: string } {
+  try {
+    const r = JSON.parse(String(res ?? '')) as { ok?: unknown; msg?: unknown };
+    return { ok: !!r && r.ok === true, msg: r && typeof r.msg === 'string' ? r.msg : '' };
+  } catch (e) {
+    return { ok: false, msg: '' };
+  }
+}
+
 // HTML 转义（用户输入进 innerHTML 前必须转义：标题/开发商/收藏夹名等）
 function esc(s: unknown): string {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));

@@ -208,7 +208,11 @@ function renameCollection(node: CollectionTreeNode): void {
     title: '重命名收藏夹', label: '名称', value: node.name,
     cb: function (name) {
       if (name && name.trim() && name.trim() !== node.name) {
-        bridge.updateCollection(node.id, JSON.stringify({ name: name.trim() })); toast('已重命名');
+        bridge.updateCollection(node.id, JSON.stringify({ name: name.trim() }), function (s: unknown, failed?: boolean) {
+          const r = bridgeResult(s);
+          if (failed || !r.ok) { toast(r.msg || '重命名失败'); return; }
+          toast('已重命名');
+        });
       }
     }
   });
@@ -221,11 +225,14 @@ function delCollection(node: CollectionTreeNode): void {
     message: `删除「${node.name}」？${kids ? `其 ${kids} 个子分类一并删除，` : ''}关联游戏将不再属于该收藏夹。`,
     danger: true, okText: '删除', cb: () => {
       const removedIds = [node.id].concat((node.children || []).map(c => c.id));
-      bridge.deleteCollection(node.id);
-      toast('已删除');
-      if (App.ui.state.collectionId !== null && removedIds.includes(App.ui.state.collectionId)) {
-        clearCollectionFilter();
-      }
+      bridge.deleteCollection(node.id, function (s: unknown, failed?: boolean) {
+        const r = bridgeResult(s);
+        if (failed || !r.ok) { toast(r.msg || '删除收藏夹失败'); return; }
+        toast('已删除');
+        if (App.ui.state.collectionId !== null && removedIds.includes(App.ui.state.collectionId)) {
+          clearCollectionFilter();
+        }
+      });
     }
   });
 }
@@ -307,10 +314,11 @@ function applyCollectionColor(collectionId: number, color: string): void {
   };
 
   setColor(color);
-  bridge.updateCollection(collectionId, JSON.stringify({ color }), function (_s: unknown, failed?: boolean) {
-    if (failed) {
+  bridge.updateCollection(collectionId, JSON.stringify({ color }), function (s: unknown, failed?: boolean) {
+    const r = bridgeResult(s);
+    if (failed || !r.ok) {
       setColor(previous);
-      toast('颜色更新失败');
+      toast(r.msg || '颜色更新失败');
       return;
     }
     toast(color ? '已更新颜色' : '已恢复自动颜色');
@@ -428,14 +436,21 @@ function renderGameCollections(): void {
     row.append(mark, name, check);
     const toggle = (): void => {
       const g = App.data.currentGame!;
-      const next = new Set(curIds);
-      if (next.has(col.id)) next.delete(col.id); else next.add(col.id);
-      bridge.setGameCollections(String(g.id), JSON.stringify([...next]));
-      const had = curIds.has(col.id);
-      if (had) { g.collections = g.collections.filter(x => x.id !== col.id); }
-      else { g.collections = g.collections.concat([{ id: col.id, name: col.label, color: col.color || '', icon: col.icon || '' }]); }
-      toast(had ? '已移除收藏夹' : '已加入收藏夹');
+      const gid = String(g.id);
+      const prev = g.collections || [];
+      const had = prev.some(x => x.id === col.id);
+      // 乐观更新，失败时回滚
+      g.collections = had
+        ? prev.filter(x => x.id !== col.id)
+        : prev.concat([{ id: col.id, name: col.label, color: col.color || '', icon: col.icon || '' }]);
       renderGameCollections();
+      bridge.setGameCollections(gid, JSON.stringify(g.collections.map(x => x.id)), function (s: unknown, failed?: boolean) {
+        const r = bridgeResult(s);
+        if (!failed && r.ok) { toast(had ? '已移除收藏夹' : '已加入收藏夹'); return; }
+        g.collections = prev;
+        if (String(App.data.currentGame?.id) === gid) renderGameCollections();
+        toast(r.msg || (had ? '移出收藏夹失败' : '加入收藏夹失败'));
+      });
     };
     row.onclick = toggle;
     row.addEventListener('keydown', (e) => {

@@ -105,6 +105,45 @@ class ReliabilityTests(base.DataFlowTests):
         self.assertEqual(response['updated'], 0)
         self.assertEqual(self.manager.get_game(game.id).exe_path, game.exe_path)
 
+    def test_collection_writes_report_business_failure(self):
+        game = self.fixture()
+        grp = json.loads(self.bridge.createCollection("分组", 0, "", ""))
+        cat = json.loads(self.bridge.createCollection("分类", grp["id"], "", ""))
+        cid, gid, ids = cat["id"], game.id, json.dumps([game.id])
+
+        ok_calls = {
+            "update": lambda: self.bridge.updateCollection(cid, json.dumps({"name": "新名字"})),
+            "add": lambda: self.bridge.addGamesToCollection(ids, cid),
+            "remove": lambda: self.bridge.removeGamesFromCollection(ids, cid),
+            "set_game": lambda: self.bridge.setGameCollections(gid, json.dumps([cid])),
+            "move": lambda: self.bridge.moveGameInCollection(cid, gid, 0),
+            "batch_move": lambda: self.bridge.batchMoveToCollection(ids, cid),
+            "batch_remove": lambda: self.bridge.batchRemoveFromCollection(ids, cid),
+            "reorder": lambda: self.bridge.reorderCollection(cid, 5),
+        }
+        for name, call in ok_calls.items():
+            with self.subTest(name):
+                self.assertTrue(json.loads(call())["ok"], name)
+
+        repo = self.manager.collection_repo
+        fail_calls = {
+            "update": ("update", None, lambda: self.bridge.updateCollection(cid, json.dumps({"name": "x"}))),
+            "delete": ("delete", False, lambda: self.bridge.deleteCollection(cid)),
+            "reorder": ("reorder", False, lambda: self.bridge.reorderCollection(cid, 1)),
+            "add": ("add_games_to_collections", False, lambda: self.bridge.addGamesToCollection(ids, cid)),
+            "remove": ("remove_games_from_collection", False, lambda: self.bridge.removeGamesFromCollection(ids, cid)),
+            "set_game": ("set_game_collections", False, lambda: self.bridge.setGameCollections(gid, json.dumps([cid]))),
+            "move": ("move_game_order", False, lambda: self.bridge.moveGameInCollection(cid, gid, 1)),
+            "batch_move": ("add_games_to_collections", False, lambda: self.bridge.batchMoveToCollection(ids, cid)),
+            "batch_remove": ("remove_games_from_collection", False,
+                             lambda: self.bridge.batchRemoveFromCollection(ids, cid)),
+        }
+        for name, (attr, ret, call) in fail_calls.items():
+            with self.subTest(name), patch.object(repo, attr, return_value=ret):
+                result = json.loads(call())
+                self.assertFalse(result["ok"], f"{name} 应报告失败: {result}")
+                self.assertTrue(result["msg"], f"{name} 失败时应带提示: {result}")
+
     def test_task_rejection_does_not_reset_cancel_and_retry_gets_new_event(self):
         entered, release = threading.Event(), threading.Event()
         def work():

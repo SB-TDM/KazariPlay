@@ -32,6 +32,7 @@
 
 - `bridge`：`Proxy` 转发 `window.pywebview.api.*` → Promise；末位函数参数视作回调（`bridge.xxx(args, cb)`），回调签名 `(result, failed?)`：调用未到达/同步异常/Promise 拒绝时 `failed=true`，与“空列表 / 对象不存在”区分；业务回调自身异常不再触发第二次回调。`dataChanged` 返回空 `{connect()}`（无信号，改轮询）。**必须全局**（内联 onclick 引用）。
 - `esc(s)`：HTML 转义（用户输入进 innerHTML 前必须）。
+- `bridgeResult(res)`：解析写接口的 `{ok, msg}`；解析失败或 `ok!==true` 一律按失败处理，调用方结合 `failed` 决定提示或回滚（避免写库失败仍提示成功）。
 - `toast(msg)`：顶部胶囊，1.8s。
 - `launchGame(id)` / `chipColor(tag)`（哈希 → 5 色糖果板）。
 - `beginCoverRequest(el)` / `isCoverRequestCurrent(el, seq)`：封面请求代际标记；迟到响应只有在仍是元素最新请求时才允许写入（覆盖同 ID、A→B→A 与懒加载/重载交错）。

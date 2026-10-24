@@ -67,7 +67,9 @@
 - `applyRelocate(mapping_json)`：仅更新匹配项；处理自定义启动路径（folder 内则相对迁移）；冲突/文件缺失记入 `failures`；成功后 `refresh` + `notify`
 
 ### 收藏夹（V1.0）
-`getCollectionsTree` / `createCollection(parent_id=0→根)` / `updateCollection` / `deleteCollection` / `reorderCollection` / `addGamesToCollection` / `removeGamesFromCollection` / `setGameCollections` / `setCollectionGames`（管理游戏对话框）/ `getGamesInCollection` / `moveGameInCollection` / `batchMoveToCollection` / `batchRemoveFromCollection`
+`getCollectionsTree` / `createCollection(parent_id=0→根)` / `updateCollection` / `deleteCollection` / `reorderCollection` / `addGamesToCollection` / `removeGamesFromCollection` / `setGameCollections` / `setCollectionGames`（管理游戏对话框，返回 `bool`）/ `getGamesInCollection` / `moveGameInCollection` / `batchMoveToCollection` / `batchRemoveFromCollection`
+
+除 `setCollectionGames` 外，收藏夹写接口统一返回 `{ok, msg}` JSON：业务失败（service/repository 返回 `False`/`None`）时 `ok=false` 并带提示，前端用 `bridgeResult()` 判断后再提示或回滚；桥接层失败由回调 `failed` 标记。
 
 ### 扫描 / 单任务门禁
 - `_start_task(target, args)`：`_task_lock.acquire(blocking=False)`，失败即「已有任务在运行」；**每次任务重建 `_scan_cancel`/`_vndb_cancel`**；`finally` 里置 `_batch_ctx.running=False` 并推 `scan_progress/batch_progress {running:false}` 后释放锁。

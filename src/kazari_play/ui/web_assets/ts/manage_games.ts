@@ -111,17 +111,21 @@ function updateManageCount(): void {
 function saveManageGames(): void {
   if (manageGamesId == null || manageGamesLoading) return;
   const ids = [...manageGamesSel];
+  // 分组：整体替换分组本身 + 每个子分类（保证分组筛选含全部勾选）
+  const targets = [manageGamesId];
   if (manageGamesIsGroup) {
-    // 分组：整体替换分组本身 + 每个子分类（保证分组筛选含全部勾选）
     const group = findCollectionNode(manageGamesId);
-    const targets = [manageGamesId].concat((group && group.children || []).map(c => c.id));
-    targets.forEach(cid => bridge.setCollectionGames(cid, JSON.stringify(ids)));
-    toast('收藏夹已更新');
-  } else {
-    bridge.setCollectionGames(manageGamesId, JSON.stringify(ids));
-    toast('收藏夹已更新');
+    targets.push(...((group && group.children) || []).map(c => c.id));
   }
-  closeSheet('manageGamesOverlay');
+  let pending = targets.length;
+  let failedAny = false;
+  targets.forEach(cid => bridge.setCollectionGames(cid, JSON.stringify(ids), function (ok: unknown, failed?: boolean) {
+    if (failed || ok !== true) failedAny = true;
+    if (--pending > 0) return;
+    if (failedAny) { toast('收藏夹更新失败'); return; }
+    toast('收藏夹已更新');
+    closeSheet('manageGamesOverlay');
+  }));
 }
 
 document.getElementById('manageGamesClose')!.onclick = () => {

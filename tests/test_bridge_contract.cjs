@@ -66,5 +66,14 @@ const seen = () => { ctx.__seen = []; return ctx.__seen; };
     assert.equal(out[0][0], '"fine"', '成功结果应原样传递');
     assert.equal(out[0][1], undefined, '成功结果不应标记失败');
   }
+  // 6) 写接口 {ok,msg} 解析：成功/业务失败/无法解析三种情况
+  {
+    const ok = vm.runInContext('bridgeResult(\'{"ok":true,"msg":""}\')', ctx);
+    assert.equal(ok.ok, true, 'ok:true 应判定成功');
+    const bad = vm.runInContext('bridgeResult(\'{"ok":false,"msg":"写库失败"}\')', ctx);
+    assert.equal(bad.ok, false, 'ok:false 应判定失败');
+    assert.equal(bad.msg, '写库失败', '应保留后端提示');
+    assert.equal(vm.runInContext("bridgeResult('[]')", ctx).ok, false, '非 {ok} 响应应按失败处理');
+  }
   console.log('BRIDGE CONTRACT PASS: failure is explicit, callbacks run at most once');
 })().catch(err => { console.error(err); process.exitCode = 1; });

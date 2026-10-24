@@ -129,6 +129,7 @@
 | fixed (两版) | 多次扫描/批量任务共用取消事件和进度上下文 | 任务拒绝/取消/异常回归与 Node 迟到进度回归 | `src/kazari_play/ui/web_bridge.py:809`、`src/kazari_play/ui/web_bridge.py:869` | 单任务门禁与每任务取消事件，前端进度代际校验 | 重复启动不清旧取消状态，旧响应不隐藏新任务 |
 | fixed (两版) | Overlay 停止时存在挂起 I/O 与线程生命周期风险 | 真实管道/进程/句柄及 C++ 挂起 I/O 回归 | `overlay/src/pipe_server.cpp:49`、`src/kazari_play/core/platform/overlay_client.py:112` | 取消并等待 I/O/线程完成，所属连接单独释放 | 未连接停止、重连、位数切换、杀死恢复均通过 |
 | fixed (两版) | UISync 合并窗口内同域 payload 互相覆盖，丢失前一次事件 | `tests/test_ui_sync.py` 同域多次 invalidate 回归 | `src/kazari_play/ui/sync.py` 的 `invalidate` / `_emit` | `cover`/`screenshots` 按 gid 累积、`games_delta` 取并集去重、`toast` 队列化 | 同一窗口内两张封面、两条 toast、多个增量 id 全部送达 |
+| fixed (两版) | 收藏夹写接口丢弃 service 返回值，写库失败仍提示成功 | `tests/test_p1_reliability.py` 仓库返回 False/None 回归；`tests/test_bridge_contract.cjs` 解析用例 | `src/kazari_play/ui/web_bridge.py` 的 9 个收藏夹写接口 | 统一返回 `{ok,msg}`，前端经 `bridgeResult()` 判断后提示或回滚 | 写库失败时前端提示失败并回滚，不再假报成功 |
 
 ### P2：稳定性与安全
 

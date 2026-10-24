@@ -39,6 +39,11 @@ from version import WINDOW_TITLE
 
 logger = get_logger()
 
+
+def _write_result(ok: bool, msg: str = "") -> str:
+    """写接口统一返回 {ok, msg} JSON：业务失败与桥接失败（Promise reject）分开"""
+    return json.dumps({"ok": bool(ok), "msg": "" if ok else msg}, ensure_ascii=False)
+
 _RESOURCE_DIR = os.path.join(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))), "resources")
 
@@ -602,36 +607,42 @@ class WebBridge:
         self.refresh()
         return json.dumps(result, ensure_ascii=False) if result else "{}"
 
-    def updateCollection(self, collection_id: int, data_json: str):
-        """更新收藏夹（name/parent_id/icon/color/sort_order）"""
-        self._collection_service.update(collection_id, json.loads(data_json))
+    def updateCollection(self, collection_id: int, data_json: str) -> str:
+        """更新收藏夹（name/parent_id/icon/color/sort_order）；返回 {ok, msg}"""
+        result = self._collection_service.update(collection_id, json.loads(data_json))
         self.refresh()
+        return _write_result(bool(result), "收藏夹更新失败")
 
-    def deleteCollection(self, collection_id: int):
-        """删除收藏夹（级联删除子分类 + 关联）"""
-        self._collection_service.delete(collection_id)
+    def deleteCollection(self, collection_id: int) -> str:
+        """删除收藏夹（级联删除子分类 + 关联）；返回 {ok, msg}"""
+        ok = self._collection_service.delete(collection_id)
         self.refresh()
+        return _write_result(ok, "删除收藏夹失败")
 
-    def reorderCollection(self, collection_id: int, new_sort_order: int):
-        """调整收藏夹排序"""
-        self._collection_service.reorder(collection_id, new_sort_order)
+    def reorderCollection(self, collection_id: int, new_sort_order: int) -> str:
+        """调整收藏夹排序；返回 {ok, msg}"""
+        ok = self._collection_service.reorder(collection_id, new_sort_order)
         self.refresh()
+        return _write_result(ok, "调整收藏夹排序失败")
 
-    def addGamesToCollection(self, ids_json: str, collection_id: int):
-        """批量添加游戏到收藏夹"""
-        self._collection_service.add_games(json.loads(ids_json), collection_id)
+    def addGamesToCollection(self, ids_json: str, collection_id: int) -> str:
+        """批量添加游戏到收藏夹；返回 {ok, msg}"""
+        ok = self._collection_service.add_games(json.loads(ids_json), collection_id)
         self.refresh()
+        return _write_result(ok, "加入收藏夹失败")
 
-    def removeGamesFromCollection(self, ids_json: str, collection_id: int):
-        """从收藏夹批量移除游戏"""
-        self._collection_service.remove_games(json.loads(ids_json), collection_id)
+    def removeGamesFromCollection(self, ids_json: str, collection_id: int) -> str:
+        """从收藏夹批量移除游戏；返回 {ok, msg}"""
+        ok = self._collection_service.remove_games(json.loads(ids_json), collection_id)
         self.refresh()
+        return _write_result(ok, "移出收藏夹失败")
 
-    def setGameCollections(self, game_id: str, collection_ids_json: str):
-        """设置游戏所属的收藏夹列表（整体替换）"""
-        self._collection_service.set_game_collections(
+    def setGameCollections(self, game_id: str, collection_ids_json: str) -> str:
+        """设置游戏所属的收藏夹列表（整体替换）；返回 {ok, msg}"""
+        ok = self._collection_service.set_game_collections(
             game_id, json.loads(collection_ids_json))
         self.refresh_delta([game_id])
+        return _write_result(ok, "更新收藏夹归属失败")
 
     def setCollectionGames(self, collection_id: int, ids_json: str) -> bool:
         """整体替换某收藏夹的游戏列表 + 排序（管理游戏对话框用）"""
@@ -644,20 +655,23 @@ class WebBridge:
         return json.dumps(self._collection_service.game_ids(collection_id),
                           ensure_ascii=False)
 
-    def moveGameInCollection(self, collection_id: int, game_id: str, new_sort_order: int):
-        """调整游戏在收藏夹内的排序"""
-        self._collection_service.move_game(collection_id, game_id, new_sort_order)
+    def moveGameInCollection(self, collection_id: int, game_id: str, new_sort_order: int) -> str:
+        """调整游戏在收藏夹内的排序；返回 {ok, msg}"""
+        ok = self._collection_service.move_game(collection_id, game_id, new_sort_order)
         self.refresh_delta([game_id])
+        return _write_result(ok, "调整收藏夹内排序失败")
 
-    def batchMoveToCollection(self, ids_json: str, collection_id: int):
-        """批量移动游戏到收藏夹（替代原 batchMoveCategory）"""
-        self._collection_service.batch_add(json.loads(ids_json), collection_id)
+    def batchMoveToCollection(self, ids_json: str, collection_id: int) -> str:
+        """批量移动游戏到收藏夹（替代原 batchMoveCategory）；返回 {ok, msg}"""
+        ok = self._collection_service.batch_add(json.loads(ids_json), collection_id)
         self.refresh()
+        return _write_result(ok, "移动到收藏夹失败")
 
-    def batchRemoveFromCollection(self, ids_json: str, collection_id: int):
-        """批量从收藏夹移除游戏（替代原 batchRemoveTag 的收藏夹用法）"""
-        self._collection_service.batch_remove(json.loads(ids_json), collection_id)
+    def batchRemoveFromCollection(self, ids_json: str, collection_id: int) -> str:
+        """批量从收藏夹移除游戏（替代原 batchRemoveTag 的收藏夹用法）；返回 {ok, msg}"""
+        ok = self._collection_service.batch_remove(json.loads(ids_json), collection_id)
         self.refresh()
+        return _write_result(ok, "移出收藏夹失败")
 
     # ---------- 文件对话框 ----------
     def _start_task(self, target, args=()) -> bool:

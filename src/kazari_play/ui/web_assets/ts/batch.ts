@@ -39,9 +39,14 @@ function batchPickCollection(mode: 'add' | 'remove' | 'move'): void {
   setMenuOpen(menu, document.getElementById('btnBCollection'), false);
   openPicker(mode === 'add' ? '加入收藏夹' : (mode === 'move' ? '移动到收藏夹' : '移出收藏夹'),
     items, function (cid) {
-      if (mode === 'add') { bridge.addGamesToCollection(JSON.stringify(ids), cid); toast('已添加到收藏夹'); }
-      else if (mode === 'remove') { bridge.removeGamesFromCollection(JSON.stringify(ids), cid); toast('已移出收藏夹'); }
-      else { bridge.batchMoveToCollection(JSON.stringify(ids), cid); toast('已移动'); }
+      const done = function (s: unknown, failed?: boolean): void {
+        const r = bridgeResult(s);
+        if (failed || !r.ok) { toast(r.msg || '批量操作失败'); return; }
+        toast(mode === 'add' ? '已添加到收藏夹' : (mode === 'remove' ? '已移出收藏夹' : '已移动'));
+      };
+      if (mode === 'add') bridge.addGamesToCollection(JSON.stringify(ids), cid, done);
+      else if (mode === 'remove') bridge.removeGamesFromCollection(JSON.stringify(ids), cid, done);
+      else bridge.batchMoveToCollection(JSON.stringify(ids), cid, done);
       App.ui.state.selected.clear();
     });
 }
