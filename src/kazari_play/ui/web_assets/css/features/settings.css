@@ -20,7 +20,19 @@
   border: 1px solid var(--border-soft);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 28px 70px rgba(74, 57, 84, .24), 0 4px 14px rgba(255, 111, 145, .08);
+  box-shadow: 0 18px 44px rgba(74, 57, 84, .18), 0 2px 8px rgba(255, 111, 145, .06);
+  animation: settingsDialogIn .22s cubic-bezier(.2, .8, .2, 1);
+}
+#settingsOverlay.hiding .dialog.settings {
+  animation: settingsDialogOut .16s cubic-bezier(.4, 0, .8, .4) forwards;
+}
+@keyframes settingsDialogIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes settingsDialogOut {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(4px); }
 }
 #settingsOverlay .dialog.settings::before { display: none; }
 
