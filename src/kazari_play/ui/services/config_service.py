@@ -1,7 +1,7 @@
 """WebBridge 的配置用例层。"""
 from typing import Any, Dict, Optional
 
-from utils.infra.config import Config
+from utils.infra.config import DEFAULT_CONFIG, Config
 from utils.infra.logger import get_logger
 from utils.infra.proxy_utils import ProxyConfigError, normalize_proxy_url
 
@@ -26,17 +26,17 @@ class ConfigService:
     def save(self, data: dict) -> Dict[str, Any]:
         if not isinstance(data, dict):
             return {"ok": False, "msg": "配置参数格式错误"}
-        # 白名单：只接受已有顶层键；字典值只接受已有子键，防止注入任意配置项
-        current = self.cfg.get_all()
-        unknown = [k for k in data if k not in current]
+        # 白名单：只接受默认配置里已有的顶层键与嵌套子键，防止注入任意配置项
+        unknown = [k for k in data if k not in DEFAULT_CONFIG]
         for key in unknown:
             data.pop(key)
         for key, value in list(data.items()):
-            if not isinstance(value, dict):
-                continue
-            old = current.get(key)
+            old = DEFAULT_CONFIG.get(key)
             if not isinstance(old, dict):
+                continue
+            if not isinstance(value, dict):
                 data.pop(key)
+                unknown.append(key)
                 continue
             dropped = [k for k in value if k not in old]
             for sub in dropped:
