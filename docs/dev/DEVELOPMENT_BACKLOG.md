@@ -133,6 +133,7 @@
 | fixed (两版；`saveConfigs` 白名单未做) | 收藏夹写接口对 JSON / 字段 / 数组类型无校验，非法输入直接抛异常 | `tests/test_p2_hardening.py` 非法 JSON、未知字段、id 数组类型回归 | `src/kazari_play/ui/web_bridge.py` 的 `_load_*` 与收藏夹写接口 | 统一解析、`updateCollection` 字段白名单与类型校验、id 数组元素类型校验，非法输入返回 `{ok:false,msg}` | 非法入参不抛异常、不部分写入 |
 | fixed (两版) | `applyCandidate` 保存顺序、返回值与封面下载阻塞 | `tests/test_p2_hardening.py` applyCandidate/setCover 回归 | `src/kazari_play/ui/web_bridge.py` 的 `applyCandidate` / `setCover` / `_download_cover_bg` | 候选/字段/数值校验，来源记录后置到保存成功之后，检查 `update_game` 与 `update_cover_path` 结果，来源 ID 变更计入 `changed`，封面后台下载且只接受 http(s)，失败提示 | 保存失败不写来源；封面不阻塞桥接请求；非法封面地址被拒绝 |
 | fixed (两版) | 封面线程池退出未关闭，活跃下载可能拖住退出 | `tests/test_p2_hardening.py` shutdown 回归；`tests/test_ui_sync.py` unbind 回归 | `src/kazari_play/ui/web_bridge.py` 的 `shutdown`、`src/kazari_play/ui/sync.py` 的 `unbind_window`、`src/kazari_play/main.py` 的 closing 回调 | 关闭窗口时取消封面下载、`shutdown(wait=False, cancel_futures=True)`、解绑推送 | 关窗不等待进行中的封面下载，退出后不再推送 |
+| fixed (两版) | 删除游戏后封面文件/缓存未统一清理；`web_bridge.py` 残留未用导入与乱码 docstring，`pywebview.d.ts` 重复声明 | `tests/test_p2_hardening.py` 单删封面清理回归；静态检查 | `src/kazari_play/ui/web_bridge.py` 的 `deleteGame` / `batchDelete` / `_purge_cover_cache`；`pywebview.d.ts` | 单删与批量删除统一删封面文件并失效 base64/缩略图缓存；清理 `shutil`、修复 docstring、去掉重复声明 | 删除后封面文件与缓存不残留；类型检查通过 |
 
 ### P2：稳定性与安全
 

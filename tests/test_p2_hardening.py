@@ -1,5 +1,6 @@
 """P2 桥接输入校验回归：非法 JSON / 未知字段 / 数组元素类型不得抛异常或部分写入。"""
 import json
+import os
 import unittest
 from unittest.mock import patch
 
@@ -125,6 +126,24 @@ class HardeningTests(base.DataFlowTests):
             result = json.loads(self.bridge.setCover(game.id, str(src)))
         self.assertFalse(result["ok"])
         self.assertTrue(json.loads(self.bridge.setCover(game.id, str(src)))["ok"])
+
+    def test_delete_game_purges_cover_files_and_cache(self):
+        from PIL import Image
+        from core.media.cover_store import CoverStore
+        from ui import web_bridge as wb
+
+        game = self.fixture("Hardening")
+        self.bridge._cover_store = CoverStore(base_dir=str(self.root / "covers"))
+        src = self.root / "cover.png"
+        Image.new("RGB", (32, 32), "red").save(src)
+        dest = self.bridge._cover_store.save_file(game.id, str(src))
+        self.assertTrue(dest)
+        self.manager.repository.update_cover_path(game.id, dest)
+        wb._cover_cache_put(dest, "data")
+        self.bridge.deleteGame(game.id)
+        self.assertIsNone(self.manager.get_game(game.id))
+        self.assertFalse(os.path.isfile(dest))
+        self.assertNotIn(dest, wb._cover_cache)
 
     def test_shutdown_cancels_cover_pool_and_unbinds_ui(self):
         import threading

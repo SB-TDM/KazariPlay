@@ -116,7 +116,6 @@ interface PyWebViewApi {
 
   // ---- 封面 / 元数据 ----
   pickCover(): Promise<string>;
-  setCover(game_id: string, path: string): Promise<unknown>;
   searchMetadata(keyword: string, sources_json?: string): Promise<string>;
   getMetadataSources(): Promise<string>;
   saveMetadataSources(sources_json: string): Promise<unknown>;

@@ -11,7 +11,6 @@ import concurrent.futures
 import hashlib
 import json
 import os
-import shutil
 import threading
 import time
 from collections import OrderedDict
@@ -489,7 +488,11 @@ class WebBridge:
             logger.error("打开目录失败: %s", e)
 
     def deleteGame(self, game_id: str):
+        g = self.manager.get_game(game_id)
         self._library_service.delete_game(game_id)
+        if g:
+            self._purge_cover_cache(game_id, g.cover_path)
+        self._cover_store.delete(game_id)
         self.refresh_delta([game_id])
 
     def saveGame(self, game_id: str, data_json: str) -> str:
@@ -552,10 +555,19 @@ class WebBridge:
 
     def batchDelete(self, ids_json: str):
         ids = json.loads(ids_json)
+        covers = {gid: self.manager.get_game(gid) for gid in ids}
         if self._library_service.batch_delete(ids):
             for gid in ids:
+                game = covers.get(gid)
+                self._purge_cover_cache(gid, game.cover_path if game else "")
                 self._cover_store.delete(gid)
         self.refresh()
+
+    def _purge_cover_cache(self, game_id: str, cover_path: str) -> None:
+        """删除游戏后失效 base64/缩略图缓存，避免残留文件被再次命中"""
+        if cover_path:
+            _cover_cache_invalidate(cover_path)
+        _cover_cache_invalidate(self._cover_store.thumb_path(game_id))
 
     # ---------- 批量重新定位（路径修正，不重算 id）----------
     def previewRelocate(self, ids_json: str) -> str:
@@ -1366,7 +1378,7 @@ class WebBridge:
             return json.dumps({"__error": "搜索失败，请稍后重试"}, ensure_ascii=False)
 
     def getGameSources(self, game_id: str) -> str:
-        """����ĳ��Ϸ�ĳ־û���Դ��¼��"""
+        """返回某游戏的持久化来源记录列表"""
         return json.dumps(self._library_service.source_records(game_id),
                           ensure_ascii=False)
 
