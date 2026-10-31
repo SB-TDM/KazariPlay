@@ -3,8 +3,8 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
-## 1.3.0（2026-10-31）— 扫描确认与统一勾选
-- 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.3.0`。
+## 1.2.3（2026-10-31）— 扫描确认与统一勾选
+- 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.2.3`（发布流程中曾误标为 1.3.0，已撤回并重发）。
 - 扫描流程改为「选目录 → 后台扫描（不入库）→ `scan_preview` 推送预览 → 勾选导入」：新增项默认勾选，库内/本次重复项置灰；取消不导入；确认后自动匹配。后端 `applyScanPreview(token, keys)` 一次性消费预览，拒绝过期 token/越界/非法选择。
 - 新增前端模块 `scan_preview.ts` + `partials/scan_preview.html`（复用 `form.css` 的重新定位行样式），UISync 新增 `scan_preview` 域（`window.__app.showScanPreview`）。
 - 全站勾选统一为「浅底 + 粉描边 + 粉勾」：新增 token `--check-border` / `--check-mark`，公共类 `.ui-check`；卡片去掉内联 SVG、收藏夹去掉字符 `✓`、元数据源删除自定义 span+隐藏 input（改原生 `ui-check`），并修复暗色主题未选中卡片误显对勾。
