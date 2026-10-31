@@ -99,13 +99,13 @@ python src/kazari_play/main.py
 <summary>构建本地自测包</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.2
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.3.0
 ```
 
 输出目录：
 
 ```text
-artifacts/trial-builds/trial-build-1.2.2/dist/KazariPlay/
+artifacts/trial-builds/trial-build-1.3.0/dist/KazariPlay/
 ```
 
 运行 `run_develop.cmd`，数据库、配置、日志和截图会隔离在包旁 `data/`。
@@ -116,7 +116,7 @@ artifacts/trial-builds/trial-build-1.2.2/dist/KazariPlay/
 <summary>构建正式发布资产</summary>
 
 ```powershell
-python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.2.2 --release
+python scripts/package_develop.py --output artifacts/trial-builds/trial-build-1.3.0 --release
 ```
 
 会生成：

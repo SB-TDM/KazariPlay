@@ -3,6 +3,16 @@
 
 > 记录 KazariPlay 的开发改动。按功能块组织，最新在前。
 
+## 1.3.0（2026-10-31）— 扫描确认与统一勾选
+- 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.3.0`。
+- 扫描流程改为「选目录 → 后台扫描（不入库）→ `scan_preview` 推送预览 → 勾选导入」：新增项默认勾选，库内/本次重复项置灰；取消不导入；确认后自动匹配。后端 `applyScanPreview(token, keys)` 一次性消费预览，拒绝过期 token/越界/非法选择。
+- 新增前端模块 `scan_preview.ts` + `partials/scan_preview.html`（复用 `form.css` 的重新定位行样式），UISync 新增 `scan_preview` 域（`window.__app.showScanPreview`）。
+- 全站勾选统一为「浅底 + 粉描边 + 粉勾」：新增 token `--check-border` / `--check-mark`，公共类 `.ui-check`；卡片去掉内联 SVG、收藏夹去掉字符 `✓`、元数据源删除自定义 span+隐藏 input（改原生 `ui-check`），并修复暗色主题未选中卡片误显对勾。
+- 默认窗口宽度改为屏幕 78%（高度仍 75%）。
+- 修复设置页勾选元数据源时内容跳动（隐藏 checkbox 定位问题；改为原生可见勾选框后彻底消除）。
+- 内部：判重逻辑抽为 `GameManager.is_duplicate()`，`scan_and_add` 与扫描预览共用；`applyScanPreview` 错误统一 `_write_result`；`reloadCover` 复用 `_purge_cover_cache`。
+- 新增 `tests/test_scan_preview.py`；`test_ui_sync` 覆盖新域；`test_classic_boundary` 清单数更新。
+
 ## 1.2.2（2026-10-24）— 修复自动更新替换/回滚
 - 换版：`version.py` / 前端构建元数据 / README / RELEASE_NOTES / VERSIONING / docs 状态行 / AGENTS 同步为 `1.2.2`。
 - 复现：1.2.0 → 1.2.1 真实更新在 `_internal\base_library.zip` 替换时遇到 `WinError 5`，回滚又在 `_internal` 遇到 `WinError 183`，安装目录只剩半空 `_internal`（用户机器实测）。
