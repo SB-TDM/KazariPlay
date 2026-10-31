@@ -73,6 +73,8 @@ interface PyWebViewApi {
 
   // ---- 扫描 / VNDB 匹配 ----
   scanFolder(): Promise<string>;
+  /** 导入扫描预览中勾选的游戏（token 来自 showScanPreview 推送）；返回 {ok, added} */
+  applyScanPreview(token: number, keys_json: string): Promise<string>;
   cancelScan(): Promise<unknown>;
   cancelMatch(): Promise<unknown>;
   getBatchProgress(): Promise<string>;

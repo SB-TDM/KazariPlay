@@ -360,6 +360,9 @@ class WebBridge:
         self._task_thread = None
         self._relocate_cancel = None            # 重新定位预览扫描的取消事件
         self._relocate_lock = threading.Lock()  # 同一时间只允许一个预览扫描
+        self._scan_preview_lock = threading.Lock()
+        self._scan_preview = None               # {"token": int, "items": [{"game", "duplicate"}]}
+        self._scan_preview_seq = 0
         # 更新任务占用：重复点击/重试的原子防护（见 AUTO_UPDATE_CODE_REVIEW UPD-REV-04）
         self._update_apply_lock = threading.Lock()
         self._update_apply_claimed = False
@@ -834,23 +837,26 @@ class WebBridge:
         folders = [f for f in (folders or []) if f]
         if not folders:
             return json.dumps({"ok": False, "msg": ""})
-        if not self._start_task(self._do_scan, (folders,)):
+        if not self._start_task(self._do_scan_preview, (folders,)):
             return json.dumps({'ok': False, 'msg': '已有扫描或匹配任务正在运行'}, ensure_ascii=False)
         return json.dumps({"ok": True, "msg": "扫描中..."})
 
     def cancelScan(self):
-        """取消正在进行的扫描（已扫描完成的部分已入库）"""
+        """取消正在进行的扫描（已找到的部分随后在预览弹窗中展示，尚未入库）"""
         self._scan_cancel.set()
 
     def cancelMatch(self):
         """取消正在进行的 VNDB 批量匹配（已匹配的部分已写回）"""
         self._vndb_cancel.set()
 
-    def _do_scan(self, folders: list):
-        """后台扫描多个文件夹（支持进度上报与取消）"""
-        total_added = 0
-        total_skipped = 0
-        all_new = []
+    def _do_scan_preview(self, folders: list):
+        """后台扫描多个文件夹，只生成预览，不写库；结果经 UISync 推送确认弹窗"""
+        with self._scan_preview_lock:
+            self._scan_preview = None
+        items = []
+        seen_paths = set()
+        seen_identities = set()
+        duplicates = 0
         cancelled = False
         total_folders = len(folders)
         for idx, folder in enumerate(folders):
@@ -867,27 +873,86 @@ class WebBridge:
                     "index": _idx + 1, "total": total_folders,
                 })
 
-            added, new_games, skipped = self.manager.scan_and_add(
+            scanned = self.manager.scanner.scan(
                 folder, progress_cb=_progress, cancel_event=self._scan_cancel)
-            total_added += added
-            total_skipped += skipped
-            all_new.extend(new_games)
+            for game in scanned:
+                path_key = os.path.normcase(os.path.normpath(game.exe_path or ""))
+                duplicate = bool(
+                    (path_key and path_key in seen_paths)
+                    or (game.identity and game.identity in seen_identities)
+                    or (game.exe_path and self.manager.repository.get_by_path(game.exe_path))
+                    or (game.identity and self.manager.repository.get_by_identity(game.identity))
+                )
+                if path_key:
+                    seen_paths.add(path_key)
+                if game.identity:
+                    seen_identities.add(game.identity)
+                if duplicate:
+                    duplicates += 1
+                items.append({"game": game, "duplicate": duplicate})
             if self._scan_cancel.is_set():
                 cancelled = True
                 break
 
         self._ui.invalidate("scan_progress", {"running": False})
-        logger.info("扫描完成，新增 %d 个，跳过 %d 个%s",
-                    total_added, total_skipped, "（已取消）" if cancelled else "")
+        logger.info("扫描预览完成：%d 个（重复 %d）%s",
+                    len(items), duplicates, "（已取消）" if cancelled else "")
+        if not items:
+            self.notify("扫描已取消，未找到游戏" if cancelled else "扫描完成，未找到游戏")
+            if cancelled:
+                self.refresh()
+            return
+        with self._scan_preview_lock:
+            self._scan_preview_seq += 1
+            token = self._scan_preview_seq
+            self._scan_preview = {"token": token, "items": items}
+        payload = {
+            "token": token,
+            "cancelled": cancelled,
+            "duplicates": duplicates,
+            "items": [{
+                "key": i,
+                "title": entry["game"].title,
+                "exe_path": entry["game"].exe_path,
+                "duplicate": entry["duplicate"],
+            } for i, entry in enumerate(items)],
+        }
+        self._ui.invalidate("scan_preview", payload)
+
+    def applyScanPreview(self, token: int, keys_json: str) -> str:
+        """导入扫描预览中勾选的游戏（重复项跳过），随后自动开始元数据匹配"""
+        keys = _load_int_ids(keys_json)
+        if keys is None:
+            return json.dumps({"ok": False, "msg": "选择参数格式错误"}, ensure_ascii=False)
+        with self._scan_preview_lock:
+            preview = self._scan_preview
+            if not preview:
+                return json.dumps({"ok": False, "msg": "扫描结果已过期，请重新扫描"},
+                                  ensure_ascii=False)
+            entries = preview["items"]
+            if any(k < 0 or k >= len(entries) for k in keys):
+                return json.dumps({"ok": False, "msg": "选择参数超出范围"}, ensure_ascii=False)
+            if preview["token"] != token:
+                return json.dumps({"ok": False, "msg": "扫描结果已过期，请重新扫描"},
+                                  ensure_ascii=False)
+            self._scan_preview = None
+            chosen = []
+            seen = set()
+            for k in keys:
+                if k in seen:
+                    continue
+                seen.add(k)
+                if not entries[k]["duplicate"]:
+                    chosen.append(entries[k]["game"])
+        added = [game for game in chosen if self.manager.add_game(game)]
         self.refresh()
-        skip_msg = f"，跳过 {total_skipped} 个重复" if total_skipped else ""
-        if cancelled:
-            self.notify(f"扫描已取消，新增 {total_added} 个{skip_msg}")
-        elif all_new:
-            self.notify(f"扫描完成，新增 {total_added} 个{skip_msg}，开始元数据匹配…")
-            self._run_vndb_match(all_new, self._vndb_cancel)
+        if added:
+            self.notify(f"已导入 {len(added)} 个游戏，开始元数据匹配…")
+            if not self._start_task(lambda: self._run_vndb_match(added)):
+                self.notify("当前任务结束后可手动匹配元数据")
         else:
-            self.notify(f"扫描完成，无新游戏{skip_msg}")
+            self.notify("未导入任何游戏")
+        return json.dumps({"ok": True, "added": len(added)}, ensure_ascii=False)
 
     def _run_vndb_match(self, games: list, cancel_event=None):
         """后台批量 VNDB 匹配 + 节流进度提示（在调用线程内执行）"""

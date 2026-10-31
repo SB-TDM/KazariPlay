@@ -128,6 +128,15 @@
 
 ---
 
+## scan_preview.ts — 扫描结果确认
+
+**定位**：扫描完成后弹窗，勾选要导入的游戏（新增默认勾选，已存在置灰）；复用 `form.css` 的 `.dialog.relocate` 行布局。
+**依赖**：core（`bridge`/`esc`/`toast`/`makeCheckAll`）。
+**定义**：`showScanPreview(payload)`（UISync `scan_preview` 域入口）、`renderScanPreview`、`closeScanPreview`；`scanPreviewSel`（`makeCheckAll`）。
+**行为**：`applyScanPreview(token, keys)` 成功即关闭并依赖后端自动匹配；失败按返回 `msg` 提示。
+
+---
+
 ## form.ts — 编辑/添加表单 + 元数据候选
 
 **定位**：编辑与手动添加表单；多源元数据搜索、候选展示与字段勾选应用。

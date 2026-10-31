@@ -25,13 +25,14 @@
 | `covers` | `reloadCovers()` | — |
 | `cover` | `reloadCover(gid)` | game_id |
 | `screenshots` | `refreshScreenshots(gid)` | game_id |
+| `scan_preview` | `showScanPreview(obj)` | `{token,cancelled,duplicates,items[]}` |
 | `scan_progress` | `updateScanProgress(obj)` | `{running,dirs,games,folder,index,total}` |
 | `batch_progress` | `updateBatchProgress(obj)` | `{running,title,...}` |
 | `cover_progress` | `updateCoverProgress(obj)` | **全量快照 dict** `{game_id: pct}` |
 | `toast` | `toast(msg)` | 消息文本 |
 | `running` | `setRunning(gid)` | game_id（空=无运行） |
 
-**关键约束**：`scan_progress` / `batch_progress` / `cover_progress` / `running` 为**覆盖**语义 → `cover_progress` 必须传「当前所有下载中状态快照」（见 web_bridge `_set_cover_progress`），否则多游戏进度互相覆盖，只剩最后一个。`toast` / `cover` / `screenshots` / `games_delta` 为累积语义：同一合并窗口内的每次调用都会送达前端。
+**关键约束**：`scan_preview` / `scan_progress` / `batch_progress` / `cover_progress` / `running` 为**覆盖**语义 → `cover_progress` 必须传「当前所有下载中状态快照」（见 web_bridge `_set_cover_progress`），否则多游戏进度互相覆盖，只剩最后一个。`toast` / `cover` / `screenshots` / `games_delta` 为累积语义：同一合并窗口内的每次调用都会送达前端。
 
 ---
 
@@ -73,8 +74,9 @@
 
 ### 扫描 / 单任务门禁
 - `_start_task(target, args)`：`_task_lock.acquire(blocking=False)`，失败即「已有任务在运行」；**每次任务重建 `_scan_cancel`/`_vndb_cancel`**；`finally` 里置 `_batch_ctx.running=False` 并推 `scan_progress/batch_progress {running:false}` 后释放锁。
-- `scanFolder()`：多选目录 → `_start_task(_do_scan)`；`cancelScan()`
-- `_do_scan(folders)`：逐目录 `scan_and_add`（进度 → `scan_progress` 域，含 index/total）；结束 `refresh`；有新增则 `_run_vndb_match(new, _vndb_cancel)` 自动匹配
+- `scanFolder()`：多选目录 → `_start_task(_do_scan_preview)`；`cancelScan()`
+- `_do_scan_preview(folders)`：逐目录 `scanner.scan`（**只扫描不写库**，进度 → `scan_progress`）；对结果按 exe 路径/identity 与库内、本次扫描去重，标记 `duplicate`；结束后推 `scan_preview` 域 `{token, cancelled, duplicates, items[{key,title,exe_path,duplicate}]}`，无结果时只 notify
+- `applyScanPreview(token, keys_json)`：校验 token 与下标 → 仅导入勾选的非重复项（`manager.add_game`）→ `refresh` → 成功则 `_start_task(_run_vndb_match(added))` 自动匹配；预览一次性消费，token 失效后返回 `{ok:false}`
 - `cancelMatch()`
 
 ### 元数据匹配

@@ -35,6 +35,7 @@ _FLUSH_DELAY = 0.05
 #   covers       -> reloadCovers()          封面全量重载（批量封面变化）
 #   cover        -> reloadCover(gid)        单卡封面定向重载（payload: game_id）
 #   screenshots  -> refreshScreenshots(gid) 截图区定向刷新（payload: game_id）
+#   scan_preview -> showScanPreview(obj)    扫描结果确认弹窗（payload: {token,items,...}）
 #   scan_progress-> updateScanProgress(obj) 扫描进度（payload: {running,dirs,games,...}）
 #   toast        -> toast(msg)              轻提示（payload: 消息文本）
 _DOMAIN_JS = {
@@ -43,6 +44,7 @@ _DOMAIN_JS = {
     "covers": "reloadCovers",
     "cover": "reloadCover",
     "screenshots": "refreshScreenshots",
+    "scan_preview": "showScanPreview",
     "scan_progress": "updateScanProgress",
     "batch_progress": "updateBatchProgress",
     "cover_progress": "updateCoverProgress",
@@ -166,6 +168,10 @@ class UISync:
                 p = json.dumps(payload or {}, ensure_ascii=False)
                 statements.append(
                     f"window.__app && window.__app.updateScanProgress({p});")
+            elif domain == "scan_preview":
+                p = json.dumps(payload or {}, ensure_ascii=False)
+                statements.append(
+                    f"window.__app && window.__app.showScanPreview({p});")
             elif domain == "batch_progress":
                 p = json.dumps(payload or {}, ensure_ascii=False)
                 statements.append(

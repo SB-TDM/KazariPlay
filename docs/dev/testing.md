@@ -11,6 +11,7 @@ python tests/test_scanner.py           # 扫描器
 python -B tests/test_p0_data_flow.py   # P0 写入/取消
 python -B tests/test_p1_reliability.py # P1 截图/身份/重定位/任务隔离
 python -B tests/test_p2_hardening.py # P2 桥接输入校验（非法 JSON/字段/数组类型）
+python -B tests/test_scan_preview.py # 扫描预览：不入库/重复标记/确认导入/过期 token
 python tests/test_classic_boundary.py  # 无翻译边界 + 旧数据兼容
 python tests/test_rating.py            # 评分规范化（0-5 半星）
 python tests/test_ui_sync.py
@@ -51,6 +52,7 @@ node tests/test_update_ui.cjs          # 更新弹层：就绪重开/失败恢�
 | `test_p0_data_flow.py` | P0 写入与取消：删除事务回滚、删除后记录消失且重扫可加回、批量操作、配置/DB/网络隔离 |
 | `test_p1_reliability.py` | P1：截图、`identity` 回填、批量重新定位预览（多候选）、任务隔离、收藏夹写接口业务失败返回 |
 | `test_p2_hardening.py` | P2 桥接输入校验：非法 JSON、未知字段、id 数组类型不得抛异常或部分写入；配置白名单、applyCandidate/setCover 一致性、封面缓存清理、关窗清理、重新定位预览取消 |
+| `test_scan_preview.py` | 扫描预览：只扫描不入库、库内/本次重复标记、确认导入勾选项并自动匹配、token 过期/越界/非法选择 |
 | `test_scanner.py` | 中文启动器过滤、体积优先选主 exe、标题清洗、进度回调、取消 |
 | `test_classic_boundary.py` | 原版分离回归：无翻译能力、旧库与旧配置可读写兼容 |
 | `test_rating.py` | 评分规范化与换算：0-5 半星对齐、非法拒绝、0-100 来源换算边界、低于 1 星归 0 |

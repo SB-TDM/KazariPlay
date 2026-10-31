@@ -76,6 +76,7 @@ _JS_MANIFEST = [
     "collections.js",  # 收藏夹树 / 收藏夹管理抽屉
     "manage_games.js", # 管理游戏对话框（批量勾选收藏夹内游戏）
     "batch.js",        # 批量选择模式
+    "scan_preview.js", # 扫描结果确认弹窗（需要 core.makeCheckAll）
     "form.js",         # 编辑 / 添加表单 + 元数据候选
     "settings-model.js", # 设置配置模型 / 默认值
     "settings-theme.js", # 设置主题状态与预览
@@ -97,6 +98,7 @@ _PARTIAL_MANIFEST = [
     "settings.html",    # 设置窗口
     "update.html",      # 应用内更新弹层
     "relocate.html",    # 批量重新定位预览对话框
+    "scan_preview.html", # 扫描结果确认对话框
     "meta_apply.html",  # 元数据候选字段选择对话框
     "common.html",      # 通用输入 / 确认 / 选择器对话框（放最后，确保盖在其它 overlay 之上）
 ]

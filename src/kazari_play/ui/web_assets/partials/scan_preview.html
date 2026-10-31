@@ -1,0 +1,19 @@
+<!-- 扫描结果确认弹窗（main.py 注入到 index.html 的 PARTIALS 标记处） -->
+
+<div class="overlay center" id="scanPreviewOverlay">
+  <div class="dialog relocate">
+    <div class="dlg-title"><span>扫描结果确认</span>
+      <button class="close-btn" id="scanPreviewClose" aria-label="关闭"><svg class="ic" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg></button></div>
+    <div class="relocate-sub">
+      <span id="scanPreviewSubText"></span>
+      <span class="relocate-actions">
+        <button type="button" class="relocate-mini" id="scanPreviewSelBtn">全选</button>
+      </span>
+    </div>
+    <div class="relocate-list" id="scanPreviewList"></div>
+    <div class="dlg-foot">
+      <button class="pill-btn" id="scanPreviewCancel">取消</button>
+      <button class="pill-btn primary" id="scanPreviewOk">导入选中</button>
+    </div>
+  </div>
+</div>

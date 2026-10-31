@@ -36,6 +36,7 @@ def test_domain_mapping():
     ui.invalidate("covers")
     ui.invalidate("screenshots", "g1")
     ui.invalidate("toast", '已保存 "X"')
+    ui.invalidate("scan_preview", {"token": 7, "items": []})
     ui.flush_now()
     assert len(win.calls) == 1, f"应合并为一次推送, 实际 {len(win.calls)}"
     js = win.calls[0]
@@ -43,6 +44,7 @@ def test_domain_mapping():
     assert "window.__app.reloadCovers();" in js
     assert 'window.__app.refreshScreenshots("g1");' in js
     assert "window.__app.toast(" in js and "已保存" in js
+    assert 'window.__app.showScanPreview({"token": 7, "items": []});' in js
     # toast 消息中的引号必须转义，避免破坏 JS 字符串
     assert '\\"' in js, f"toast 消息未转义: {js}"
     print("[domain_mapping] OK")
