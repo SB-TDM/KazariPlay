@@ -434,7 +434,6 @@ function renderGameCollections(): void {
     const check = document.createElement('span');
     check.className = 'collection-option-check';
     check.setAttribute('aria-hidden', 'true');
-    check.textContent = selected ? '✓' : '';
     row.append(mark, name, check);
     const toggle = (): void => {
       const g = App.data.currentGame!;

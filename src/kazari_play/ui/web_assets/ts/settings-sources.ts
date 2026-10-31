@@ -43,8 +43,7 @@
         const row = document.createElement('label');
         row.className = 'src-opt' + (usable ? '' : ' disabled');
         row.innerHTML = `
-          <input type="checkbox" class="src-check" data-id="${esc(src.id)}" ${src.enabled && usable ? 'checked' : ''} ${usable ? '' : 'disabled'}>
-          <span class="src-box"></span>
+          <input type="checkbox" class="src-check ui-check" data-id="${esc(src.id)}" ${src.enabled && usable ? 'checked' : ''} ${usable ? '' : 'disabled'}>
           <img class="src-fav" src="${esc(src.icon || '')}" onerror="this.style.display='none'" alt="">
           <span class="src-name">${esc(src.name)}</span>
           <span class="src-status">${esc(statusText[src.status || ''] || src.status || '')}</span>`;

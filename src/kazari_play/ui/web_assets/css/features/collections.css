@@ -85,8 +85,6 @@
   .mg-item:hover{border-color:var(--pink);color:var(--pink-deep);transform:translateY(-2px);}
   .mg-item.on{background:var(--grad-mint);border-color:transparent;color:#fff;}
   .mg-item.on:hover{color:#fff;transform:translateY(-2px);}
-  .mg-item input{accent-color:var(--pink);width:15px;height:15px;cursor:pointer;}
-  .mg-item.on input{accent-color:#fff;}
   .mg-item .mg-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .manage-count{font-size:12px;color:var(--text-sub);margin-right:auto;display:flex;align-items:center;}
 
@@ -125,11 +123,10 @@
   .color-auto:hover,.color-auto.on{border-color:var(--pink);color:var(--pink-deep);background:var(--bg-hover);}
   .collection-option-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;font-weight:600;}
-  .collection-option-check{width:22px;height:22px;flex:none;border:1.5px solid var(--border-soft);
-    border-radius:50%;display:grid;place-items:center;color:transparent;font-size:12px;
-    font-weight:700;line-height:1;}
-  .collection-option.on .collection-option-check{background:rgba(255,255,255,.24);
-    border-color:transparent;color:#fff;}
+  .collection-option-check{width:22px;height:22px;flex:none;border:2px solid var(--check-border);
+    border-radius:50%;display:grid;place-items:center;background:var(--bg-panel);}
+  .collection-option.on .collection-option-check{border-color:var(--pink);
+    background-image:var(--check-mark);background-repeat:no-repeat;background-position:center;background-size:14px 14px;}
   .collection-option-empty{padding:18px 12px;border:1px dashed var(--border-soft);border-radius:11px;
     color:var(--text-sub);font-size:12px;text-align:center;}
   #gameCollectionTitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}

@@ -83,7 +83,7 @@ function renderManageGames(): void {
     d.setAttribute('aria-checked', checked ? 'true' : 'false');
     d.setAttribute('aria-label', g.title || '游戏');
     d.tabIndex = 0;
-    d.innerHTML = `<input type="checkbox" tabindex="-1" aria-hidden="true" ${checked ? 'checked' : ''}><span class="mg-title">${esc(g.title)}</span>`;
+    d.innerHTML = `<input type="checkbox" class="ui-check" tabindex="-1" aria-hidden="true" ${checked ? 'checked' : ''}><span class="mg-title">${esc(g.title)}</span>`;
     d.onclick = () => {
       toggleManageGame(d, g.id);
     };

@@ -247,7 +247,7 @@ function openMetaApply(c: MetadataCandidate): void {
     const st = r.cur ? '将覆盖' : '将添加';
     return `<div class="relocate-row">
       <div class="rl-head">
-        <input type="checkbox" class="meta-field-check" data-idx="${i}" ${checked} aria-label="选择">
+        <input type="checkbox" class="meta-field-check ui-check" data-idx="${i}" ${checked} aria-label="选择">
         <div class="rl-title">${esc(r.label)}</div>
         <div class="rl-status">${st}</div>
       </div>

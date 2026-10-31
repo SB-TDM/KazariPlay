@@ -880,8 +880,7 @@ class WebBridge:
                 duplicate = bool(
                     (path_key and path_key in seen_paths)
                     or (game.identity and game.identity in seen_identities)
-                    or (game.exe_path and self.manager.repository.get_by_path(game.exe_path))
-                    or (game.identity and self.manager.repository.get_by_identity(game.identity))
+                    or self.manager.is_duplicate(game)
                 )
                 if path_key:
                     seen_paths.add(path_key)
@@ -923,18 +922,16 @@ class WebBridge:
         """导入扫描预览中勾选的游戏（重复项跳过），随后自动开始元数据匹配"""
         keys = _load_int_ids(keys_json)
         if keys is None:
-            return json.dumps({"ok": False, "msg": "选择参数格式错误"}, ensure_ascii=False)
+            return _write_result(False, "选择参数格式错误")
         with self._scan_preview_lock:
             preview = self._scan_preview
             if not preview:
-                return json.dumps({"ok": False, "msg": "扫描结果已过期，请重新扫描"},
-                                  ensure_ascii=False)
+                return _write_result(False, "扫描结果已过期，请重新扫描")
             entries = preview["items"]
             if any(k < 0 or k >= len(entries) for k in keys):
-                return json.dumps({"ok": False, "msg": "选择参数超出范围"}, ensure_ascii=False)
+                return _write_result(False, "选择参数超出范围")
             if preview["token"] != token:
-                return json.dumps({"ok": False, "msg": "扫描结果已过期，请重新扫描"},
-                                  ensure_ascii=False)
+                return _write_result(False, "扫描结果已过期，请重新扫描")
             self._scan_preview = None
             chosen = []
             seen = set()
@@ -1617,8 +1614,7 @@ class WebBridge:
         """封面发生变化：只失效该游戏封面缓存并重新加载对应卡片"""
         g = self.manager.get_game(game_id)
         if g:
-            _cover_cache_invalidate(g.cover_path)
-            _cover_cache_invalidate(self._cover_store.thumb_path(game_id))
+            self._purge_cover_cache(game_id, g.cover_path)
         self._ui.invalidate("cover", str(game_id))
 
     def cleanup_unused_covers(self) -> int:

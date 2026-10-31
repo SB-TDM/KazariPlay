@@ -42,7 +42,7 @@ function renderScanPreview(duplicates: number, cancelled: boolean): void {
   document.getElementById('scanPreviewList')!.innerHTML = scanPreviewItems.map(it => `
     <div class="relocate-row${it.duplicate ? ' skip' : ''}">
       <div class="rl-head">
-        <input type="checkbox" class="relocate-check scan-preview-check" data-idx="${it.key}"
+        <input type="checkbox" class="relocate-check ui-check scan-preview-check" data-idx="${it.key}"
           aria-label="选择" ${it.duplicate ? 'disabled' : 'checked'}>
         <div class="rl-title">${esc(it.title)}</div>
         <div class="rl-status">${it.duplicate ? '已存在' : '新增'}</div>

@@ -17,6 +17,9 @@
     --border-soft:#ffd7e0; --border-strong:#ff8fab;
     --glow-soft:rgba(255,143,171,.14);
     --glow-med:rgba(255,111,145,.28);
+    /* 全站勾选框：浅底 + 粉描边 + 粉勾 */
+    --check-border:#c9aeb9;
+    --check-mark:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'><path d='M4.4 9.3l3 3 5.8-6.2' fill='none' stroke='%23ff8fab' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     --scroll-thumb:#f0cfd9; --scroll-thumb-hover:#ffb3c1;
     --bounce:cubic-bezier(.34,1.56,.64,1); --soft:cubic-bezier(.22,.9,.36,1);
     /* 卡片动画 token：框与封面共用同一时长+缓动，hover/选中时同频联动 */

@@ -153,6 +153,12 @@ class GameManager:
 
     # ---------- 扫描/添加/删除 ----------
 
+    def is_duplicate(self, game: Game) -> bool:
+        """按 exe 路径与 identity 判断游戏是否已在库中"""
+        if game.exe_path and self.repository.get_by_path(game.exe_path):
+            return True
+        return bool(game.identity and self.repository.get_by_identity(game.identity))
+
     def scan_and_add(self, folder: str, progress_cb=None, cancel_event=None) -> Tuple[int, List[Game], int]:
         """扫描文件夹并添加新游戏，返回 (新增数量, 新增游戏列表, 跳过数量)
 
@@ -165,12 +171,7 @@ class GameManager:
         new_games = []
         skipped = 0
         for game in games:
-            # 判重①：exe 路径相同
-            if self.repository.get_by_path(game.exe_path):
-                skipped += 1
-                continue
-            # 判重②：身份键相同（引擎|归一化文件夹名）→ 同一游戏换了文件夹/命名，不重复添加
-            if game.identity and self.repository.get_by_identity(game.identity):
+            if self.is_duplicate(game):
                 skipped += 1
                 continue
             if self.repository.add(game):

@@ -271,8 +271,8 @@ function renderRelocatePreview(items: RelocateItem[]): void {
     const cls = it.status === 'matched' ? 'ok' : 'skip';
     const newp = it.new_exe ? esc(it.new_exe) : '—';
     const box = it.status === 'matched'
-      ? `<input type="checkbox" class="relocate-check" data-idx="${i}" checked aria-label="选择">`
-      : `<input type="checkbox" class="relocate-check" data-idx="${i}" disabled aria-label="不可选">`;
+      ? `<input type="checkbox" class="relocate-check ui-check" data-idx="${i}" checked aria-label="选择">`
+      : `<input type="checkbox" class="relocate-check ui-check" data-idx="${i}" disabled aria-label="不可选">`;
     return `<div class="relocate-row ${cls}">
       <div class="rl-head">${box}<div class="rl-title">${esc(it.title)}</div><div class="rl-status">${label}</div></div>
       <div class="rl-path">${esc(it.old_exe)}</div>

@@ -175,7 +175,7 @@ function buildCard(g: Game): HTMLElement {
   card.dataset.coverUrl = g.cover_url || '';
   card.innerHTML = `<div class="cover" style="background-image:linear-gradient(160deg,#ffd7e0,#ff9fbc)">
       ${g.fav ? '<span class="fav">' + ICON.starFill + '</span>' : ''}
-      <span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4"><path d="M4 12l5 5L20 6"/></svg></span>
+      <span class="check"></span>
     </div>
     ${g.id === App.data.runningId ? '<span class="running">运行中</span>' : ''}
     <div class="meta"><span class="title" title="${esc(g.title || '未命名游戏')}">${esc(g.title || '未命名游戏')}</span><span class="score">${(g.rating || 0).toFixed(1)}</span></div>`;
